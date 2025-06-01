@@ -42,7 +42,7 @@ class LLMDiscordBot(commands.Bot):
                 return
 
         if reply:
-            await message.channel.send(reply)
+            await message.reply(reply, mention_author=False)
 
 
 def run_bot(token: str | None = None) -> None:
