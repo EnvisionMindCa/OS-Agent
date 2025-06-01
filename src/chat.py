@@ -5,7 +5,7 @@ import json
 
 from ollama import AsyncClient, ChatResponse, Message
 
-from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, OLLAMA_HOST
+from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, NUM_CTX, OLLAMA_HOST
 from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
@@ -78,6 +78,7 @@ class ChatSession:
             messages=messages,
             think=think,
             tools=[add_two_numbers, execute_python],
+            options={"num_ctx": NUM_CTX},
         )
 
     async def _handle_tool_calls(
