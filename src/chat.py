@@ -9,7 +9,7 @@ from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, OLLAMA_HOST
 from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
-from .tools import add_two_numbers
+from .tools import add_two_numbers, execute_python
 
 _LOG = get_logger(__name__)
 
@@ -77,7 +77,7 @@ class ChatSession:
             self._model,
             messages=messages,
             think=think,
-            tools=[add_two_numbers],
+            tools=[add_two_numbers, execute_python],
         )
 
     async def _handle_tool_calls(
@@ -93,23 +93,28 @@ class ChatSession:
         for call in response.message.tool_calls:
             if call.function.name == "add_two_numbers":
                 result = add_two_numbers(**call.function.arguments)
-                messages.append(
-                    {
-                        "role": "tool",
-                        "name": call.function.name,
-                        "content": str(result),
-                    }
-                )
-                DBMessage.create(
-                    conversation=conversation,
-                    role="tool",
-                    content=str(result),
-                )
-                nxt = await self.ask(messages, think=True)
-                self._store_assistant_message(conversation, nxt.message)
-                return await self._handle_tool_calls(
-                    messages, nxt, conversation, depth + 1
-                )
+            elif call.function.name == "execute_python":
+                result = execute_python(**call.function.arguments)
+            else:
+                continue
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "name": call.function.name,
+                    "content": str(result),
+                }
+            )
+            DBMessage.create(
+                conversation=conversation,
+                role="tool",
+                content=str(result),
+            )
+            nxt = await self.ask(messages, think=True)
+            self._store_assistant_message(conversation, nxt.message)
+            return await self._handle_tool_calls(
+                messages, nxt, conversation, depth + 1
+            )
 
         return response
 
