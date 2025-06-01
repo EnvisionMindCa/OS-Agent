@@ -6,7 +6,7 @@ from ollama import Message
 
 
 class Msg(TypedDict, total=False):
-    role: Literal["user", "assistant", "tool"]
+    role: Literal["system", "user", "assistant", "tool"]
     content: str
     name: Optional[str]
     tool_calls: Optional[List[Message.ToolCall]]
