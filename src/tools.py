@@ -8,7 +8,7 @@ from typing import Final
 
 def execute_terminal(command: str, *, timeout: int = 3) -> str:
     """
-    Execute a shell command inside an isolated Linux VM.
+    Execute a shell command in a Windows PowerShell terminal.
     Use this tool to run various commands.
 
     The command is executed with network access enabled. Output from both
