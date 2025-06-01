@@ -6,7 +6,7 @@ import json
 from ollama import AsyncClient, ChatResponse
 
 from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, OLLAMA_HOST
-from .db import Conversation, Message, _db, init_db
+from .db import Conversation, Message, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
 from .tools import add_two_numbers
@@ -15,10 +15,11 @@ _LOG = get_logger(__name__)
 
 
 class ChatSession:
-    def __init__(self, host: str = OLLAMA_HOST, model: str = MODEL_NAME) -> None:
+    def __init__(self, user: str = "default", host: str = OLLAMA_HOST, model: str = MODEL_NAME) -> None:
         init_db()
         self._client = AsyncClient(host=host)
         self._model = model
+        self._user, _ = User.get_or_create(username=user)
 
     async def __aenter__(self) -> "ChatSession":
         return self
@@ -82,7 +83,7 @@ class ChatSession:
         return response
 
     async def chat(self, prompt: str) -> str:
-        conversation = Conversation.create()
+        conversation = Conversation.create(user=self._user)
         Message.create(conversation=conversation, role="user", content=prompt)
         messages: List[Msg] = [{"role": "user", "content": prompt}]
         response = await self.ask(messages)
