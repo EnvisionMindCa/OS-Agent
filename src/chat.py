@@ -15,7 +15,7 @@ from .config import (
 from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
-from .tools import add_two_numbers, execute_python
+from .tools import execute_python
 
 _LOG = get_logger(__name__)
 
@@ -93,7 +93,7 @@ class ChatSession:
             self._model,
             messages=messages,
             think=think,
-            tools=[add_two_numbers, execute_python],
+            tools=[execute_python],
             options={"num_ctx": NUM_CTX},
         )
 
@@ -108,9 +108,7 @@ class ChatSession:
             return response
 
         for call in response.message.tool_calls:
-            if call.function.name == "add_two_numbers":
-                result = add_two_numbers(**call.function.arguments)
-            elif call.function.name == "execute_python":
+            if call.function.name == "execute_python":
                 result = execute_python(**call.function.arguments)
             else:
                 continue
