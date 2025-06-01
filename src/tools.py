@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__all__: list[str] = ["add_two_numbers"]
+__all__ = ["add_two_numbers"]
 
 
 def add_two_numbers(a: int, b: int) -> int:  # noqa: D401
