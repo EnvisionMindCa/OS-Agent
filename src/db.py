@@ -23,8 +23,14 @@ class BaseModel(Model):
         database = _db
 
 
+class User(BaseModel):
+    id = AutoField()
+    username = CharField(unique=True)
+
+
 class Conversation(BaseModel):
     id = AutoField()
+    user = ForeignKeyField(User, backref="conversations")
     started_at = DateTimeField(default=datetime.utcnow)
 
 
@@ -36,11 +42,11 @@ class Message(BaseModel):
     created_at = DateTimeField(default=datetime.utcnow)
 
 
-__all__ = ["_db", "Conversation", "Message"]
+__all__ = ["_db", "User", "Conversation", "Message"]
 
 
 def init_db() -> None:
     """Initialise the database and create tables if they do not exist."""
     if _db.is_closed():
         _db.connect()
-    _db.create_tables([Conversation, Message])
+    _db.create_tables([User, Conversation, Message])
