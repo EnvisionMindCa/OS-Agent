@@ -1,6 +1,14 @@
 # llm-backend
 
-This project provides a simple async interface to interact with an Ollama model and demonstrates basic tool usage. Chat histories are stored in a local SQLite database using Peewee. Histories are persisted per user and session so conversations can be resumed with context.
+This project provides a simple async interface to interact with an Ollama model
+and demonstrates basic tool usage. Chat histories are stored in a local SQLite
+database using Peewee. Histories are persisted per user and session so
+conversations can be resumed with context. Two example tools are included:
+
+* **add_two_numbers** – Adds two integers.
+* **execute_python** – Executes Python code in a sandbox with selected built-ins
+  and allows importing safe modules like ``math``. The result is returned from a
+  ``result`` variable or captured output.
 
 ## Usage
 
