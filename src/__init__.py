@@ -1,4 +1,4 @@
 from .chat import ChatSession
-from .tools import execute_python
+from .tools import execute_terminal
 
-__all__ = ["ChatSession", "execute_python"]
+__all__ = ["ChatSession", "execute_terminal"]
