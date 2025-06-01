@@ -19,3 +19,21 @@ python run.py
 ```
 
 The script will instruct the model to run a simple shell command and print the result. Conversations are automatically persisted to `chat.db` and are now associated with a user and session.
+
+## Docker
+
+A Dockerfile is provided to run the Discord bot along with an Ollama server. The image installs Ollama, pulls the LLM and embedding models, and starts both the server and the bot.
+
+Build the image:
+
+```bash
+docker build -t llm-discord-bot .
+```
+
+Run the container:
+
+```bash
+docker run -e DISCORD_TOKEN=your-token llm-discord-bot
+```
+
+The environment variables `OLLAMA_MODEL` and `OLLAMA_EMBEDDING_MODEL` can be set at build or run time to specify which models to download.
