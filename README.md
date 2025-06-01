@@ -10,6 +10,10 @@ conversations can be resumed with context. Two example tools are included:
   and allows importing safe modules like ``math``. The result is returned from a
   ``result`` variable or captured output.
 
+The application now injects a system prompt that instructs the model to chain
+multiple tools when required. This prompt ensures the assistant can orchestrate
+tool calls in sequence to satisfy the user's request.
+
 ## Usage
 
 ```bash

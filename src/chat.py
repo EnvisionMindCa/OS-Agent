@@ -5,7 +5,13 @@ import json
 
 from ollama import AsyncClient, ChatResponse, Message
 
-from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, NUM_CTX, OLLAMA_HOST
+from .config import (
+    MAX_TOOL_CALL_DEPTH,
+    MODEL_NAME,
+    NUM_CTX,
+    OLLAMA_HOST,
+    SYSTEM_PROMPT,
+)
 from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
@@ -30,6 +36,7 @@ class ChatSession:
             user=self._user, session_name=session
         )
         self._messages: List[Msg] = self._load_history()
+        self._ensure_system_prompt()
 
     async def __aenter__(self) -> "ChatSession":
         return self
@@ -37,6 +44,15 @@ class ChatSession:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if not _db.is_closed():
             _db.close()
+
+    def _ensure_system_prompt(self) -> None:
+        if any(m.get("role") == "system" for m in self._messages):
+            return
+
+        DBMessage.create(
+            conversation=self._conversation, role="system", content=SYSTEM_PROMPT
+        )
+        self._messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
 
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
