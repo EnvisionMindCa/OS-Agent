@@ -8,7 +8,7 @@ from src.chat import ChatSession
 async def _main() -> None:
     async with ChatSession(user="demo_user", session="demo_session") as chat:
         answer = await chat.chat(
-            "Run this Python code: import math\nresult = math.factorial(5)"
+            "Execute this command: echo Hello from the VM"
         )
         print("\n>>>", answer)
 

@@ -1,61 +1,32 @@
 from __future__ import annotations
 
-__all__ = ["execute_python"]
+__all__ = ["execute_terminal"]
+
+import subprocess
+from typing import Final
 
 
-def execute_python(code: str) -> str:
-    """Execute Python code in a sandbox with a broader set of built-ins.
+def execute_terminal(command: str, *, timeout: int = 30) -> str:
+    """Execute a shell command inside an isolated Linux VM.
 
-    The code is executed with restricted but useful built-ins and can import a
-    small whitelist of standard library modules. Results should be stored in a
-    variable named ``result`` or printed. The value of ``result`` is returned if
-    present; otherwise any standard output captured during execution is
-    returned.
+    The command is executed with network access enabled. Output from both
+    ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
+    they exceed ``timeout`` seconds.
     """
-    import sys
-    from io import StringIO
-
-    allowed_modules = {"math", "random", "statistics"}
-
-    def _safe_import(name: str, globals=None, locals=None, fromlist=(), level=0):
-        if name in allowed_modules:
-            return __import__(name, globals, locals, fromlist, level)
-        raise ImportError(f"Import of '{name}' is not allowed")
-
-    allowed_builtins = {
-        "abs": abs,
-        "min": min,
-        "max": max,
-        "sum": sum,
-        "len": len,
-        "range": range,
-        "sorted": sorted,
-        "enumerate": enumerate,
-        "map": map,
-        "filter": filter,
-        "list": list,
-        "dict": dict,
-        "set": set,
-        "tuple": tuple,
-        "float": float,
-        "int": int,
-        "str": str,
-        "bool": bool,
-        "print": print,
-        "__import__": _safe_import,
-    }
-
-    safe_globals: dict[str, object] = {"__builtins__": allowed_builtins}
-    safe_locals: dict[str, object] = {}
-
-    stdout = StringIO()
-    original_stdout = sys.stdout
     try:
-        sys.stdout = stdout
-        exec(code, safe_globals, safe_locals)
-    finally:
-        sys.stdout = original_stdout
+        completed = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return f"Command timed out after {timeout}s: {exc.cmd}"
+    except Exception as exc:  # pragma: no cover - unforeseen errors
+        return f"Failed to execute command: {exc}"
 
-    if "result" in safe_locals:
-        return str(safe_locals["result"])
-    return stdout.getvalue().strip()
+    output = completed.stdout
+    if completed.stderr:
+        output = f"{output}\n{completed.stderr}" if output else completed.stderr
+    return output.strip()
