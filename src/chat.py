@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 import json
 
-from ollama import AsyncClient, ChatResponse
+from ollama import AsyncClient, ChatResponse, Message
 
 from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, OLLAMA_HOST
 from .db import Conversation, Message, User, _db, init_db
@@ -30,7 +30,7 @@ class ChatSession:
 
     @staticmethod
     def _store_assistant_message(
-        conversation: Conversation, message: ChatResponse.Message
+        conversation: Conversation, message: Message
     ) -> None:
         """Persist assistant messages, storing tool calls when present."""
 

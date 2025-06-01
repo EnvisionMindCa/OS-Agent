@@ -7,7 +7,7 @@ from src.chat import ChatSession
 
 async def _main() -> None:
     async with ChatSession(user="demo_user") as chat:
-        answer = await chat.chat("What is 10 + 23?")
+        answer = await chat.chat("What did you just say?")
         print("\n>>>", answer)
 
 
