@@ -1,6 +1,6 @@
 # llm-backend
 
-This project provides a simple async interface to interact with an Ollama model and demonstrates basic tool usage. Chat histories are stored in a local SQLite database using Peewee.
+This project provides a simple async interface to interact with an Ollama model and demonstrates basic tool usage. Chat histories are stored in a local SQLite database using Peewee. Histories are persisted per user and session so conversations can be resumed with context.
 
 ## Usage
 

@@ -31,7 +31,11 @@ class User(BaseModel):
 class Conversation(BaseModel):
     id = AutoField()
     user = ForeignKeyField(User, backref="conversations")
+    session_name = CharField()
     started_at = DateTimeField(default=datetime.utcnow)
+
+    class Meta:
+        indexes = ((("user", "session_name"), True),)
 
 
 class Message(BaseModel):
