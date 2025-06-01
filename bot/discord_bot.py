@@ -18,8 +18,7 @@ class LLMDiscordBot(commands.Bot):
     """Discord bot that interfaces with :class:`ChatSession`."""
 
     def __init__(self, *, intents: discord.Intents | None = None) -> None:
-        intents = intents or discord.Intents.default()
-        intents.message_content = True
+        intents = intents or discord.Intents.all()
         super().__init__(command_prefix=None, intents=intents)
         self._log = get_logger(self.__class__.__name__)
 
