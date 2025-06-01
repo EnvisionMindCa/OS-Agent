@@ -6,7 +6,7 @@ import json
 from ollama import AsyncClient, ChatResponse, Message
 
 from .config import MAX_TOOL_CALL_DEPTH, MODEL_NAME, OLLAMA_HOST
-from .db import Conversation, Message, User, _db, init_db
+from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
 from .tools import add_two_numbers
@@ -15,11 +15,21 @@ _LOG = get_logger(__name__)
 
 
 class ChatSession:
-    def __init__(self, user: str = "default", host: str = OLLAMA_HOST, model: str = MODEL_NAME) -> None:
+    def __init__(
+        self,
+        user: str = "default",
+        session: str = "default",
+        host: str = OLLAMA_HOST,
+        model: str = MODEL_NAME,
+    ) -> None:
         init_db()
         self._client = AsyncClient(host=host)
         self._model = model
         self._user, _ = User.get_or_create(username=user)
+        self._conversation, _ = Conversation.get_or_create(
+            user=self._user, session_name=session
+        )
+        self._messages: List[Msg] = self._load_history()
 
     async def __aenter__(self) -> "ChatSession":
         return self
@@ -27,6 +37,27 @@ class ChatSession:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if not _db.is_closed():
             _db.close()
+
+    def _load_history(self) -> List[Msg]:
+        messages: List[Msg] = []
+        for msg in self._conversation.messages.order_by(DBMessage.created_at):
+            if msg.role == "assistant":
+                try:
+                    calls = json.loads(msg.content)
+                except json.JSONDecodeError:
+                    messages.append({"role": "assistant", "content": msg.content})
+                else:
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "tool_calls": [Message.ToolCall(**c) for c in calls],
+                        }
+                    )
+            elif msg.role == "user":
+                messages.append({"role": "user", "content": msg.content})
+            else:
+                messages.append({"role": "tool", "content": msg.content})
+        return messages
 
     @staticmethod
     def _store_assistant_message(
@@ -39,7 +70,7 @@ class ChatSession:
         else:
             content = message.content or ""
 
-        Message.create(conversation=conversation, role="assistant", content=content)
+        DBMessage.create(conversation=conversation, role="assistant", content=content)
 
     async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
         return await self._client.chat(
@@ -69,7 +100,7 @@ class ChatSession:
                         "content": str(result),
                     }
                 )
-                Message.create(
+                DBMessage.create(
                     conversation=conversation,
                     role="tool",
                     content=str(result),
@@ -83,14 +114,16 @@ class ChatSession:
         return response
 
     async def chat(self, prompt: str) -> str:
-        conversation = Conversation.create(user=self._user)
-        Message.create(conversation=conversation, role="user", content=prompt)
-        messages: List[Msg] = [{"role": "user", "content": prompt}]
-        response = await self.ask(messages)
-        messages.append(response.message.model_dump())
-        self._store_assistant_message(conversation, response.message)
+        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
+        self._messages.append({"role": "user", "content": prompt})
+
+        response = await self.ask(self._messages)
+        self._messages.append(response.message.model_dump())
+        self._store_assistant_message(self._conversation, response.message)
 
         _LOG.info("Thinking:\n%s", response.message.thinking or "<no thinking trace>")
 
-        final_resp = await self._handle_tool_calls(messages, response, conversation)
+        final_resp = await self._handle_tool_calls(
+            self._messages, response, self._conversation
+        )
         return final_resp.message.content
