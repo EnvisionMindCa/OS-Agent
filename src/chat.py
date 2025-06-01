@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+import json
 
 from ollama import AsyncClient, ChatResponse
 
@@ -25,6 +26,19 @@ class ChatSession:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         if not _db.is_closed():
             _db.close()
+
+    @staticmethod
+    def _store_assistant_message(
+        conversation: Conversation, message: ChatResponse.Message
+    ) -> None:
+        """Persist assistant messages, storing tool calls when present."""
+
+        if message.tool_calls:
+            content = json.dumps([c.model_dump() for c in message.tool_calls])
+        else:
+            content = message.content or ""
+
+        Message.create(conversation=conversation, role="assistant", content=content)
 
     async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
         return await self._client.chat(
@@ -60,11 +74,7 @@ class ChatSession:
                     content=str(result),
                 )
                 nxt = await self.ask(messages, think=True)
-                Message.create(
-                    conversation=conversation,
-                    role="assistant",
-                    content=nxt.message.content,
-                )
+                self._store_assistant_message(conversation, nxt.message)
                 return await self._handle_tool_calls(
                     messages, nxt, conversation, depth + 1
                 )
@@ -77,20 +87,9 @@ class ChatSession:
         messages: List[Msg] = [{"role": "user", "content": prompt}]
         response = await self.ask(messages)
         messages.append(response.message.model_dump())
-        Message.create(
-            conversation=conversation,
-            role="assistant",
-            content=response.message.content,
-        )
+        self._store_assistant_message(conversation, response.message)
 
         _LOG.info("Thinking:\n%s", response.message.thinking or "<no thinking trace>")
 
         final_resp = await self._handle_tool_calls(messages, response, conversation)
-        if final_resp is not response:
-            # final response after handling tool calls
-            Message.create(
-                conversation=conversation,
-                role="assistant",
-                content=final_resp.message.content,
-            )
         return final_resp.message.content
