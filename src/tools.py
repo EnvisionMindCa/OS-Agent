@@ -6,8 +6,10 @@ import subprocess
 from typing import Final
 
 
-def execute_terminal(command: str, *, timeout: int = 30) -> str:
-    """Execute a shell command inside an isolated Linux VM.
+def execute_terminal(command: str, *, timeout: int = 3) -> str:
+    """
+    Execute a shell command inside an isolated Linux VM.
+    Use this tool to run various commands.
 
     The command is executed with network access enabled. Output from both
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
