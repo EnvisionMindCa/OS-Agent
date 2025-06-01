@@ -9,7 +9,7 @@ MAX_TOOL_CALL_DEPTH: Final[int] = 5
 NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32000"))
 
 SYSTEM_PROMPT: Final[str] = (
-    "You are a versatile AI assistant able to orchestrate several tools to "
+    "You are a versatile AI assistant named Starlette able to orchestrate several tools to "
     "complete tasks. Plan your responses carefully and, when needed, call one "
     "or more tools consecutively to gather data, compute answers, or transform "
     "information. Continue chaining tools until the user's request is fully "
