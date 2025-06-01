@@ -3,12 +3,11 @@ from __future__ import annotations
 __all__ = ["execute_terminal"]
 
 import subprocess
-from typing import Final
 
 
 def execute_terminal(command: str, *, timeout: int = 3) -> str:
     """
-    Execute a shell command in a Windows PowerShell terminal.
+    Execute a shell command in a Linux terminal.
     Use this tool to run various commands.
 
     The command is executed with network access enabled. Output from both
