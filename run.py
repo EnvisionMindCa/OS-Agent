@@ -7,7 +7,7 @@ from src.chat import ChatSession
 
 async def _main() -> None:
     async with ChatSession(user="demo_user", session="demo_session") as chat:
-        answer = await chat.chat("What did you just say?")
+        answer = await chat.chat("hi")
         print("\n>>>", answer)
 
 
