@@ -4,9 +4,11 @@ from __future__ import annotations
 
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from src.chat import ChatSession
+from src.db import reset_history as db_reset_history
 from src.log import get_logger
 
 from .config import DEFAULT_SESSION, DEFAULT_USER_PREFIX, DISCORD_TOKEN
@@ -21,6 +23,10 @@ class LLMDiscordBot(commands.Bot):
         intents = intents or discord.Intents.all()
         super().__init__(command_prefix=None, intents=intents)
         self._log = get_logger(self.__class__.__name__)
+        self.tree.add_command(self.reset_conversation)
+
+    async def setup_hook(self) -> None:  # noqa: D401
+        await self.tree.sync()
 
     async def on_ready(self) -> None:  # noqa: D401
         self._log.info("Logged in as %s (%s)", self.user, self.user.id)
@@ -43,6 +49,22 @@ class LLMDiscordBot(commands.Bot):
 
         if reply:
             await message.reply(reply, mention_author=False)
+
+    @app_commands.command(
+        name="reset",
+        description="Reset conversation history for this channel.",
+    )
+    async def reset_conversation(self, interaction: discord.Interaction) -> None:
+        """Delete all messages stored for the user and channel."""
+
+        user_id = f"{DEFAULT_USER_PREFIX}{interaction.user.id}"
+        session_id = f"{DEFAULT_SESSION}_{interaction.channel_id}"
+        deleted = db_reset_history(user_id, session_id)
+        if deleted:
+            msg = f"Conversation history cleared ({deleted} messages removed)."
+        else:
+            msg = "No conversation history found for this channel."
+        await interaction.response.send_message(msg, ephemeral=True)
 
 
 def run_bot(token: str | None = None) -> None:
