@@ -46,7 +46,13 @@ class Message(BaseModel):
     created_at = DateTimeField(default=datetime.utcnow)
 
 
-__all__ = ["_db", "User", "Conversation", "Message"]
+__all__ = [
+    "_db",
+    "User",
+    "Conversation",
+    "Message",
+    "reset_history",
+]
 
 
 def init_db() -> None:
@@ -54,3 +60,22 @@ def init_db() -> None:
     if _db.is_closed():
         _db.connect()
     _db.create_tables([User, Conversation, Message])
+
+
+def reset_history(username: str, session_name: str) -> int:
+    """Delete all messages for the given user and session."""
+
+    init_db()
+    try:
+        user = User.get(User.username == username)
+        conv = Conversation.get(
+            Conversation.user == user, Conversation.session_name == session_name
+        )
+    except (User.DoesNotExist, Conversation.DoesNotExist):
+        return 0
+
+    deleted = Message.delete().where(Message.conversation == conv).execute()
+    conv.delete_instance()
+    if not Conversation.select().where(Conversation.user == user).exists():
+        user.delete_instance()
+    return deleted
