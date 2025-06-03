@@ -8,6 +8,7 @@ from ollama import AsyncClient, ChatResponse, Message
 from .config import (
     MAX_TOOL_CALL_DEPTH,
     MODEL_NAME,
+    EMBEDDING_MODEL_NAME,
     NUM_CTX,
     OLLAMA_HOST,
     SYSTEM_PROMPT,
@@ -28,6 +29,7 @@ class ChatSession:
         session: str = "default",
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
+        embedding_model: str = EMBEDDING_MODEL_NAME,
     ) -> None:
         init_db()
         self._client = AsyncClient(host=host)
