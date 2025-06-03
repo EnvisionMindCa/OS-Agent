@@ -1,8 +1,20 @@
 from __future__ import annotations
 
-__all__ = ["execute_terminal"]
+__all__ = ["execute_terminal", "set_vm"]
 
 import subprocess
+from typing import Optional
+
+from .vm import LinuxVM
+
+_VM: Optional[LinuxVM] = None
+
+
+def set_vm(vm: LinuxVM | None) -> None:
+    """Register the VM instance used for command execution."""
+
+    global _VM
+    _VM = vm
 
 
 def execute_terminal(command: str, *, timeout: int = 3) -> str:
@@ -14,6 +26,12 @@ def execute_terminal(command: str, *, timeout: int = 3) -> str:
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
     they exceed ``timeout`` seconds.
     """
+    if _VM:
+        try:
+            return _VM.execute(command, timeout=timeout)
+        except Exception as exc:  # pragma: no cover - unforeseen errors
+            return f"Failed to execute command in VM: {exc}"
+
     try:
         completed = subprocess.run(
             command,

@@ -15,7 +15,8 @@ from .config import (
 from .db import Conversation, Message as DBMessage, User, _db, init_db
 from .log import get_logger
 from .schema import Msg
-from .tools import execute_terminal
+from .tools import execute_terminal, set_vm
+from .vm import LinuxVM
 
 _LOG = get_logger(__name__)
 
@@ -35,13 +36,18 @@ class ChatSession:
         self._conversation, _ = Conversation.get_or_create(
             user=self._user, session_name=session
         )
+        self._vm = LinuxVM()
         self._messages: List[Msg] = self._load_history()
         self._ensure_system_prompt()
 
     async def __aenter__(self) -> "ChatSession":
+        self._vm.start()
+        set_vm(self._vm)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
+        set_vm(None)
+        self._vm.stop()
         if not _db.is_closed():
             _db.close()
 
