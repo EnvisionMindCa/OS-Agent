@@ -5,8 +5,10 @@ and demonstrates basic tool usage. Chat histories are stored in a local SQLite
 database using Peewee. Histories are persisted per user and session so
 conversations can be resumed with context. One example tool is included:
 
-* **execute_terminal** – Executes a shell command in a Linux VM with network
-  access. Output from ``stdout`` and ``stderr`` is captured and returned.
+* **execute_terminal** – Executes a shell command inside a persistent Linux VM
+  with network access. Output from ``stdout`` and ``stderr`` is captured and
+  returned. The VM is created when a chat session starts and reused for all
+  subsequent tool calls.
 
 The application now injects a system prompt that instructs the model to chain
 multiple tools when required. This prompt ensures the assistant can orchestrate
