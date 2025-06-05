@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 from typing import Final
+from dotenv import load_dotenv
+load_dotenv()
 
 # Discord bot token
 DISCORD_TOKEN: Final[str | None] = os.getenv("DISCORD_TOKEN")
