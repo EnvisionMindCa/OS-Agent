@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import subprocess
 import uuid
+from pathlib import Path
+
+from .config import UPLOAD_DIR
 
 from .log import get_logger
 
@@ -11,10 +14,14 @@ _LOG = get_logger(__name__)
 class LinuxVM:
     """Manage a lightweight Linux VM using Docker."""
 
-    def __init__(self, image: str = "ubuntu:latest") -> None:
+    def __init__(
+        self, image: str = "ubuntu:latest", host_dir: str = UPLOAD_DIR
+    ) -> None:
         self._image = image
         self._name = f"chat-vm-{uuid.uuid4().hex[:8]}"
         self._running = False
+        self._host_dir = Path(host_dir)
+        self._host_dir.mkdir(parents=True, exist_ok=True)
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -36,6 +43,8 @@ class LinuxVM:
                     "-d",
                     "--name",
                     self._name,
+                    "-v",
+                    f"{self._host_dir}:/data",
                     self._image,
                     "sleep",
                     "infinity",

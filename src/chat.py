@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import List
 import json
+import shutil
+from pathlib import Path
 
 from ollama import AsyncClient, ChatResponse, Message
 
@@ -12,8 +14,16 @@ from .config import (
     NUM_CTX,
     OLLAMA_HOST,
     SYSTEM_PROMPT,
+    UPLOAD_DIR,
 )
-from .db import Conversation, Message as DBMessage, User, _db, init_db
+from .db import (
+    Conversation,
+    Message as DBMessage,
+    User,
+    _db,
+    init_db,
+    add_document,
+)
 from .log import get_logger
 from .schema import Msg
 from .tools import execute_terminal, set_vm
@@ -53,6 +63,24 @@ class ChatSession:
         if not _db.is_closed():
             _db.close()
 
+    def upload_document(self, file_path: str) -> str:
+        """Save a document for later access inside the VM.
+
+        The file is copied into ``UPLOAD_DIR`` and recorded in the database. The
+        returned path is the location inside the VM (prefixed with ``/data``).
+        """
+
+        src = Path(file_path)
+        if not src.exists():
+            raise FileNotFoundError(file_path)
+
+        dest = Path(UPLOAD_DIR) / self._user.username
+        dest.mkdir(parents=True, exist_ok=True)
+        target = dest / src.name
+        shutil.copy(src, target)
+        add_document(self._user.username, str(target), src.name)
+        return f"/data/{self._user.username}/{src.name}"
+
     def _ensure_system_prompt(self) -> None:
         if any(m.get("role") == "system" for m in self._messages):
             return
@@ -84,9 +112,7 @@ class ChatSession:
         return messages
 
     @staticmethod
-    def _store_assistant_message(
-        conversation: Conversation, message: Message
-    ) -> None:
+    def _store_assistant_message(conversation: Conversation, message: Message) -> None:
         """Persist assistant messages, storing tool calls when present."""
 
         if message.tool_calls:
@@ -135,9 +161,7 @@ class ChatSession:
             )
             nxt = await self.ask(messages, think=True)
             self._store_assistant_message(conversation, nxt.message)
-            return await self._handle_tool_calls(
-                messages, nxt, conversation, depth + 1
-            )
+            return await self._handle_tool_calls(messages, nxt, conversation, depth + 1)
 
         return response
 

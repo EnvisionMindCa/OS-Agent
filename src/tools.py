@@ -20,7 +20,7 @@ def set_vm(vm: LinuxVM | None) -> None:
 def execute_terminal(command: str) -> str:
     """
     Execute a shell command in a Linux terminal.
-    Use this tool to run various commands.
+    Use this tool to inspect uploaded documents under ``/data`` or run other commands.
 
     The command is executed with network access enabled. Output from both
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
@@ -29,7 +29,7 @@ def execute_terminal(command: str) -> str:
     timeout = 2
     if not command:
         return "No command provided."
-    
+
     if _VM:
         try:
             return _VM.execute(command, timeout=timeout)

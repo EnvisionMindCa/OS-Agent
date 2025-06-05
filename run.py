@@ -7,9 +7,8 @@ from src.chat import ChatSession
 
 async def _main() -> None:
     async with ChatSession(user="demo_user", session="demo_session") as chat:
-        answer = await chat.chat(
-            "check the processes running on the system"
-        )
+        doc_path = chat.upload_document("README.md")
+        answer = await chat.chat(f"List the first three lines of {doc_path}")
         print("\n>>>", answer)
 
 
