@@ -17,15 +17,19 @@ def set_vm(vm: LinuxVM | None) -> None:
     _VM = vm
 
 
-def execute_terminal(command: str, *, timeout: int = 3) -> str:
+def execute_terminal(command: str) -> str:
     """
     Execute a shell command in a Linux terminal.
     Use this tool to run various commands.
 
     The command is executed with network access enabled. Output from both
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
-    they exceed ``timeout`` seconds.
+    they exceed 2 seconds.
     """
+    timeout = 2
+    if not command:
+        return "No command provided."
+    
     if _VM:
         try:
             return _VM.execute(command, timeout=timeout)
