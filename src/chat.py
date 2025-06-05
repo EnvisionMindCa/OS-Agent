@@ -50,7 +50,6 @@ class ChatSession:
         )
         self._vm = None
         self._messages: List[Msg] = self._load_history()
-        self._ensure_system_prompt()
 
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
@@ -82,18 +81,12 @@ class ChatSession:
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
 
-    def _ensure_system_prompt(self) -> None:
-        if any(m.get("role") == "system" for m in self._messages):
-            return
-
-        DBMessage.create(
-            conversation=self._conversation, role="system", content=SYSTEM_PROMPT
-        )
-        self._messages.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
-
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
         for msg in self._conversation.messages.order_by(DBMessage.created_at):
+            if msg.role == "system":
+                # Skip persisted system prompts from older versions
+                continue
             if msg.role == "assistant":
                 try:
                     calls = json.loads(msg.content)
@@ -124,9 +117,16 @@ class ChatSession:
         DBMessage.create(conversation=conversation, role="assistant", content=content)
 
     async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
+        """Send a chat request, automatically prepending the system prompt."""
+
+        if not messages or messages[0].get("role") != "system":
+            payload = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+        else:
+            payload = messages
+
         return await self._client.chat(
             self._model,
-            messages=messages,
+            messages=payload,
             think=think,
             tools=[execute_terminal],
             options={"num_ctx": NUM_CTX},
