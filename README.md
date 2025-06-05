@@ -6,7 +6,8 @@ database using Peewee. Histories are persisted per user and session so
 conversations can be resumed with context. One example tool is included:
 
 * **execute_terminal** – Executes a shell command inside a persistent Linux VM
-  with network access. Output from ``stdout`` and ``stderr`` is captured and
+  with network access. Use it to read uploaded documents under ``/data`` or run
+  other commands. Output from ``stdout`` and ``stderr`` is captured and
   returned. The VM is created when a chat session starts and reused for all
   subsequent tool calls.
 
@@ -21,6 +22,14 @@ python run.py
 ```
 
 The script will instruct the model to run a simple shell command and print the result. Conversations are automatically persisted to `chat.db` and are now associated with a user and session.
+
+Uploaded files are stored under the `uploads` directory and mounted inside the VM at `/data`. Call ``upload_document`` on the chat session to make a file available to the model:
+
+```python
+async with ChatSession() as chat:
+    path_in_vm = chat.upload_document("path/to/file.pdf")
+    reply = await chat.chat(f"Summarize {path_in_vm}")
+```
 
 ## Docker
 

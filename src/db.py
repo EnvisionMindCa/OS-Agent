@@ -46,12 +46,22 @@ class Message(BaseModel):
     created_at = DateTimeField(default=datetime.utcnow)
 
 
+class Document(BaseModel):
+    id = AutoField()
+    user = ForeignKeyField(User, backref="documents")
+    file_path = CharField()
+    original_name = CharField()
+    created_at = DateTimeField(default=datetime.utcnow)
+
+
 __all__ = [
     "_db",
     "User",
     "Conversation",
     "Message",
+    "Document",
     "reset_history",
+    "add_document",
 ]
 
 
@@ -59,7 +69,7 @@ def init_db() -> None:
     """Initialise the database and create tables if they do not exist."""
     if _db.is_closed():
         _db.connect()
-    _db.create_tables([User, Conversation, Message])
+    _db.create_tables([User, Conversation, Message, Document])
 
 
 def reset_history(username: str, session_name: str) -> int:
@@ -79,3 +89,12 @@ def reset_history(username: str, session_name: str) -> int:
     if not Conversation.select().where(Conversation.user == user).exists():
         user.delete_instance()
     return deleted
+
+
+def add_document(username: str, file_path: str, original_name: str) -> Document:
+    """Record an uploaded document and return the created entry."""
+
+    init_db()
+    user, _ = User.get_or_create(username=username)
+    doc = Document.create(user=user, file_path=file_path, original_name=original_name)
+    return doc
