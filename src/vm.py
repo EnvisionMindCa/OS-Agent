@@ -4,6 +4,8 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from threading import Lock
+
 from .config import UPLOAD_DIR
 
 from .log import get_logger
@@ -108,3 +110,41 @@ class LinuxVM:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.stop()
+
+
+class VMRegistry:
+    """Manage Linux VM instances on a per-user basis."""
+
+    _vms: dict[str, LinuxVM] = {}
+    _counts: dict[str, int] = {}
+    _lock = Lock()
+
+    @classmethod
+    def acquire(cls, username: str) -> LinuxVM:
+        """Return a running VM for ``username``, creating it if needed."""
+
+        with cls._lock:
+            vm = cls._vms.get(username)
+            if vm is None:
+                vm = LinuxVM(host_dir=str(Path(UPLOAD_DIR) / username))
+                cls._vms[username] = vm
+                cls._counts[username] = 0
+            cls._counts[username] += 1
+
+        vm.start()
+        return vm
+
+    @classmethod
+    def release(cls, username: str) -> None:
+        """Release one reference to ``username``'s VM and stop it if unused."""
+
+        with cls._lock:
+            vm = cls._vms.get(username)
+            if vm is None:
+                return
+
+            cls._counts[username] -= 1
+            if cls._counts[username] <= 0:
+                vm.stop()
+                del cls._vms[username]
+                del cls._counts[username]
