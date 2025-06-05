@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 
+import os
+import tempfile
+from pathlib import Path
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -25,6 +29,40 @@ class LLMDiscordBot(commands.Bot):
         self._log = get_logger(self.__class__.__name__)
         self.tree.add_command(self.reset_conversation)
 
+    async def _upload_attachments(
+        self, chat: ChatSession, attachments: list[discord.Attachment]
+    ) -> list[str]:
+        """Persist text attachments and return their VM paths."""
+
+        uploaded: list[str] = []
+        for att in attachments:
+            if att.content_type and not att.content_type.startswith("text"):
+                continue
+            if not att.filename.lower().endswith(".txt") and not (
+                att.content_type and att.content_type.startswith("text")
+            ):
+                continue
+            try:
+                data = await att.read()
+            except Exception:
+                self._log.exception("Failed to download attachment %s", att.filename)
+                continue
+
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = Path(tmp.name)
+
+            try:
+                vm_path = chat.upload_document(str(tmp_path))
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+
+            uploaded.append(f"{att.filename} -> {vm_path}")
+        return uploaded
+
     async def setup_hook(self) -> None:  # noqa: D401
         await self.tree.sync()
 
@@ -32,7 +70,9 @@ class LLMDiscordBot(commands.Bot):
         self._log.info("Logged in as %s (%s)", self.user, self.user.id)
 
     async def on_message(self, message: discord.Message) -> None:  # noqa: D401
-        if message.author.bot or not message.content.strip():
+        if message.author.bot:
+            return
+        if not message.content.strip() and not message.attachments:
             return
 
         user_id = f"{DEFAULT_USER_PREFIX}{message.author.id}"
@@ -41,14 +81,26 @@ class LLMDiscordBot(commands.Bot):
         self._log.debug("Received message from %s: %s", user_id, message.content)
 
         async with ChatSession(user=user_id, session=session_id) as chat:
-            try:
-                reply = await chat.chat(message.content)
-            except Exception:
-                self._log.exception("Failed to generate reply")
-                return
+            uploaded_paths: list[str] = []
+            if message.attachments:
+                uploaded_paths = await self._upload_attachments(chat, message.attachments)
 
+            reply: str | None = None
+            if message.content.strip():
+                try:
+                    reply = await chat.chat(message.content)
+                except Exception:
+                    self._log.exception("Failed to generate reply")
+                    return
+
+        responses: list[str] = []
+        if uploaded_paths:
+            responses.append("Uploaded:\n" + "\n".join(uploaded_paths))
         if reply:
-            await message.reply(reply, mention_author=False)
+            responses.append(reply)
+
+        if responses:
+            await message.reply("\n\n".join(responses), mention_author=False)
 
     @app_commands.command(
         name="reset",
