@@ -27,7 +27,7 @@ from .db import (
 from .log import get_logger
 from .schema import Msg
 from .tools import execute_terminal, set_vm
-from .vm import LinuxVM
+from .vm import VMRegistry
 
 _LOG = get_logger(__name__)
 
@@ -48,18 +48,19 @@ class ChatSession:
         self._conversation, _ = Conversation.get_or_create(
             user=self._user, session_name=session
         )
-        self._vm = LinuxVM()
+        self._vm = None
         self._messages: List[Msg] = self._load_history()
         self._ensure_system_prompt()
 
     async def __aenter__(self) -> "ChatSession":
-        self._vm.start()
+        self._vm = VMRegistry.acquire(self._user.username)
         set_vm(self._vm)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         set_vm(None)
-        self._vm.stop()
+        if self._vm:
+            VMRegistry.release(self._user.username)
         if not _db.is_closed():
             _db.close()
 
@@ -79,7 +80,7 @@ class ChatSession:
         target = dest / src.name
         shutil.copy(src, target)
         add_document(self._user.username, str(target), src.name)
-        return f"/data/{self._user.username}/{src.name}"
+        return f"/data/{src.name}"
 
     def _ensure_system_prompt(self) -> None:
         if any(m.get("role") == "system" for m in self._messages):
