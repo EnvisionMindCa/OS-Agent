@@ -31,6 +31,10 @@ async with ChatSession() as chat:
     reply = await chat.chat(f"Summarize {path_in_vm}")
 ```
 
+When using the Discord bot, attach one or more text files to a message to
+upload them automatically. The bot responds with the location of each document
+inside the VM so they can be referenced in subsequent prompts.
+
 ## Docker
 
 A Dockerfile is provided to run the Discord bot along with an Ollama server. The image installs Ollama, pulls the LLM and embedding models, and starts both the server and the bot.
