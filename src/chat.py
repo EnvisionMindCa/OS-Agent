@@ -173,7 +173,7 @@ class ChatSession:
                     follow_task.cancel()
                     try:
                         await follow_task
-                    except Exception:
+                    except asyncio.CancelledError:
                         pass
                     result = await exec_task
                     messages.append(
