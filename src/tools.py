@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-__all__ = ["execute_terminal", "set_vm"]
+__all__ = ["execute_terminal", "execute_terminal_async", "set_vm"]
 
 import subprocess
 from typing import Optional
+import asyncio
 
 from .vm import LinuxVM
 
@@ -53,3 +54,9 @@ def execute_terminal(command: str) -> str:
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr
     return output.strip()
+
+
+async def execute_terminal_async(command: str) -> str:
+    """Asynchronously execute a shell command."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, execute_terminal, command)
