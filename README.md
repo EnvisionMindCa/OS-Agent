@@ -8,8 +8,9 @@ conversations can be resumed with context. One example tool is included:
 * **execute_terminal** – Executes a shell command inside a persistent Linux VM
   with network access. Use it to read uploaded documents under ``/data`` or run
   other commands. Output from ``stdout`` and ``stderr`` is captured and
-  returned. The VM is created when a chat session starts and reused for all
-  subsequent tool calls.
+  returned. Commands run asynchronously so the assistant can continue
+  responding while they execute. The VM is created when a chat session starts
+  and reused for all subsequent tool calls.
 
 The application injects a robust system prompt on each request. The prompt
 guides the model to plan tool usage, execute commands sequentially and
