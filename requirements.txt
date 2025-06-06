@@ -4,3 +4,5 @@ peewee
 discord.py
 colorama
 python-dotenv
+fastapi
+uvicorn
