@@ -25,9 +25,9 @@ def execute_terminal(command: str) -> str:
 
     The command is executed with network access enabled. Output from both
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
-    they exceed 2 seconds.
+    they exceed 30 seconds.
     """
-    timeout = 2
+    timeout = 30
     if not command:
         return "No command provided."
 
