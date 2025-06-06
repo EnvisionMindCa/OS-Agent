@@ -14,8 +14,8 @@ from .config import (
     EMBEDDING_MODEL_NAME,
     NUM_CTX,
     OLLAMA_HOST,
-    SYSTEM_PROMPT,
     UPLOAD_DIR,
+    build_system_prompt,
 )
 from .db import (
     Conversation,
@@ -121,7 +121,7 @@ class ChatSession:
         """Send a chat request, automatically prepending the system prompt."""
 
         if not messages or messages[0].get("role") != "system":
-            payload = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+            payload = [{"role": "system", "content": build_system_prompt()}, *messages]
         else:
             payload = messages
 

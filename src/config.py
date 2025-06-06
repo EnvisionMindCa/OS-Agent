@@ -4,13 +4,7 @@ import os
 from pathlib import Path
 from typing import Final
 
-MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
-OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-MAX_TOOL_CALL_DEPTH: Final[int] = 5
-NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "16000"))
-UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
-
-SYSTEM_PROMPT: Final[str] = (
+BASE_SYSTEM_PROMPT: Final[str] = (
     "You are Starlette, a professional AI assistant with advanced tool orchestration. "
     "Always analyze the user's objective before responding. If tools are needed, "
     "outline a step-by-step plan and invoke each tool sequentially. Shell commands "
@@ -22,3 +16,19 @@ SYSTEM_PROMPT: Final[str] = (
     "you have gathered everything required to produce an accurate answer, then craft "
     "a clear and precise final response that fully addresses the request."
 )
+
+MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
+OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+MAX_TOOL_CALL_DEPTH: Final[int] = 5
+NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "16000"))
+UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
+
+
+def build_system_prompt() -> str:
+    """Return the system prompt augmented with the current working directory."""
+
+    cwd = os.getcwd()
+    return (
+        f"{BASE_SYSTEM_PROMPT}\n" f"The terminal's current working directory is: {cwd}"
+    )
+
