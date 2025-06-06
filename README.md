@@ -37,6 +37,18 @@ When using the Discord bot, attach one or more text files to a message to
 upload them automatically. The bot responds with the location of each document
 inside the VM so they can be referenced in subsequent prompts.
 
+## API Server
+
+An HTTP API is provided using FastAPI. Run the server with:
+
+```bash
+python server.py
+```
+
+Send a POST request to `/chat` with the fields `user`, `session` and `prompt` to
+receive the assistant's reply. Conversation history is persisted in
+`chat.db`. Use the `/reset` endpoint to clear previous messages for a session.
+
 ## Docker
 
 A Dockerfile is provided to run the Discord bot along with an Ollama server. The image installs Ollama, pulls the LLM and embedding models, and starts both the server and the bot.
