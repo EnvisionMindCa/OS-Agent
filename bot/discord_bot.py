@@ -67,16 +67,16 @@ async def on_message(message: discord.Message) -> None:
         docs = await _handle_attachments(chat, message)
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
-            await message.channel.send(f"Uploaded:\n{info}")
+            await message.reply(f"Uploaded:\n{info}", mention_author=False)
 
         if message.content.strip():
             try:
                 reply = await chat.chat(message.content)
             except Exception as exc:  # pragma: no cover - runtime errors
                 _LOG.error("Failed to process message: %s", exc)
-                await message.channel.send(f"Error: {exc}")
+                await message.reply(f"Error: {exc}", mention_author=False)
             else:
-                await message.channel.send(reply)
+                await message.reply(reply, mention_author=False)
 
 
 def main() -> None:
