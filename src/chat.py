@@ -139,30 +139,31 @@ class ChatSession:
         conversation: Conversation,
         depth: int = 0,
     ) -> ChatResponse:
-        if depth >= MAX_TOOL_CALL_DEPTH or not response.message.tool_calls:
-            return response
+        while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
+            for call in response.message.tool_calls:
+                if call.function.name == "execute_terminal":
+                    result = execute_terminal(**call.function.arguments)
+                else:
+                    _LOG.warning("Unsupported tool call: %s", call.function.name)
+                    result = f"Unsupported tool: {call.function.name}"
 
-        for call in response.message.tool_calls:
-            if call.function.name == "execute_terminal":
-                result = execute_terminal(**call.function.arguments)
-            else:
-                continue
+                messages.append(
+                    {
+                        "role": "tool",
+                        "name": call.function.name,
+                        "content": str(result),
+                    }
+                )
+                DBMessage.create(
+                    conversation=conversation,
+                    role="tool",
+                    content=str(result),
+                )
 
-            messages.append(
-                {
-                    "role": "tool",
-                    "name": call.function.name,
-                    "content": str(result),
-                }
-            )
-            DBMessage.create(
-                conversation=conversation,
-                role="tool",
-                content=str(result),
-            )
             nxt = await self.ask(messages, think=True)
             self._store_assistant_message(conversation, nxt.message)
-            return await self._handle_tool_calls(messages, nxt, conversation, depth + 1)
+            response = nxt
+            depth += 1
 
         return response
 
