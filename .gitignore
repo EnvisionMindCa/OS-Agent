@@ -178,3 +178,4 @@ cython_debug/
 
 # Database files
 *.db
+node_modules/
