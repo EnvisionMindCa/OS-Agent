@@ -36,3 +36,14 @@ async with ChatSession() as chat:
 When using the Discord bot, attach one or more text files to a message to
 upload them automatically. The bot responds with the location of each document
 inside the VM so they can be referenced in subsequent prompts.
+
+## Managing Sessions and Documents
+
+`ChatSession` provides helpers to make it easier to work with multiple sessions
+and uploaded files:
+
+* `list_sessions()` – return all session names for the current user.
+* `list_uploaded_documents()` – show the paths of documents uploaded by the user.
+* `reset_history()` – clear a session's conversation history.
+
+These methods allow you to inspect and manage chat data programmatically.

@@ -62,6 +62,8 @@ __all__ = [
     "Document",
     "reset_history",
     "add_document",
+    "list_sessions",
+    "list_documents",
 ]
 
 
@@ -98,3 +100,28 @@ def add_document(username: str, file_path: str, original_name: str) -> Document:
     user, _ = User.get_or_create(username=username)
     doc = Document.create(user=user, file_path=file_path, original_name=original_name)
     return doc
+
+
+def list_sessions(username: str) -> list[str]:
+    """Return all session names for ``username``."""
+
+    init_db()
+    try:
+        user = User.get(User.username == username)
+    except User.DoesNotExist:
+        return []
+
+    q = Conversation.select(Conversation.session_name).where(Conversation.user == user)
+    return [conv.session_name for conv in q]
+
+
+def list_documents(username: str) -> list[Document]:
+    """Return all documents uploaded by ``username``."""
+
+    init_db()
+    try:
+        user = User.get(User.username == username)
+    except User.DoesNotExist:
+        return []
+
+    return list(Document.select().where(Document.user == user))

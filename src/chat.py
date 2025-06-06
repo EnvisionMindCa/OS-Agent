@@ -23,6 +23,9 @@ from .db import (
     _db,
     init_db,
     add_document,
+    list_documents,
+    list_sessions,
+    reset_history,
 )
 from .log import get_logger
 from .schema import Msg
@@ -181,3 +184,24 @@ class ChatSession:
             self._messages, response, self._conversation
         )
         return final_resp.message.content
+
+    def reset_history(self) -> int:
+        """Clear conversation history and start fresh."""
+
+        deleted = reset_history(self._user.username, self._conversation.session_name)
+        self._conversation, _ = Conversation.get_or_create(
+            user=self._user, session_name=self._conversation.session_name
+        )
+        self._messages = []
+        return deleted
+
+    def list_uploaded_documents(self) -> list[str]:
+        """Return file paths of documents uploaded by the user."""
+
+        docs = list_documents(self._user.username)
+        return [d.file_path for d in docs]
+
+    def list_sessions(self) -> list[str]:
+        """List all session names for the current user."""
+
+        return list_sessions(self._user.username)
