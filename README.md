@@ -36,3 +36,20 @@ async with ChatSession() as chat:
 When using the Discord bot, attach one or more text files to a message to
 upload them automatically. The bot responds with the location of each document
 inside the VM so they can be referenced in subsequent prompts.
+
+## Discord Bot
+
+Create a `.env` file with your Discord token:
+
+```bash
+DISCORD_TOKEN="your-token"
+```
+
+Then start the bot:
+
+```bash
+python -m bot.discord_bot
+```
+
+Any attachments sent to the bot are uploaded to the VM and the bot replies with
+their paths so they can be used in later messages.
