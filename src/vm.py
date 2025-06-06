@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import subprocess
+import asyncio
+from functools import partial
 import uuid
 from pathlib import Path
 
@@ -89,6 +91,12 @@ class LinuxVM:
         if completed.stderr:
             output = f"{output}\n{completed.stderr}" if output else completed.stderr
         return output.strip()
+
+    async def execute_async(self, command: str, *, timeout: int = 3) -> str:
+        """Asynchronously execute ``command`` inside the running VM."""
+        loop = asyncio.get_running_loop()
+        func = partial(self.execute, command, timeout=timeout)
+        return await loop.run_in_executor(None, func)
 
     def stop(self) -> None:
         """Terminate the VM if running."""

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import List
 import json
+import asyncio
 import shutil
 from pathlib import Path
+import contextlib
 
 from ollama import AsyncClient, ChatResponse, Message
 
@@ -26,7 +28,7 @@ from .db import (
 )
 from .log import get_logger
 from .schema import Msg
-from .tools import execute_terminal, set_vm
+from .tools import execute_terminal, execute_terminal_async, set_vm
 from .vm import VMRegistry
 
 _LOG = get_logger(__name__)
@@ -141,29 +143,75 @@ class ChatSession:
     ) -> ChatResponse:
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
-                if call.function.name == "execute_terminal":
-                    result = execute_terminal(**call.function.arguments)
-                else:
+                if call.function.name != "execute_terminal":
                     _LOG.warning("Unsupported tool call: %s", call.function.name)
                     result = f"Unsupported tool: {call.function.name}"
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "name": call.function.name,
+                            "content": result,
+                        }
+                    )
+                    DBMessage.create(
+                        conversation=conversation,
+                        role="tool",
+                        content=result,
+                    )
+                    continue
 
-                messages.append(
-                    {
-                        "role": "tool",
-                        "name": call.function.name,
-                        "content": str(result),
-                    }
+                exec_task = asyncio.create_task(
+                    execute_terminal_async(**call.function.arguments)
                 )
-                DBMessage.create(
-                    conversation=conversation,
-                    role="tool",
-                    content=str(result),
+                follow_task = asyncio.create_task(self.ask(messages, think=True))
+
+                done, _ = await asyncio.wait(
+                    {exec_task, follow_task},
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
 
-            nxt = await self.ask(messages, think=True)
-            self._store_assistant_message(conversation, nxt.message)
-            response = nxt
-            depth += 1
+                if exec_task in done:
+                    follow_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await follow_task
+                    result = await exec_task
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "name": call.function.name,
+                            "content": result,
+                        }
+                    )
+                    DBMessage.create(
+                        conversation=conversation,
+                        role="tool",
+                        content=result,
+                    )
+                    nxt = await self.ask(messages, think=True)
+                    self._store_assistant_message(conversation, nxt.message)
+                    response = nxt
+                else:
+                    followup = await follow_task
+                    self._store_assistant_message(conversation, followup.message)
+                    messages.append(followup.message.model_dump())
+                    result = await exec_task
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "name": call.function.name,
+                            "content": result,
+                        }
+                    )
+                    DBMessage.create(
+                        conversation=conversation,
+                        role="tool",
+                        content=result,
+                    )
+                    nxt = await self.ask(messages, think=True)
+                    self._store_assistant_message(conversation, nxt.message)
+                    response = nxt
+
+                depth += 1
 
         return response
 
