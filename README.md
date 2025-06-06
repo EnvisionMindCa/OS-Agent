@@ -11,10 +11,11 @@ conversations can be resumed with context. One example tool is included:
   returned. The VM is created when a chat session starts and reused for all
   subsequent tool calls.
 
-The application injects a system prompt on each request that instructs the
-model to chain multiple tools when required. This prompt is **not** stored in
-the chat history but is provided at runtime so the assistant can orchestrate
-tool calls in sequence to satisfy the user's request.
+The application injects a robust system prompt on each request. The prompt
+guides the model to plan tool usage, execute commands sequentially and
+verify results before replying. It is **not** stored in the chat history but is
+provided at runtime so the assistant can orchestrate tool calls in sequence to
+fulfil the user's request reliably.
 
 ## Usage
 
