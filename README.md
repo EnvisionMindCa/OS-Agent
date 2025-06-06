@@ -66,3 +66,17 @@ docker run -e DISCORD_TOKEN=your-token llm-discord-bot
 ```
 
 The environment variables `OLLAMA_MODEL` and `OLLAMA_EMBEDDING_MODEL` can be set at build or run time to specify which models to download.
+
+## Frontend
+
+A simple React application is included under `frontend` for interacting with the API.
+Install dependencies and start the development server:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` in `.env` to point to the backend (defaults to `http://localhost:8000`).
+Build the production bundle with `npm run build`.
