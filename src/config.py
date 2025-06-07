@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 from typing import Final
 
-MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
+MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3")
 OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MAX_TOOL_CALL_DEPTH: Final[int] = 5
-NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "16000"))
+NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32000"))
 UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
 VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "ubuntu:22.04")
 
