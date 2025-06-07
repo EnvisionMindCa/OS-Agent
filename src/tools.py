@@ -20,7 +20,7 @@ def set_vm(vm: LinuxVM | None) -> None:
 
 def execute_terminal(command: str) -> str:
     """
-    Execute a shell command in a Linux terminal.
+    Execute a shell command in a Ubuntu terminal.
     Use this tool to inspect uploaded documents under ``/data`` or run other commands.
 
     The command is executed with network access enabled. Output from both
