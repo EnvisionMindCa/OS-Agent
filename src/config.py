@@ -19,7 +19,9 @@ SYSTEM_PROMPT: Final[str] = (
     "tool returns its result you will receive a tool message and must continue from "
     "there. If the result arrives before your interim reply is complete, cancel the "
     "reply and incorporate the tool output instead. Uploaded files live under /data "
-    "and are accessible via the execute_terminal tool. Continue using tools until "
-    "you have gathered everything required to produce an accurate answer, then craft "
-    "a clear and precise final response that fully addresses the request."
+    "and are accessible via the execute_terminal tool. When you are unsure about any "
+    "detail, you must use execute_terminal to search the internet or inspect files "
+    "before answering. Continue using tools until you have gathered everything "
+    "required to produce an accurate answer, then craft a clear and precise final "
+    "response that fully addresses the request."
 )

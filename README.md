@@ -6,11 +6,13 @@ database using Peewee. Histories are persisted per user and session so
 conversations can be resumed with context. One example tool is included:
 
 * **execute_terminal** – Executes a shell command inside a persistent Linux VM
-  with network access. Use it to read uploaded documents under ``/data`` or run
-  other commands. Output from ``stdout`` and ``stderr`` is captured and
-  returned. Commands run asynchronously so the assistant can continue
-  responding while they execute. The VM is created when a chat session starts
-  and reused for all subsequent tool calls.
+  with network access. Use it to read uploaded documents under ``/data``, fetch
+  web content via tools like ``curl`` or run any other commands. The assistant
+  must invoke this tool to search online when unsure about a response. Output
+  from ``stdout`` and ``stderr`` is captured and returned. Commands run
+  asynchronously so the assistant can continue responding while they execute.
+  The VM is created when a chat session starts and reused for all subsequent
+  tool calls.
 
 Sessions share state through an in-memory registry so that only one generation
 can run at a time. Messages sent while a response is being produced are
@@ -19,9 +21,11 @@ pending response is cancelled and replaced with the new request.
 
 The application injects a robust system prompt on each request. The prompt
 guides the model to plan tool usage, execute commands sequentially and
-verify results before replying. It is **not** stored in the chat history but is
-provided at runtime so the assistant can orchestrate tool calls in sequence to
-fulfil the user's request reliably.
+verify results before replying. When the assistant is uncertain, it is directed
+to search the internet with ``execute_terminal`` before giving a final answer.
+The prompt is **not** stored in the chat history but is provided at runtime so
+the assistant can orchestrate tool calls in sequence to fulfil the user's
+request reliably.
 
 ## Usage
 
