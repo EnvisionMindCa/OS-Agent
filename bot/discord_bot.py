@@ -8,6 +8,8 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from .message_utils import send_reply
+
 from src.chat import ChatSession
 from src.db import reset_history
 from src.log import get_logger
@@ -65,15 +67,15 @@ async def on_message(message: discord.Message) -> None:
         docs = await _handle_attachments(chat, message)
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
-            await message.reply(f"Uploaded:\n{info}", mention_author=False)
+            await send_reply(message, f"Uploaded:\n{info}", mention_author=False)
 
         if message.content.strip():
             try:
                 async for part in chat.chat_stream(message.content):
-                    await message.reply(part, mention_author=False)
+                    await send_reply(message, part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 _LOG.error("Failed to process message: %s", exc)
-                await message.reply(f"Error: {exc}", mention_author=False)
+                await send_reply(message, f"Error: {exc}", mention_author=False)
 
 
 def main() -> None:
