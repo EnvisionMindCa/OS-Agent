@@ -21,7 +21,10 @@ def set_vm(vm: LinuxVM | None) -> None:
 def execute_terminal(command: str) -> str:
     """
     Execute a shell command in a Ubuntu terminal.
-    Use this tool to inspect uploaded documents under ``/data`` or run other commands.
+    Use this tool to inspect uploaded documents under ``/data``, fetch web
+    content with utilities like ``curl`` or ``wget`` and run other commands.
+    The assistant must call this tool to search the internet whenever unsure
+    about any detail.
 
     The command is executed with network access enabled. Output from both
     ``stdout`` and ``stderr`` is captured and returned. Commands are killed if
