@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, AsyncIterator
+from dataclasses import dataclass, field
 import json
 import asyncio
 import shutil
@@ -29,6 +30,27 @@ from .schema import Msg
 from .tools import execute_terminal, execute_terminal_async, set_vm
 from .vm import VMRegistry
 
+
+@dataclass
+class _SessionData:
+    """Shared state for each conversation session."""
+
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    state: str = "idle"
+    tool_task: asyncio.Task | None = None
+
+
+_SESSION_DATA: dict[int, _SessionData] = {}
+
+
+def _get_session_data(conv_id: int) -> _SessionData:
+    data = _SESSION_DATA.get(conv_id)
+    if data is None:
+        data = _SessionData()
+        _SESSION_DATA[conv_id] = data
+    return data
+
+
 _LOG = get_logger(__name__)
 
 
@@ -49,9 +71,26 @@ class ChatSession:
         )
         self._vm = None
         self._messages: List[Msg] = self._load_history()
-        self._lock = asyncio.Lock()
-        self._state = "idle"
-        self._tool_task: asyncio.Task | None = None
+        self._data = _get_session_data(self._conversation.id)
+        self._lock = self._data.lock
+
+    # Shared state properties -------------------------------------------------
+
+    @property
+    def _state(self) -> str:
+        return self._data.state
+
+    @_state.setter
+    def _state(self, value: str) -> None:
+        self._data.state = value
+
+    @property
+    def _tool_task(self) -> asyncio.Task | None:
+        return self._data.tool_task
+
+    @_tool_task.setter
+    def _tool_task(self, task: asyncio.Task | None) -> None:
+        self._data.tool_task = task
 
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
@@ -365,5 +404,3 @@ class ChatSession:
                     continue
                 if part.message.content:
                     yield part.message.content
-
-

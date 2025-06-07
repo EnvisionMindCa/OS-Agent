@@ -12,6 +12,11 @@ conversations can be resumed with context. One example tool is included:
   responding while they execute. The VM is created when a chat session starts
   and reused for all subsequent tool calls.
 
+Sessions share state through an in-memory registry so that only one generation
+can run at a time. Messages sent while a response is being produced are
+ignored unless the assistant is waiting for a tool result—in that case the
+pending response is cancelled and replaced with the new request.
+
 The application injects a robust system prompt on each request. The prompt
 guides the model to plan tool usage, execute commands sequentially and
 verify results before replying. It is **not** stored in the chat history but is
