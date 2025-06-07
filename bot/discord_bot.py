@@ -16,9 +16,7 @@ _LOG = get_logger(__name__, level=logging.INFO)
 
 
 def _create_bot() -> commands.Bot:
-    intents = discord.Intents.default()
-    intents.messages = True
-    intents.message_content = True
+    intents = discord.Intents.all()
     return commands.Bot(command_prefix="!", intents=intents)
 
 
