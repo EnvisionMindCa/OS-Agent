@@ -72,3 +72,34 @@ it pulls the image defined by the ``VM_IMAGE`` environment variable, falling
 back to ``python:3.11-slim``. This base image includes Python and ``pip`` so
 packages can be installed immediately. The container has network access enabled
 which allows fetching additional dependencies as needed.
+
+To use a fully featured Ubuntu environment, build a custom Docker image and set
+``VM_IMAGE`` to that image. An example ``docker/Dockerfile.vm`` is provided:
+
+```Dockerfile
+FROM ubuntu:22.04
+
+# Install core utilities and Python
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        sudo \
+        curl \
+        git \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+CMD ["sleep", "infinity"]
+```
+
+Build and run with:
+
+```bash
+docker build -t llm-vm -f docker/Dockerfile.vm .
+export VM_IMAGE=llm-vm
+python run.py
+```
+
+The custom VM includes typical utilities like ``sudo`` and ``curl`` so it behaves
+more like a standard Ubuntu installation.
