@@ -141,6 +141,12 @@ class ChatSession:
         conversation: Conversation,
         depth: int = 0,
     ) -> AsyncIterator[ChatResponse]:
+        if not response.message.tool_calls:
+            if response.message.content:
+                yield response
+            async with self._lock:
+                self._state = "idle"
+            return
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
                 if call.function.name != "execute_terminal":
