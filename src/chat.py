@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, AsyncIterator
 import json
 import asyncio
 import shutil
@@ -49,6 +49,9 @@ class ChatSession:
         )
         self._vm = None
         self._messages: List[Msg] = self._load_history()
+        self._lock = asyncio.Lock()
+        self._state = "idle"
+        self._tool_task: asyncio.Task | None = None
 
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
@@ -131,13 +134,13 @@ class ChatSession:
             options={"num_ctx": NUM_CTX},
         )
 
-    async def _handle_tool_calls(
+    async def _handle_tool_calls_stream(
         self,
         messages: List[Msg],
         response: ChatResponse,
         conversation: Conversation,
         depth: int = 0,
-    ) -> ChatResponse:
+    ) -> AsyncIterator[ChatResponse]:
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
                 if call.function.name != "execute_terminal":
@@ -161,6 +164,10 @@ class ChatSession:
                     execute_terminal_async(**call.function.arguments)
                 )
                 follow_task = asyncio.create_task(self.ask(messages, think=True))
+
+                async with self._lock:
+                    self._state = "awaiting_tool"
+                    self._tool_task = exec_task
 
                 done, _ = await asyncio.wait(
                     {exec_task, follow_task},
@@ -186,13 +193,19 @@ class ChatSession:
                         role="tool",
                         content=result,
                     )
+                    async with self._lock:
+                        self._state = "generating"
+                        self._tool_task = None
                     nxt = await self.ask(messages, think=True)
                     self._store_assistant_message(conversation, nxt.message)
+                    messages.append(nxt.message.model_dump())
                     response = nxt
+                    yield nxt
                 else:
                     followup = await follow_task
                     self._store_assistant_message(conversation, followup.message)
                     messages.append(followup.message.model_dump())
+                    yield followup
                     result = await exec_task
                     messages.append(
                         {
@@ -206,13 +219,32 @@ class ChatSession:
                         role="tool",
                         content=result,
                     )
+                    async with self._lock:
+                        self._state = "generating"
+                        self._tool_task = None
                     nxt = await self.ask(messages, think=True)
                     self._store_assistant_message(conversation, nxt.message)
+                    messages.append(nxt.message.model_dump())
                     response = nxt
+                    yield nxt
 
                 depth += 1
 
-        return response
+        async with self._lock:
+            self._state = "idle"
+
+    async def _handle_tool_calls(
+        self,
+        messages: List[Msg],
+        response: ChatResponse,
+        conversation: Conversation,
+        depth: int = 0,
+    ) -> ChatResponse:
+        final = response
+        gen = self._handle_tool_calls_stream(messages, response, conversation, depth)
+        async for final in gen:
+            pass
+        return final
 
     async def chat(self, prompt: str) -> str:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
@@ -228,3 +260,92 @@ class ChatSession:
             self._messages, response, self._conversation
         )
         return final_resp.message.content
+
+    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+        async with self._lock:
+            if self._state == "generating":
+                _LOG.info("Ignoring message while generating")
+                return
+            if self._state == "awaiting_tool" and self._tool_task:
+                async for part in self._chat_during_tool(prompt):
+                    yield part
+                return
+            self._state = "generating"
+
+        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
+        self._messages.append({"role": "user", "content": prompt})
+
+        response = await self.ask(self._messages)
+        self._messages.append(response.message.model_dump())
+        self._store_assistant_message(self._conversation, response.message)
+
+        _LOG.info("Thinking:\n%s", response.message.thinking or "<no thinking trace>")
+
+        async for resp in self._handle_tool_calls_stream(
+            self._messages, response, self._conversation
+        ):
+            yield resp.message.content
+
+    async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
+        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
+        self._messages.append({"role": "user", "content": prompt})
+
+        user_task = asyncio.create_task(self.ask(self._messages))
+        exec_task = self._tool_task
+
+        done, _ = await asyncio.wait(
+            {exec_task, user_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        if exec_task in done:
+            user_task.cancel()
+            try:
+                await user_task
+            except asyncio.CancelledError:
+                pass
+            result = await exec_task
+            self._tool_task = None
+            self._messages.append(
+                {"role": "tool", "name": "execute_terminal", "content": result}
+            )
+            DBMessage.create(
+                conversation=self._conversation, role="tool", content=result
+            )
+            async with self._lock:
+                self._state = "generating"
+            nxt = await self.ask(self._messages, think=True)
+            self._store_assistant_message(self._conversation, nxt.message)
+            self._messages.append(nxt.message.model_dump())
+            yield nxt.message.content
+            async for part in self._handle_tool_calls_stream(
+                self._messages, nxt, self._conversation
+            ):
+                yield part.message.content
+        else:
+            resp = await user_task
+            self._store_assistant_message(self._conversation, resp.message)
+            self._messages.append(resp.message.model_dump())
+            async with self._lock:
+                self._state = "awaiting_tool"
+            yield resp.message.content
+            result = await exec_task
+            self._tool_task = None
+            self._messages.append(
+                {"role": "tool", "name": "execute_terminal", "content": result}
+            )
+            DBMessage.create(
+                conversation=self._conversation, role="tool", content=result
+            )
+            async with self._lock:
+                self._state = "generating"
+            nxt = await self.ask(self._messages, think=True)
+            self._store_assistant_message(self._conversation, nxt.message)
+            self._messages.append(nxt.message.model_dump())
+            yield nxt.message.content
+            async for part in self._handle_tool_calls_stream(
+                self._messages, nxt, self._conversation
+            ):
+                yield part.message.content
+
+
