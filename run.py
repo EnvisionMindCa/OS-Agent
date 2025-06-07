@@ -15,7 +15,7 @@ async def _main() -> None:
         # async for resp in chat.chat_stream("Inspect the contents of note.pdf and summarize it."):
         # async for resp in chat.chat_stream("What is the content of the document I uploaded?"):
         # async for resp in chat.chat_stream("Install necessary package(s) to read PDF files and edit them."):
-        async for resp in chat.chat_stream("Install sudo and try again."):
+        async for resp in chat.chat_stream("Look up the current weather in San Francisco."):
             print("\n>>>", resp)
 
 
