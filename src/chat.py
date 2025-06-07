@@ -284,7 +284,10 @@ class ChatSession:
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            yield resp.message.content
+            if resp.message.tool_calls:
+                continue
+            if resp.message.content:
+                yield resp.message.content
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
@@ -317,18 +320,23 @@ class ChatSession:
             nxt = await self.ask(self._messages, think=True)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            yield nxt.message.content
+            if not nxt.message.tool_calls and nxt.message.content:
+                yield nxt.message.content
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                yield part.message.content
+                if part.message.tool_calls:
+                    continue
+                if part.message.content:
+                    yield part.message.content
         else:
             resp = await user_task
             self._store_assistant_message(self._conversation, resp.message)
             self._messages.append(resp.message.model_dump())
             async with self._lock:
                 self._state = "awaiting_tool"
-            yield resp.message.content
+            if not resp.message.tool_calls and resp.message.content:
+                yield resp.message.content
             result = await exec_task
             self._tool_task = None
             self._messages.append(
@@ -342,10 +350,14 @@ class ChatSession:
             nxt = await self.ask(self._messages, think=True)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            yield nxt.message.content
+            if not nxt.message.tool_calls and nxt.message.content:
+                yield nxt.message.content
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                yield part.message.content
+                if part.message.tool_calls:
+                    continue
+                if part.message.content:
+                    yield part.message.content
 
 
