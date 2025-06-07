@@ -8,7 +8,7 @@ from pathlib import Path
 
 from threading import Lock
 
-from .config import UPLOAD_DIR
+from .config import UPLOAD_DIR, VM_IMAGE
 
 from .log import get_logger
 
@@ -16,10 +16,14 @@ _LOG = get_logger(__name__)
 
 
 class LinuxVM:
-    """Manage a lightweight Linux VM using Docker."""
+    """Manage a lightweight Docker-based VM.
+
+    The default image provides Python and pip so packages can be installed
+    immediately. A custom image can be supplied via ``VM_IMAGE``.
+    """
 
     def __init__(
-        self, image: str = "ubuntu:latest", host_dir: str = UPLOAD_DIR
+        self, image: str = VM_IMAGE, host_dir: str = UPLOAD_DIR
     ) -> None:
         self._image = image
         self._name = f"chat-vm-{uuid.uuid4().hex[:8]}"
