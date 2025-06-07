@@ -9,6 +9,7 @@ OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MAX_TOOL_CALL_DEPTH: Final[int] = 5
 NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32000"))
 UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
+VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "python:3.11-slim")
 
 SYSTEM_PROMPT: Final[str] = (
     "You are Starlette, a professional AI assistant with advanced tool orchestration. "

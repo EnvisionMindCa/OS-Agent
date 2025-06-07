@@ -60,3 +60,11 @@ python -m bot.discord_bot
 
 Any attachments sent to the bot are uploaded to the VM and the bot replies with
 their paths so they can be used in later messages.
+
+## VM Configuration
+
+The Linux VM used for tool execution runs inside a Docker container. By default
+it pulls the image defined by the ``VM_IMAGE`` environment variable, falling
+back to ``python:3.11-slim``. This base image includes Python and ``pip`` so
+packages can be installed immediately. The container has network access enabled
+which allows fetching additional dependencies as needed.
