@@ -6,8 +6,8 @@ from typing import List, Optional
 
 from fastapi import UploadFile
 
-from .config import UPLOAD_DIR
-from .db import Document, User, init_db
+from src.config import UPLOAD_DIR
+from src.db import Document, User, init_db
 
 
 def _ensure_user_dir(username: str) -> Path:

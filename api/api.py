@@ -13,7 +13,7 @@ from .document_service import (
     get_document,
     read_content,
 )
-from .log import get_logger
+from src.log import get_logger
 
 
 class DocumentInfo(BaseModel):
