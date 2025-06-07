@@ -31,7 +31,8 @@ Uploaded files are stored under the `uploads` directory and mounted inside the V
 ```python
 async with ChatSession() as chat:
     path_in_vm = chat.upload_document("path/to/file.pdf")
-    reply = await chat.chat(f"Summarize {path_in_vm}")
+    async for part in chat.chat_stream(f"Summarize {path_in_vm}"):
+        print(part)
 ```
 
 When using the Discord bot, attach one or more text files to a message to

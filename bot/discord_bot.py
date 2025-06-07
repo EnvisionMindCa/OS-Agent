@@ -71,12 +71,11 @@ async def on_message(message: discord.Message) -> None:
 
         if message.content.strip():
             try:
-                reply = await chat.chat(message.content)
+                async for part in chat.chat_stream(message.content):
+                    await message.reply(part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 _LOG.error("Failed to process message: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)
-            else:
-                await message.reply(reply, mention_author=False)
 
 
 def main() -> None:
