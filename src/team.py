@@ -86,17 +86,23 @@ class TeamChatSession:
             self._junior_task = asyncio.create_task(self._process_junior())
 
     async def _process_junior(self) -> None:
-        while not self._to_junior.empty():
-            msg = await self._to_junior.get()
-            self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
-            DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
-            parts = []
-            async for part in self.junior.continue_stream():
-                if part:
-                    parts.append(part)
-            result = "\n".join(parts)
-            if result.strip():
-                await self._to_senior.put(result)
+        try:
+            while not self._to_junior.empty():
+                msg = await self._to_junior.get()
+                self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
+                DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
+                parts: list[str] = []
+                async for part in self.junior.continue_stream():
+                    if part:
+                        parts.append(part)
+                result = "\n".join(parts)
+                if result.strip():
+                    await self._to_senior.put(result)
+
+            if self.senior._state == "idle":
+                await self._deliver_junior_messages()
+        finally:
+            self._junior_task = None
 
     async def _deliver_junior_messages(self) -> None:
         while not self._to_senior.empty():
