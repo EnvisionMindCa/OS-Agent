@@ -13,7 +13,8 @@ conversations can be resumed with context. One example tool is included:
   Execution happens asynchronously so the assistant can continue responding
   while the command runs.
   The VM is created when a chat session starts and reused for all subsequent
-  tool calls.
+  tool calls. The environment includes Python and ``pip`` so complex tasks can
+  be scripted using Python directly inside the terminal.
 
 Sessions share state through an in-memory registry so that only one generation
 can run at a time. Messages sent while a response is being produced are
@@ -26,7 +27,9 @@ verify results before replying. When the assistant is uncertain, it is directed
 to search the internet with ``execute_terminal`` before giving a final answer.
 The prompt is **not** stored in the chat history but is provided at runtime so
 the assistant can orchestrate tool calls in sequence to fulfil the user's
-request reliably.
+request reliably. If a user message ends with ``/think`` it simply selects an
+internal reasoning mode and should be stripped from the prompt before
+processing.
 
 ## Usage
 
