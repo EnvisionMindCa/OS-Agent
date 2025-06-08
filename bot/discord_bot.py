@@ -8,7 +8,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from src.chat import ChatSession
+from src.team import TeamChatSession
 from src.db import reset_history
 from src.log import get_logger
 
@@ -34,7 +34,7 @@ async def reset(ctx: commands.Context) -> None:
     await ctx.reply(f"Chat history cleared ({deleted} messages deleted).")
 
 
-async def _handle_attachments(chat: ChatSession, message: discord.Message) -> list[tuple[str, str]]:
+async def _handle_attachments(chat: TeamChatSession, message: discord.Message) -> list[tuple[str, str]]:
     if not message.attachments:
         return []
 
@@ -61,7 +61,7 @@ async def on_message(message: discord.Message) -> None:
     if message.content.startswith("!"):
         return
 
-    async with ChatSession(user=str(message.author.id), session=str(message.channel.id)) as chat:
+    async with TeamChatSession(user=str(message.author.id), session=str(message.channel.id)) as chat:
         docs = await _handle_attachments(chat, message)
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)

@@ -9,7 +9,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from src.chat import ChatSession
+from src.team import TeamChatSession
 from src.log import get_logger
 from src.db import list_sessions, list_sessions_info
 
@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     @app.post("/chat/stream")
     async def chat_stream(req: ChatRequest):
         async def stream() -> asyncio.AsyncIterator[str]:
-            async with ChatSession(user=req.user, session=req.session) as chat:
+            async with TeamChatSession(user=req.user, session=req.session) as chat:
                 try:
                     async for part in chat.chat_stream(req.prompt):
                         yield part
@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
         session: str = Form("default"),
         file: UploadFile = File(...),
     ):
-        async with ChatSession(user=user, session=session) as chat:
+        async with TeamChatSession(user=user, session=session) as chat:
             tmpdir = tempfile.mkdtemp(prefix="upload_")
             tmp_path = Path(tmpdir) / file.filename
             try:
