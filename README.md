@@ -9,9 +9,9 @@ conversations can be resumed with context. One example tool is included:
   with network access. Use it to read uploaded documents under ``/data``, fetch
   web content via tools like ``curl`` or run any other commands. The assistant
   must invoke this tool to search online when unsure about a response. Output
-  from ``stdout`` and ``stderr`` is captured when available. Commands are
-  launched in the background with no timeout so the assistant can continue
-  responding while they execute.
+  from ``stdout`` and ``stderr`` is captured when each command finishes.
+  Execution happens asynchronously so the assistant can continue responding
+  while the command runs.
   The VM is created when a chat session starts and reused for all subsequent
   tool calls.
 
