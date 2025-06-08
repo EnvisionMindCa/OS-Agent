@@ -1,13 +1,21 @@
 from __future__ import annotations
 
-__all__ = ["execute_terminal", "execute_terminal_async", "set_vm"]
+__all__ = [
+    "execute_terminal",
+    "execute_terminal_async",
+    "set_vm",
+    "send_agent_message",
+    "send_agent_message_async",
+]
 
 import subprocess
 import os
 from typing import Optional
 import asyncio
+import functools
 
 from .utils import limit_chars
+from .agent_comm import MessageRouter
 
 from .vm import LinuxVM
 
@@ -68,4 +76,52 @@ async def execute_terminal_async(command: str) -> str:
     """Asynchronously execute a shell command."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, execute_terminal, command)
+
+
+def send_agent_message(
+    to: str,
+    message: str,
+    urgency: str | None = None,
+    cc: str | None = None,
+    *,
+    from_agent: str,
+    user: str,
+) -> str:
+    """Send ``message`` from ``from_agent`` to another agent.
+
+    The message is queued for the receiving agent without interrupting its
+    current generation.
+    """
+
+    payload = {"from": from_agent, "to": to, "content": message}
+    if urgency:
+        payload["urgency"] = urgency
+    if cc:
+        payload["cc"] = cc
+    MessageRouter.send(user, to, payload)
+    return f"Message queued for {to}"
+
+
+async def send_agent_message_async(
+    to: str,
+    message: str,
+    urgency: str | None = None,
+    cc: str | None = None,
+    *,
+    from_agent: str,
+    user: str,
+) -> str:
+    """Async wrapper around :func:`send_agent_message`."""
+
+    loop = asyncio.get_running_loop()
+    func = functools.partial(
+        send_agent_message,
+        to,
+        message,
+        urgency,
+        cc,
+        from_agent=from_agent,
+        user=user,
+    )
+    return await loop.run_in_executor(None, func)
 

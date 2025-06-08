@@ -27,7 +27,14 @@ from .db import (
 )
 from .log import get_logger
 from .schema import Msg
-from .tools import execute_terminal, execute_terminal_async, set_vm
+from .tools import (
+    execute_terminal,
+    execute_terminal_async,
+    set_vm,
+    send_agent_message,
+    send_agent_message_async,
+)
+from .agent_comm import MessageRouter
 from .vm import VMRegistry
 
 
@@ -61,6 +68,9 @@ class ChatSession:
         session: str = "default",
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
+        *,
+        agent_name: str = "agent",
+        system_prompt: str = SYSTEM_PROMPT,
     ) -> None:
         init_db()
         self._client = AsyncClient(host=host)
@@ -73,6 +83,9 @@ class ChatSession:
         self._messages: List[Msg] = self._load_history()
         self._data = _get_session_data(self._conversation.id)
         self._lock = self._data.lock
+        self._agent_name = agent_name
+        self._system_prompt = system_prompt
+        self._incoming = MessageRouter.register(self._user.username, agent_name)
 
     # Shared state properties -------------------------------------------------
 
@@ -147,6 +160,20 @@ class ChatSession:
         return messages
 
     # ------------------------------------------------------------------
+
+    async def _flush_incoming(self) -> None:
+        """Inject queued inter-agent messages into the conversation."""
+
+        while not self._incoming.empty():
+            msg = await self._incoming.get()
+            content = json.dumps(msg)
+            self._messages.append({"role": "tool", "name": "agent_message", "content": content})
+            DBMessage.create(
+                conversation=self._conversation,
+                role="tool",
+                content=content,
+            )
+
     @staticmethod
     def _serialize_tool_calls(calls: List[Message.ToolCall]) -> str:
         """Convert tool calls to a JSON string for storage or output."""
@@ -190,7 +217,7 @@ class ChatSession:
         """Send a chat request, automatically prepending the system prompt."""
 
         if not messages or messages[0].get("role") != "system":
-            payload = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+            payload = [{"role": "system", "content": self._system_prompt}, *messages]
         else:
             payload = messages
 
@@ -198,7 +225,7 @@ class ChatSession:
             self._model,
             messages=payload,
             think=think,
-            tools=[execute_terminal],
+            tools=[execute_terminal, send_agent_message],
             options={"num_ctx": NUM_CTX},
         )
 
@@ -214,10 +241,11 @@ class ChatSession:
                 yield response
             async with self._lock:
                 self._state = "idle"
+            await self._flush_incoming()
             return
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
-                if call.function.name != "execute_terminal":
+                if call.function.name not in {"execute_terminal", "send_agent_message"}:
                     _LOG.warning("Unsupported tool call: %s", call.function.name)
                     result = f"Unsupported tool: {call.function.name}"
                     messages.append(
@@ -234,9 +262,18 @@ class ChatSession:
                     )
                     continue
 
-                exec_task = asyncio.create_task(
-                    execute_terminal_async(**call.function.arguments)
-                )
+                if call.function.name == "execute_terminal":
+                    exec_task = asyncio.create_task(
+                        execute_terminal_async(**call.function.arguments)
+                    )
+                else:
+                    exec_task = asyncio.create_task(
+                        send_agent_message_async(
+                            **call.function.arguments,
+                            from_agent=self._agent_name,
+                            user=self._user.username,
+                        )
+                    )
 
                 placeholder = {
                     "role": "tool",
@@ -316,6 +353,7 @@ class ChatSession:
 
         async with self._lock:
             self._state = "idle"
+        await self._flush_incoming()
 
 
     async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
@@ -328,6 +366,8 @@ class ChatSession:
                     yield part
                 return
             self._state = "generating"
+
+        await self._flush_incoming()
 
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
         self._messages.append({"role": "user", "content": prompt})
@@ -344,6 +384,8 @@ class ChatSession:
                 yield text
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
+        await self._flush_incoming()
+
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
         self._messages.append({"role": "user", "content": prompt})
 
