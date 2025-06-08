@@ -61,6 +61,9 @@ class ChatSession:
         session: str = "default",
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
+        *,
+        system_prompt: str = SYSTEM_PROMPT,
+        tools: list[callable] | None = None,
     ) -> None:
         init_db()
         self._client = AsyncClient(host=host)
@@ -70,6 +73,10 @@ class ChatSession:
             user=self._user, session_name=session
         )
         self._vm = None
+        self._system_prompt = system_prompt
+        self._tools = tools or [execute_terminal]
+        self._tool_funcs = {func.__name__: func for func in self._tools}
+        self._current_tool_name: str | None = None
         self._messages: List[Msg] = self._load_history()
         self._data = _get_session_data(self._conversation.id)
         self._lock = self._data.lock
@@ -190,7 +197,7 @@ class ChatSession:
         """Send a chat request, automatically prepending the system prompt."""
 
         if not messages or messages[0].get("role") != "system":
-            payload = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+            payload = [{"role": "system", "content": self._system_prompt}, *messages]
         else:
             payload = messages
 
@@ -198,9 +205,15 @@ class ChatSession:
             self._model,
             messages=payload,
             think=think,
-            tools=[execute_terminal],
+            tools=self._tools,
             options={"num_ctx": NUM_CTX},
         )
+
+    async def _run_tool_async(self, func, **kwargs) -> str:
+        if asyncio.iscoroutinefunction(func):
+            return await func(**kwargs)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: func(**kwargs))
 
     async def _handle_tool_calls_stream(
         self,
@@ -217,7 +230,8 @@ class ChatSession:
             return
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
-                if call.function.name != "execute_terminal":
+                func = self._tool_funcs.get(call.function.name)
+                if not func:
                     _LOG.warning("Unsupported tool call: %s", call.function.name)
                     result = f"Unsupported tool: {call.function.name}"
                     messages.append(
@@ -235,8 +249,10 @@ class ChatSession:
                     continue
 
                 exec_task = asyncio.create_task(
-                    execute_terminal_async(**call.function.arguments)
+                    self._run_tool_async(func, **call.function.arguments)
                 )
+
+                self._current_tool_name = call.function.name
 
                 placeholder = {
                     "role": "tool",
@@ -343,6 +359,23 @@ class ChatSession:
             if text:
                 yield text
 
+    async def continue_stream(self) -> AsyncIterator[str]:
+        async with self._lock:
+            if self._state != "idle":
+                return
+            self._state = "generating"
+
+        response = await self.ask(self._messages)
+        self._messages.append(response.message.model_dump())
+        self._store_assistant_message(self._conversation, response.message)
+
+        async for resp in self._handle_tool_calls_stream(
+            self._messages, response, self._conversation
+        ):
+            text = self._format_output(resp.message)
+            if text:
+                yield text
+
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
         self._messages.append({"role": "user", "content": prompt})
@@ -364,8 +397,10 @@ class ChatSession:
             self._remove_tool_placeholder(self._messages)
             result = await exec_task
             self._tool_task = None
+            name = self._current_tool_name or "tool"
+            self._current_tool_name = None
             self._messages.append(
-                {"role": "tool", "name": "execute_terminal", "content": result}
+                {"role": "tool", "name": name, "content": result}
             )
             DBMessage.create(
                 conversation=self._conversation, role="tool", content=result
@@ -396,8 +431,10 @@ class ChatSession:
             result = await exec_task
             self._tool_task = None
             self._remove_tool_placeholder(self._messages)
+            name = self._current_tool_name or "tool"
+            self._current_tool_name = None
             self._messages.append(
-                {"role": "tool", "name": "execute_terminal", "content": result}
+                {"role": "tool", "name": name, "content": result}
             )
             DBMessage.create(
                 conversation=self._conversation, role="tool", content=result
