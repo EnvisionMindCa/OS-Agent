@@ -224,6 +224,11 @@ class ChatSession:
                 exec_task = asyncio.create_task(
                     execute_terminal_async(**call.function.arguments)
                 )
+
+                placeholder = {"role": "assistant", "content": "Awaiting tool response..."}
+                messages.append(placeholder)
+                yield ChatResponse(message=Message(**placeholder))
+
                 follow_task = asyncio.create_task(self.ask(messages, think=True))
 
                 async with self._lock:
@@ -241,6 +246,7 @@ class ChatSession:
                         await follow_task
                     except asyncio.CancelledError:
                         pass
+                    messages.pop()  # remove placeholder
                     result = await exec_task
                     messages.append(
                         {
