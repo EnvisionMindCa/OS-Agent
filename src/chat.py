@@ -294,33 +294,6 @@ class ChatSession:
         async with self._lock:
             self._state = "idle"
 
-    async def _handle_tool_calls(
-        self,
-        messages: List[Msg],
-        response: ChatResponse,
-        conversation: Conversation,
-        depth: int = 0,
-    ) -> ChatResponse:
-        final = response
-        gen = self._handle_tool_calls_stream(messages, response, conversation, depth)
-        async for final in gen:
-            pass
-        return final
-
-    async def chat(self, prompt: str) -> str:
-        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
-        self._messages.append({"role": "user", "content": prompt})
-
-        response = await self.ask(self._messages)
-        self._messages.append(response.message.model_dump())
-        self._store_assistant_message(self._conversation, response.message)
-
-        _LOG.info("Thinking:\n%s", response.message.thinking or "<no thinking trace>")
-
-        final_resp = await self._handle_tool_calls(
-            self._messages, response, self._conversation
-        )
-        return self._format_output(final_resp.message)
 
     async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
         async with self._lock:
