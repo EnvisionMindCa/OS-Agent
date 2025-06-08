@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Final
+from dotenv import load_dotenv
+load_dotenv()
 
 MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3")
 OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MAX_TOOL_CALL_DEPTH: Final[int] = 15
-NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32000"))
+NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32768"))
 UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
 VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "python:3.11")
 PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
