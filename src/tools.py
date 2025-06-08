@@ -27,29 +27,33 @@ def execute_terminal(command: str) -> str:
     The assistant must call this tool to search the internet whenever unsure
     about any detail.
 
-    The command is executed with network access enabled. It runs in the
-    background without a timeout so the assistant can continue responding
-    while the command executes.
+    The command is executed with network access enabled. Output from
+    ``stdout`` and ``stderr`` is captured when the command completes.
+    Execution happens asynchronously so the assistant can continue
+    responding while the command runs.
     """
     if not command:
         return "No command provided."
 
     if _VM:
         try:
-            return _VM.execute(command, detach=True)
+            return _VM.execute(command, timeout=None)
         except Exception as exc:  # pragma: no cover - unforeseen errors
             return f"Failed to execute command in VM: {exc}"
 
     try:
-        subprocess.Popen(
+        completed = subprocess.run(
             command,
             shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
+            capture_output=True,
+            text=True,
             env=os.environ.copy(),
+            timeout=None,
         )
-        return "Command started in background."
+        output = completed.stdout
+        if completed.stderr:
+            output = f"{output}\n{completed.stderr}" if output else completed.stderr
+        return output.strip()
     except Exception as exc:  # pragma: no cover - unforeseen errors
         return f"Failed to execute command: {exc}"
 
