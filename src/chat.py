@@ -146,12 +146,27 @@ class ChatSession:
                 messages.append({"role": "tool", "content": msg.content})
         return messages
 
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _serialize_tool_calls(calls: List[Message.ToolCall]) -> str:
+        """Convert tool calls to a JSON string for storage or output."""
+
+        return json.dumps([c.model_dump() for c in calls])
+
+    @staticmethod
+    def _format_output(message: Message) -> str:
+        """Return tool calls as JSON or message content if present."""
+
+        if message.tool_calls:
+            return ChatSession._serialize_tool_calls(message.tool_calls)
+        return message.content or ""
+
     @staticmethod
     def _store_assistant_message(conversation: Conversation, message: Message) -> None:
         """Persist assistant messages, storing tool calls when present."""
 
         if message.tool_calls:
-            content = json.dumps([c.model_dump() for c in message.tool_calls])
+            content = ChatSession._serialize_tool_calls(message.tool_calls)
         else:
             content = message.content or ""
 
@@ -304,7 +319,7 @@ class ChatSession:
         final_resp = await self._handle_tool_calls(
             self._messages, response, self._conversation
         )
-        return final_resp.message.content
+        return self._format_output(final_resp.message)
 
     async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
         async with self._lock:
@@ -329,10 +344,9 @@ class ChatSession:
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            if resp.message.tool_calls:
-                continue
-            if resp.message.content:
-                yield resp.message.content
+            text = self._format_output(resp.message)
+            if text:
+                yield text
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
@@ -365,23 +379,24 @@ class ChatSession:
             nxt = await self.ask(self._messages, think=True)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            if not nxt.message.tool_calls and nxt.message.content:
-                yield nxt.message.content
+            text = self._format_output(nxt.message)
+            if text:
+                yield text
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                if part.message.tool_calls:
-                    continue
-                if part.message.content:
-                    yield part.message.content
+                text = self._format_output(part.message)
+                if text:
+                    yield text
         else:
             resp = await user_task
             self._store_assistant_message(self._conversation, resp.message)
             self._messages.append(resp.message.model_dump())
             async with self._lock:
                 self._state = "awaiting_tool"
-            if not resp.message.tool_calls and resp.message.content:
-                yield resp.message.content
+            text = self._format_output(resp.message)
+            if text:
+                yield text
             result = await exec_task
             self._tool_task = None
             self._messages.append(
@@ -395,12 +410,12 @@ class ChatSession:
             nxt = await self.ask(self._messages, think=True)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            if not nxt.message.tool_calls and nxt.message.content:
-                yield nxt.message.content
+            text = self._format_output(nxt.message)
+            if text:
+                yield text
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                if part.message.tool_calls:
-                    continue
-                if part.message.content:
-                    yield part.message.content
+                text = self._format_output(part.message)
+                if text:
+                    yield text
