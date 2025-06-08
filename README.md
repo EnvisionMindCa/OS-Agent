@@ -134,6 +134,7 @@ uvicorn src.api:app --host 0.0.0.0 --port 8000
 
 - ``POST /chat/stream`` – Stream the assistant's response as plain text.
 - ``POST /upload`` – Upload a document so it can be referenced in chats.
+- ``GET /sessions/{user}`` – List available session names for ``user``.
 
 Example request:
 
@@ -142,3 +143,16 @@ curl -N -X POST http://localhost:8000/chat/stream \
      -H 'Content-Type: application/json' \
      -d '{"user":"demo","session":"default","prompt":"Hello"}'
 ```
+
+## CLI
+
+An interactive command line interface is provided for Windows and other
+platforms. Install the dependencies and run:
+
+```bash
+python -m src.cli --user yourname
+```
+
+The tool lists your existing chat sessions and lets you select one or create a
+new session. Type messages and the assistant's streamed replies will appear
+immediately. Enter ``exit`` or press ``Ctrl+D`` to quit.

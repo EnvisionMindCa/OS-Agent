@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .chat import ChatSession
 from .log import get_logger
+from .db import list_sessions
 
 
 _LOG = get_logger(__name__)
@@ -57,6 +58,10 @@ def create_app() -> FastAPI:
                 except OSError:
                     pass
         return {"path": vm_path}
+
+    @app.get("/sessions/{user}")
+    async def list_user_sessions(user: str):
+        return {"sessions": list_sessions(user)}
 
     @app.get("/health")
     async def health():

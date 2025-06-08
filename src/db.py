@@ -61,6 +61,7 @@ __all__ = [
     "Message",
     "Document",
     "reset_history",
+    "list_sessions",
     "add_document",
 ]
 
@@ -98,3 +99,14 @@ def add_document(username: str, file_path: str, original_name: str) -> Document:
     user, _ = User.get_or_create(username=username)
     doc = Document.create(user=user, file_path=file_path, original_name=original_name)
     return doc
+
+
+def list_sessions(username: str) -> list[str]:
+    """Return all session names for the given ``username``."""
+
+    init_db()
+    try:
+        user = User.get(User.username == username)
+    except User.DoesNotExist:
+        return []
+    return [c.session_name for c in Conversation.select().where(Conversation.user == user)]
