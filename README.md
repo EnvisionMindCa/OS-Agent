@@ -30,9 +30,10 @@ verify results before replying. When the assistant is uncertain, it is directed
 to search the internet with ``execute_terminal`` before giving a final answer.
 The prompt is **not** stored in the chat history but is provided at runtime so
 the assistant can orchestrate tool calls in sequence to fulfil the user's
-request reliably. If a user message ends with ``/think`` it simply selects an
-internal reasoning mode and should be stripped from the prompt before
-processing.
+request reliably. It also directs the assistant to avoid technical jargon so
+responses are easy for anyone to understand. If a user message ends with
+``/think`` it simply selects an internal reasoning mode and should be stripped
+from the prompt before processing.
 
 ## Usage
 
