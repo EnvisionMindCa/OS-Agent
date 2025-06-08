@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from src.chat import ChatSession
+from src.vm import VMRegistry
 
 
 async def _main() -> None:
@@ -24,3 +25,5 @@ if __name__ == "__main__":
         asyncio.run(_main())
     except KeyboardInterrupt:
         pass
+    finally:
+        VMRegistry.shutdown_all()
