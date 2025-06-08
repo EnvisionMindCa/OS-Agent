@@ -7,6 +7,8 @@ import os
 from typing import Optional
 import asyncio
 
+from .utils import limit_chars
+
 from .vm import LinuxVM
 
 _VM: Optional[LinuxVM] = None
@@ -37,7 +39,8 @@ def execute_terminal(command: str) -> str:
 
     if _VM:
         try:
-            return _VM.execute(command, timeout=None)
+            output = _VM.execute(command, timeout=None)
+            return limit_chars(output)
         except Exception as exc:  # pragma: no cover - unforeseen errors
             return f"Failed to execute command in VM: {exc}"
 
@@ -53,7 +56,7 @@ def execute_terminal(command: str) -> str:
         output = completed.stdout
         if completed.stderr:
             output = f"{output}\n{completed.stderr}" if output else completed.stderr
-        return output.strip()
+        return limit_chars(output)
     except Exception as exc:  # pragma: no cover - unforeseen errors
         return f"Failed to execute command: {exc}"
 
@@ -62,3 +65,4 @@ async def execute_terminal_async(command: str) -> str:
     """Asynchronously execute a shell command."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, execute_terminal, command)
+

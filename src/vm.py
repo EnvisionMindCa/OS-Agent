@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import Lock
 
 from .config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
+from .utils import limit_chars
 
 from .log import get_logger
 
@@ -147,7 +148,7 @@ class LinuxVM:
         output = completed.stdout
         if completed.stderr:
             output = f"{output}\n{completed.stderr}" if output else completed.stderr
-        return output.strip()
+        return limit_chars(output)
 
     async def execute_async(
         self, command: str, *, timeout: int | None = 3, detach: bool = False

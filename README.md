@@ -10,6 +10,8 @@ conversations can be resumed with context. One example tool is included:
   web content via tools like ``curl`` or run any other commands. The assistant
   must invoke this tool to search online when unsure about a response. Output
   from ``stdout`` and ``stderr`` is captured when each command finishes.
+  The output string is capped at the last 10,000 characters so very long
+  results are truncated. A short notice is prepended whenever data is hidden.
   Execution happens asynchronously so the assistant can continue responding
   while the command runs.
   The VM is created when a chat session starts and reused for all subsequent
