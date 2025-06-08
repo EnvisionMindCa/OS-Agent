@@ -5,6 +5,8 @@ from contextlib import AsyncExitStack
 
 from .chat import ChatSession
 from .config import AGENT_PROMPTS
+from .history import load_history
+from .schema import Msg
 
 
 class TeamChatSession:
@@ -34,6 +36,14 @@ class TeamChatSession:
         if self._stack:
             await self._stack.aclose()
             self._stack = None
+
+    def get_history(self, agent: str) -> list[Msg]:
+        """Return the chat history for ``agent`` from the database."""
+
+        session = self._agents.get(agent)
+        if not session:
+            raise KeyError(agent)
+        return load_history(session._conversation)
 
     async def chat_stream(self, prompt: str):
         """Send ``prompt`` to the planner agent and stream its reply."""
