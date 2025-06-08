@@ -14,10 +14,10 @@ conversations can be resumed with context. One example tool is included:
   while the command runs.
   The VM is created when a chat session starts and reused for all subsequent
   tool calls. When ``PERSIST_VMS`` is enabled (default), each user keeps the
-  same container across multiple chat sessions so any installed packages and
-  filesystem changes remain available. The environment includes Python and
-  ``pip`` so complex tasks can be scripted using Python directly inside the
-  terminal.
+  same container across multiple chat sessions and across application restarts,
+  so any installed packages and filesystem changes remain available. The
+  environment includes Python and ``pip`` so complex tasks can be scripted using
+  Python directly inside the terminal.
 
 Sessions share state through an in-memory registry so that only one generation
 can run at a time. Messages sent while a response is being produced are
@@ -80,6 +80,11 @@ back to ``python:3.11-slim``. This base image includes Python and ``pip`` so
 packages can be installed immediately. The container has network access enabled
 which allows fetching additional dependencies as needed.
 
+When ``PERSIST_VMS`` is ``1`` (default), containers are kept around and reused
+across application restarts. Each user is assigned a stable container name, so
+packages installed or files created inside the VM remain available the next
+time the application starts. Set ``VM_STATE_DIR`` to specify the host directory
+used for per-user persistent storage mounted inside the VM at ``/state``.
 Set ``PERSIST_VMS=0`` to revert to the previous behaviour where containers are
 stopped once no sessions are using them.
 
