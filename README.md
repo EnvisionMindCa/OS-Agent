@@ -174,7 +174,12 @@ The resulting ``llm-chat.exe`` can be used on Windows 10/11.
 
 Each user session now spawns a team of four specialised agents: planner, researcher, developer and reviewer. Agents communicate asynchronously through the ``send_agent_message`` tool. Messages are queued so an agent's response generation is never interrupted.
 
-Use ``TeamChatSession`` to coordinate the group. Each agent keeps a separate conversation history which can be retrieved at any time with ``team.get_history(agent_name)``.
+Use ``TeamChatSession`` to coordinate the group. Each agent keeps a separate
+conversation history which can be retrieved at any time with
+``team.get_history(agent_name)``. When ``team.chat_stream`` is called the prompt
+flows through all four agents—planner, researcher, developer and reviewer—in
+sequence. They share notes internally via ``send_agent_message`` and only the
+reviewer's final answer is streamed back to the user.
 
 Tools available to the model:
 

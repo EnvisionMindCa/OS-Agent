@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Final
 from dotenv import load_dotenv
+from textwrap import dedent
+
 load_dotenv()
 
 MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3")
@@ -16,8 +18,6 @@ PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
 VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
 )
-
-from textwrap import dedent
 
 SYSTEM_PROMPT: Final[str] = dedent(
     """
