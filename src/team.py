@@ -29,7 +29,7 @@ async def send_to_junior(message: str) -> str:
     if _TEAM is None:
         return "No active team"
 
-    return await _TEAM.queue_message_to_junior(message)
+    return await _TEAM.queue_message_to_junior(message, enqueue=False)
 
 
 # Backwards compatibility ---------------------------------------------------
@@ -45,7 +45,7 @@ class TeamChatSession:
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
     ) -> None:
-        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str]]] = asyncio.Queue()
+        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = asyncio.Queue()
         self._to_senior: asyncio.Queue[str] = asyncio.Queue()
         self._junior_task: asyncio.Task | None = None
         self.senior = ChatSession(
@@ -79,12 +79,14 @@ class TeamChatSession:
     def upload_document(self, file_path: str) -> str:
         return self.senior.upload_document(file_path)
 
-    async def queue_message_to_junior(self, message: str) -> str:
+    async def queue_message_to_junior(
+        self, message: str, *, enqueue: bool = True
+    ) -> str:
         """Send ``message`` to the junior agent and wait for the reply."""
 
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[str] = loop.create_future()
-        await self._to_junior.put((message, fut))
+        await self._to_junior.put((message, fut, enqueue))
         if not self._junior_task or self._junior_task.done():
             self._junior_task = asyncio.create_task(self._process_junior())
         return await fut
@@ -92,7 +94,7 @@ class TeamChatSession:
     async def _process_junior(self) -> None:
         try:
             while not self._to_junior.empty():
-                msg, fut = await self._to_junior.get()
+                msg, fut, enqueue = await self._to_junior.get()
                 self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
                 DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
                 parts: list[str] = []
@@ -100,7 +102,7 @@ class TeamChatSession:
                     if part:
                         parts.append(part)
                 result = "\n".join(parts)
-                if result.strip():
+                if enqueue and result.strip():
                     await self._to_senior.put(result)
                 if not fut.done():
                     fut.set_result(result)

@@ -240,13 +240,10 @@ class ChatSession:
                 if not func:
                     _LOG.warning("Unsupported tool call: %s", call.function.name)
                     result = f"Unsupported tool: {call.function.name}"
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "name": call.function.name,
-                            "content": result,
-                        }
+                    name = (
+                        "junior" if call.function.name == "send_to_junior" else call.function.name
                     )
+                    messages.append({"role": "tool", "name": name, "content": result})
                     DBMessage.create(
                         conversation=conversation,
                         role="tool",
@@ -262,7 +259,7 @@ class ChatSession:
 
                 placeholder = {
                     "role": "tool",
-                    "name": call.function.name,
+                    "name": "junior" if call.function.name == "send_to_junior" else call.function.name,
                     "content": "Awaiting tool response...",
                 }
                 messages.append(placeholder)
@@ -286,13 +283,10 @@ class ChatSession:
                         pass
                     self._remove_tool_placeholder(messages)
                     result = await exec_task
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "name": call.function.name,
-                            "content": result,
-                        }
+                    name = (
+                        "junior" if call.function.name == "send_to_junior" else call.function.name
                     )
+                    messages.append({"role": "tool", "name": name, "content": result})
                     DBMessage.create(
                         conversation=conversation,
                         role="tool",
@@ -313,13 +307,10 @@ class ChatSession:
                     yield followup
                     result = await exec_task
                     self._remove_tool_placeholder(messages)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "name": call.function.name,
-                            "content": result,
-                        }
+                    name = (
+                        "junior" if call.function.name == "send_to_junior" else call.function.name
                     )
+                    messages.append({"role": "tool", "name": name, "content": result})
                     DBMessage.create(
                         conversation=conversation,
                         role="tool",
