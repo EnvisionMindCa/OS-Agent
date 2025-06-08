@@ -1,4 +1,0 @@
-This is a test file.
-Blah blah blah.
-Hello, world!
-Python is awesome!
