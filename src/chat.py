@@ -162,6 +162,19 @@ class ChatSession:
         return message.content or ""
 
     @staticmethod
+    def _remove_tool_placeholder(messages: List[Msg]) -> None:
+        """Remove the pending placeholder tool message if present."""
+
+        for i in range(len(messages) - 1, -1, -1):
+            msg = messages[i]
+            if (
+                msg.get("role") == "tool"
+                and msg.get("content") == "Awaiting tool response..."
+            ):
+                messages.pop(i)
+                break
+
+    @staticmethod
     def _store_assistant_message(conversation: Conversation, message: Message) -> None:
         """Persist assistant messages, storing tool calls when present."""
 
@@ -225,9 +238,12 @@ class ChatSession:
                     execute_terminal_async(**call.function.arguments)
                 )
 
-                placeholder = {"role": "assistant", "content": "Awaiting tool response..."}
+                placeholder = {
+                    "role": "tool",
+                    "name": call.function.name,
+                    "content": "Awaiting tool response...",
+                }
                 messages.append(placeholder)
-                yield ChatResponse(message=Message(**placeholder))
 
                 follow_task = asyncio.create_task(self.ask(messages, think=True))
 
@@ -246,7 +262,7 @@ class ChatSession:
                         await follow_task
                     except asyncio.CancelledError:
                         pass
-                    messages.pop()  # remove placeholder
+                    self._remove_tool_placeholder(messages)
                     result = await exec_task
                     messages.append(
                         {
@@ -274,6 +290,7 @@ class ChatSession:
                     messages.append(followup.message.model_dump())
                     yield followup
                     result = await exec_task
+                    self._remove_tool_placeholder(messages)
                     messages.append(
                         {
                             "role": "tool",
@@ -344,6 +361,7 @@ class ChatSession:
                 await user_task
             except asyncio.CancelledError:
                 pass
+            self._remove_tool_placeholder(self._messages)
             result = await exec_task
             self._tool_task = None
             self._messages.append(
@@ -377,6 +395,7 @@ class ChatSession:
                 yield text
             result = await exec_task
             self._tool_task = None
+            self._remove_tool_placeholder(self._messages)
             self._messages.append(
                 {"role": "tool", "name": "execute_terminal", "content": result}
             )

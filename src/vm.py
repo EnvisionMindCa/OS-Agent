@@ -3,7 +3,6 @@ from __future__ import annotations
 import subprocess
 import asyncio
 from functools import partial
-import uuid
 from pathlib import Path
 
 from threading import Lock
