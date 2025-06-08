@@ -24,13 +24,12 @@ def set_team(team: "TeamChatSession" | None) -> None:
 
 
 async def send_to_junior(message: str) -> str:
-    """Forward ``message`` to the junior agent and return a status string."""
+    """Forward ``message`` to the junior agent and await the response."""
 
     if _TEAM is None:
         return "No active team"
 
-    _TEAM.queue_message_to_junior(message)
-    return "Message sent to junior"
+    return await _TEAM.queue_message_to_junior(message)
 
 
 # Backwards compatibility ---------------------------------------------------
@@ -46,7 +45,7 @@ class TeamChatSession:
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
     ) -> None:
-        self._to_junior: asyncio.Queue[str] = asyncio.Queue()
+        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str]]] = asyncio.Queue()
         self._to_senior: asyncio.Queue[str] = asyncio.Queue()
         self._junior_task: asyncio.Task | None = None
         self.senior = ChatSession(
@@ -80,15 +79,20 @@ class TeamChatSession:
     def upload_document(self, file_path: str) -> str:
         return self.senior.upload_document(file_path)
 
-    def queue_message_to_junior(self, message: str) -> None:
-        self._to_junior.put_nowait(message)
+    async def queue_message_to_junior(self, message: str) -> str:
+        """Send ``message`` to the junior agent and wait for the reply."""
+
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[str] = loop.create_future()
+        await self._to_junior.put((message, fut))
         if not self._junior_task or self._junior_task.done():
             self._junior_task = asyncio.create_task(self._process_junior())
+        return await fut
 
     async def _process_junior(self) -> None:
         try:
             while not self._to_junior.empty():
-                msg = await self._to_junior.get()
+                msg, fut = await self._to_junior.get()
                 self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
                 DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
                 parts: list[str] = []
@@ -98,6 +102,8 @@ class TeamChatSession:
                 result = "\n".join(parts)
                 if result.strip():
                     await self._to_senior.put(result)
+                if not fut.done():
+                    fut.set_result(result)
 
             if self.senior._state == "idle":
                 await self._deliver_junior_messages()
