@@ -69,7 +69,7 @@ DISCORD_TOKEN="your-token"
 Then start the bot:
 
 ```bash
-python -m bot.discord_bot
+python -m bot
 ```
 
 Any attachments sent to the bot are uploaded to the VM and the bot replies with
