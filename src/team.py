@@ -23,15 +23,19 @@ def set_team(team: "TeamChatSession" | None) -> None:
     _TEAM = team
 
 
-def send_to_junior(message: str) -> str:
+async def send_to_junior(message: str) -> str:
+    """Forward ``message`` to the junior agent and return a status string."""
+
     if _TEAM is None:
         return "No active team"
+
     _TEAM.queue_message_to_junior(message)
     return "Message sent to junior"
 
 
-async def send_to_junior_async(message: str) -> str:
-    return send_to_junior(message)
+# Backwards compatibility ---------------------------------------------------
+
+send_to_junior_async = send_to_junior
 
 
 class TeamChatSession:
