@@ -45,13 +45,40 @@ class TeamChatSession:
             raise KeyError(agent)
         return load_history(session._conversation)
 
+    async def _collect(self, stream) -> str:
+        """Return the concatenated text from an async iterator."""
+
+        parts: list[str] = []
+        async for chunk in stream:
+            parts.append(chunk)
+        return "".join(parts).strip()
+
     async def chat_stream(self, prompt: str):
-        """Send ``prompt`` to the planner agent and stream its reply."""
+        """Coordinate all agents and stream a single final reply."""
+
         planner = self._agents["planner"]
-        async for part in planner.chat_stream(prompt):
-            yield part
-        # Allow other agents to process queued messages in the background
-        for name, agent in self._agents.items():
-            if name == "planner":
-                continue
+        plan = await self._collect(planner.chat_stream(prompt))
+
+        researcher = self._agents["researcher"]
+        research_prompt = (
+            f"Planner notes:\n{plan}\n\nGather any information needed to complete the task."
+        )
+        research = await self._collect(researcher.chat_stream(research_prompt))
+
+        developer = self._agents["developer"]
+        dev_prompt = (
+            f"Planner notes:\n{plan}\n\nResearch summary:\n{research}\n\nProvide code or steps required to fulfil the request."
+        )
+        dev_notes = await self._collect(developer.chat_stream(dev_prompt))
+
+        reviewer = self._agents["reviewer"]
+        review_prompt = (
+            "Craft the final response for the user using the following inputs:\n"
+            f"Planner notes:\n{plan}\n\nResearch summary:\n{research}\n\nDeveloper notes:\n{dev_notes}"
+        )
+        final_answer = await self._collect(reviewer.chat_stream(review_prompt))
+
+        for agent in self._agents.values():
             await agent._flush_incoming()
+
+        yield final_answer
