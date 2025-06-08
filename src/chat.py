@@ -80,6 +80,10 @@ class ChatSession:
         self._messages: List[Msg] = self._load_history()
         self._data = _get_session_data(self._conversation.id)
         self._lock = self._data.lock
+        self._prompt_queue: asyncio.Queue[
+            tuple[str, asyncio.Queue[str | None]]
+        ] = asyncio.Queue()
+        self._worker: asyncio.Task | None = None
 
     # Shared state properties -------------------------------------------------
 
@@ -191,7 +195,9 @@ class ChatSession:
             content = message.content or ""
 
         if content.strip():
-            DBMessage.create(conversation=conversation, role="assistant", content=content)
+            DBMessage.create(
+                conversation=conversation, role="assistant", content=content
+            )
 
     async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
         """Send a chat request, automatically prepending the system prompt."""
@@ -333,12 +339,8 @@ class ChatSession:
         async with self._lock:
             self._state = "idle"
 
-
-    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def _generate_stream(self, prompt: str) -> AsyncIterator[str]:
         async with self._lock:
-            if self._state == "generating":
-                _LOG.info("Ignoring message while generating")
-                return
             if self._state == "awaiting_tool" and self._tool_task:
                 async for part in self._chat_during_tool(prompt):
                     yield part
@@ -358,6 +360,33 @@ class ChatSession:
             text = self._format_output(resp.message)
             if text:
                 yield text
+
+    async def _process_prompt_queue(self) -> None:
+        try:
+            while not self._prompt_queue.empty():
+                prompt, result_q = await self._prompt_queue.get()
+                try:
+                    async for part in self._generate_stream(prompt):
+                        await result_q.put(part)
+                except Exception as exc:  # pragma: no cover - unforeseen errors
+                    _LOG.exception("Error processing prompt: %s", exc)
+                    await result_q.put(f"Error: {exc}")
+                finally:
+                    await result_q.put(None)
+        finally:
+            self._worker = None
+
+    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+        result_q: asyncio.Queue[str | None] = asyncio.Queue()
+        await self._prompt_queue.put((prompt, result_q))
+        if not self._worker or self._worker.done():
+            self._worker = asyncio.create_task(self._process_prompt_queue())
+
+        while True:
+            part = await result_q.get()
+            if part is None:
+                break
+            yield part
 
     async def continue_stream(self) -> AsyncIterator[str]:
         async with self._lock:
@@ -399,9 +428,7 @@ class ChatSession:
             self._tool_task = None
             name = self._current_tool_name or "tool"
             self._current_tool_name = None
-            self._messages.append(
-                {"role": "tool", "name": name, "content": result}
-            )
+            self._messages.append({"role": "tool", "name": name, "content": result})
             DBMessage.create(
                 conversation=self._conversation, role="tool", content=result
             )
@@ -433,9 +460,7 @@ class ChatSession:
             self._remove_tool_placeholder(self._messages)
             name = self._current_tool_name or "tool"
             self._current_tool_name = None
-            self._messages.append(
-                {"role": "tool", "name": name, "content": result}
-            )
+            self._messages.append({"role": "tool", "name": name, "content": result})
             DBMessage.create(
                 conversation=self._conversation, role="tool", content=result
             )
