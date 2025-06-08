@@ -124,10 +124,12 @@ more like a standard Ubuntu installation.
 
 ## REST API
 
-Start the API server using ``uvicorn``:
+Start the API server as a module or with ``uvicorn``:
 
 ```bash
-uvicorn src.api:app --host 0.0.0.0 --port 8000
+python -m api_app
+# or
+uvicorn api_app:app --host 0.0.0.0 --port 8000
 ```
 
 ### Endpoints
