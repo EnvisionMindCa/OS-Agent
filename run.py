@@ -9,7 +9,7 @@ from src.vm import VMRegistry
 async def _main() -> None:
     async with TeamChatSession(user="demo_user", session="demo_session") as chat:
         # doc_path = chat.upload_document("note.pdf")
-        async for resp in chat.chat_stream("using python, execute a code to remind me in 30 seconds to take a break."):
+        async for resp in chat.chat_stream("ask how junior agent is doing"):
             print("\n>>>", resp)
 
 
