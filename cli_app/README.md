@@ -22,10 +22,10 @@ python -m cli_app --user yourname
 2. Build the app:
 
    ```bash
-   pyinstaller --onefile -n llm-chat cli_app/main.py
+   pyinstaller --onefile -n StarletteAI cli_app/main.py
    ```
 
-   The resulting `llm-chat.exe` will appear in the `dist` directory.
+   The resulting `StarletteAI.exe` will appear in the `dist` directory.
 
 The executable can be distributed on Windows 10/11 systems without requiring a
 Python installation.
