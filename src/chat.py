@@ -313,8 +313,6 @@ class ChatSession:
         self._messages.append(response.message.model_dump())
         self._store_assistant_message(self._conversation, response.message)
 
-        _LOG.info("Thinking:\n%s", response.message.thinking or "<no thinking trace>")
-
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
