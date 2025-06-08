@@ -62,6 +62,7 @@ __all__ = [
     "Document",
     "reset_history",
     "list_sessions",
+    "list_sessions_info",
     "add_document",
 ]
 
@@ -110,3 +111,25 @@ def list_sessions(username: str) -> list[str]:
     except User.DoesNotExist:
         return []
     return [c.session_name for c in Conversation.select().where(Conversation.user == user)]
+
+
+def list_sessions_info(username: str) -> list[dict[str, str]]:
+    """Return session names and a snippet of the last message for ``username``."""
+
+    init_db()
+    try:
+        user = User.get(User.username == username)
+    except User.DoesNotExist:
+        return []
+
+    sessions = []
+    for conv in Conversation.select().where(Conversation.user == user):
+        last_msg = (
+            Message.select()
+            .where(Message.conversation == conv)
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+        snippet = (last_msg.content[:50] + "…") if last_msg else ""
+        sessions.append({"name": conv.session_name, "last_message": snippet})
+    return sessions
