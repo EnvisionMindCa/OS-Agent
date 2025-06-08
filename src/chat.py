@@ -170,7 +170,8 @@ class ChatSession:
         else:
             content = message.content or ""
 
-        DBMessage.create(conversation=conversation, role="assistant", content=content)
+        if content.strip():
+            DBMessage.create(conversation=conversation, role="assistant", content=content)
 
     async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
         """Send a chat request, automatically prepending the system prompt."""
