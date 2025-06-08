@@ -36,4 +36,4 @@ SYSTEM_PROMPT: Final[str] = (
     "minimize the steps the user must perform. When replying, avoid technical "
     "jargon entirely. Speak in plain language that anyone can understand, "
     "explaining concepts as simply as possible."
-)
+).strip()
