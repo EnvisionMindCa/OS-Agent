@@ -174,6 +174,8 @@ The resulting ``llm-chat.exe`` can be used on Windows 10/11.
 
 Each user session now spawns a team of four specialised agents: planner, researcher, developer and reviewer. Agents communicate asynchronously through the ``send_agent_message`` tool. Messages are queued so an agent's response generation is never interrupted.
 
+Use ``TeamChatSession`` to coordinate the group. Each agent keeps a separate conversation history which can be retrieved at any time with ``team.get_history(agent_name)``.
+
 Tools available to the model:
 
 - ``execute_terminal`` – run shell commands inside the shared VM.

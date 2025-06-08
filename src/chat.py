@@ -25,6 +25,7 @@ from .db import (
     init_db,
     add_document,
 )
+from .history import load_history
 from .log import get_logger
 from .schema import Msg
 from .tools import (
@@ -80,7 +81,7 @@ class ChatSession:
             user=self._user, session_name=session
         )
         self._vm = None
-        self._messages: List[Msg] = self._load_history()
+        self._messages: List[Msg] = load_history(self._conversation)
         self._data = _get_session_data(self._conversation.id)
         self._lock = self._data.lock
         self._agent_name = agent_name
@@ -117,6 +118,12 @@ class ChatSession:
         if not _db.is_closed():
             _db.close()
 
+    @property
+    def history(self) -> List[Msg]:
+        """Return the in-memory chat history."""
+
+        return list(self._messages)
+
     def upload_document(self, file_path: str) -> str:
         """Save a document for later access inside the VM.
 
@@ -134,30 +141,6 @@ class ChatSession:
         shutil.copy(src, target)
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
-
-    def _load_history(self) -> List[Msg]:
-        messages: List[Msg] = []
-        for msg in self._conversation.messages.order_by(DBMessage.created_at):
-            if msg.role == "system":
-                # Skip persisted system prompts from older versions
-                continue
-            if msg.role == "assistant":
-                try:
-                    calls = json.loads(msg.content)
-                except json.JSONDecodeError:
-                    messages.append({"role": "assistant", "content": msg.content})
-                else:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "tool_calls": [Message.ToolCall(**c) for c in calls],
-                        }
-                    )
-            elif msg.role == "user":
-                messages.append({"role": "user", "content": msg.content})
-            else:
-                messages.append({"role": "tool", "content": msg.content})
-        return messages
 
     # ------------------------------------------------------------------
 
