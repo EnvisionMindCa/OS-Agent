@@ -67,24 +67,45 @@ class LinuxVM:
             _LOG.error("Failed to start VM: %s", exc)
             raise RuntimeError(f"Failed to start VM: {exc}") from exc
 
-    def execute(self, command: str, *, timeout: int = 3) -> str:
-        """Execute a command inside the running VM."""
+    def execute(
+        self, command: str, *, timeout: int = 3, detach: bool = False
+    ) -> str:
+        """Execute a command inside the running VM.
+
+        Parameters
+        ----------
+        command:
+            The shell command to run inside the container.
+        timeout:
+            Maximum time in seconds to wait for completion. Ignored when
+            ``detach`` is ``True``.
+        detach:
+            Run the command in the background without waiting for it to finish.
+        """
         if not self._running:
             raise RuntimeError("VM is not running")
 
+        cmd = [
+            "docker",
+            "exec",
+        ]
+        if detach:
+            cmd.append("-d")
+        cmd.extend(
+            [
+                self._name,
+                "bash",
+                "-lc",
+                command,
+            ]
+        )
+
         try:
             completed = subprocess.run(
-                [
-                    "docker",
-                    "exec",
-                    self._name,
-                    "bash",
-                    "-lc",
-                    command,
-                ],
+                cmd,
                 capture_output=True,
                 text=True,
-                timeout=timeout,
+                timeout=None if detach else timeout,
             )
         except subprocess.TimeoutExpired as exc:
             return f"Command timed out after {timeout}s: {exc.cmd}"
@@ -96,10 +117,12 @@ class LinuxVM:
             output = f"{output}\n{completed.stderr}" if output else completed.stderr
         return output.strip()
 
-    async def execute_async(self, command: str, *, timeout: int = 3) -> str:
+    async def execute_async(
+        self, command: str, *, timeout: int = 3, detach: bool = False
+    ) -> str:
         """Asynchronously execute ``command`` inside the running VM."""
         loop = asyncio.get_running_loop()
-        func = partial(self.execute, command, timeout=timeout)
+        func = partial(self.execute, command, timeout=timeout, detach=detach)
         return await loop.run_in_executor(None, func)
 
     def stop(self) -> None:
