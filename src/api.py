@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
+from fastapi import HTTPException
 from pydantic import BaseModel
 import asyncio
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from .chat import ChatSession
 from .log import get_logger
-from .db import list_sessions
+from .db import list_sessions, list_sessions_info
 
 
 _LOG = get_logger(__name__)
@@ -62,6 +63,13 @@ def create_app() -> FastAPI:
     @app.get("/sessions/{user}")
     async def list_user_sessions(user: str):
         return {"sessions": list_sessions(user)}
+
+    @app.get("/sessions/{user}/info")
+    async def list_user_sessions_info(user: str):
+        data = list_sessions_info(user)
+        if not data:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"sessions": data}
 
     @app.get("/health")
     async def health():

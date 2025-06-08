@@ -156,3 +156,14 @@ python -m src.cli --user yourname
 The tool lists your existing chat sessions and lets you select one or create a
 new session. Type messages and the assistant's streamed replies will appear
 immediately. Enter ``exit`` or press ``Ctrl+D`` to quit.
+
+### Windows executable
+
+For a standalone application that does not require Python, use the code in
+`cli_app`. After installing ``pyinstaller`` run:
+
+```bash
+pyinstaller --onefile -n llm-chat cli_app/main.py
+```
+
+The resulting ``llm-chat.exe`` can be used on Windows 10/11.
