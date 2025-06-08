@@ -7,3 +7,5 @@ python-dotenv
 fastapi
 uvicorn
 python-multipart
+httpx
+typer
