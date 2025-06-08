@@ -157,8 +157,8 @@ class ChatSession:
     def _format_output(message: Message) -> str:
         """Return tool calls as JSON or message content if present."""
 
-        if message.tool_calls:
-            return ChatSession._serialize_tool_calls(message.tool_calls)
+        # if message.tool_calls:
+        #     return ChatSession._serialize_tool_calls(message.tool_calls)
         return message.content or ""
 
     @staticmethod
