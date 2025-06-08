@@ -169,3 +169,12 @@ pyinstaller --onefile -n llm-chat cli_app/main.py
 ```
 
 The resulting ``llm-chat.exe`` can be used on Windows 10/11.
+
+## Multi-Agent Collaboration
+
+Each user session now spawns a team of four specialised agents: planner, researcher, developer and reviewer. Agents communicate asynchronously through the ``send_agent_message`` tool. Messages are queued so an agent's response generation is never interrupted.
+
+Tools available to the model:
+
+- ``execute_terminal`` – run shell commands inside the shared VM.
+- ``send_agent_message`` – deliver a note to another agent. The ``from`` field is filled automatically while the model may specify ``to``, ``urgency`` and optional ``cc`` fields.
