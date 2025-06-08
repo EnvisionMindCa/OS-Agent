@@ -27,7 +27,10 @@ def execute_terminal(command: str) -> str:
     Use this tool to inspect uploaded documents under ``/data``, fetch web
     content with utilities like ``curl`` or ``wget`` and run other commands.
     The assistant must call this tool to search the internet whenever unsure
-    about any detail.
+    about any detail. The user does NOT have access to this VM, so you are
+    free to run any command you need to gather information or perform tasks.
+    You are in charge of this VM and can run any command you need to
+    accomplish the user's request.
 
     The command is executed with network access enabled. Output from
     ``stdout`` and ``stderr`` is captured when the command completes.
