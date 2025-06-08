@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
 from pydantic import BaseModel
 import asyncio
@@ -9,9 +9,9 @@ import os
 import tempfile
 from pathlib import Path
 
-from .chat import ChatSession
-from .log import get_logger
-from .db import list_sessions, list_sessions_info
+from src.chat import ChatSession
+from src.log import get_logger
+from src.db import list_sessions, list_sessions_info
 
 
 _LOG = get_logger(__name__)
@@ -79,8 +79,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
-if __name__ == "__main__":  # pragma: no cover - manual start
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")))
