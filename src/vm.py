@@ -8,7 +8,7 @@ from pathlib import Path
 
 from threading import Lock
 
-from .config import UPLOAD_DIR, VM_IMAGE
+from .config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS
 
 from .log import get_logger
 
@@ -180,6 +180,18 @@ class VMRegistry:
 
             cls._counts[username] -= 1
             if cls._counts[username] <= 0:
+                cls._counts[username] = 0
+                if not PERSIST_VMS:
+                    vm.stop()
+                    del cls._vms[username]
+                    del cls._counts[username]
+
+    @classmethod
+    def shutdown_all(cls) -> None:
+        """Stop and remove all managed VMs."""
+
+        with cls._lock:
+            for vm in cls._vms.values():
                 vm.stop()
-                del cls._vms[username]
-                del cls._counts[username]
+            cls._vms.clear()
+            cls._counts.clear()

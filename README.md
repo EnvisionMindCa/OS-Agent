@@ -13,8 +13,11 @@ conversations can be resumed with context. One example tool is included:
   Execution happens asynchronously so the assistant can continue responding
   while the command runs.
   The VM is created when a chat session starts and reused for all subsequent
-  tool calls. The environment includes Python and ``pip`` so complex tasks can
-  be scripted using Python directly inside the terminal.
+  tool calls. When ``PERSIST_VMS`` is enabled (default), each user keeps the
+  same container across multiple chat sessions so any installed packages and
+  filesystem changes remain available. The environment includes Python and
+  ``pip`` so complex tasks can be scripted using Python directly inside the
+  terminal.
 
 Sessions share state through an in-memory registry so that only one generation
 can run at a time. Messages sent while a response is being produced are
@@ -76,6 +79,9 @@ it pulls the image defined by the ``VM_IMAGE`` environment variable, falling
 back to ``python:3.11-slim``. This base image includes Python and ``pip`` so
 packages can be installed immediately. The container has network access enabled
 which allows fetching additional dependencies as needed.
+
+Set ``PERSIST_VMS=0`` to revert to the previous behaviour where containers are
+stopped once no sessions are using them.
 
 To use a fully featured Ubuntu environment, build a custom Docker image and set
 ``VM_IMAGE`` to that image. An example ``docker/Dockerfile.vm`` is provided:
