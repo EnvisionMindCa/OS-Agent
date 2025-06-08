@@ -121,3 +121,24 @@ python run.py
 
 The custom VM includes typical utilities like ``sudo`` and ``curl`` so it behaves
 more like a standard Ubuntu installation.
+
+## REST API
+
+Start the API server using ``uvicorn``:
+
+```bash
+uvicorn src.api:app --host 0.0.0.0 --port 8000
+```
+
+### Endpoints
+
+- ``POST /chat/stream`` – Stream the assistant's response as plain text.
+- ``POST /upload`` – Upload a document so it can be referenced in chats.
+
+Example request:
+
+```bash
+curl -N -X POST http://localhost:8000/chat/stream \
+     -H 'Content-Type: application/json' \
+     -d '{"user":"demo","session":"default","prompt":"Hello"}'
+```
