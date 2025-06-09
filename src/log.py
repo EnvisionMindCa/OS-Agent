@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Final
 
 from colorama import Fore, Style, init as colorama_init
@@ -22,10 +23,18 @@ class _ColourFormatter(logging.Formatter):
         return f"{colour}{super().format(record)}{Style.RESET_ALL}"
 
 
-def get_logger(name: str | None = None, level: int = logging.INFO) -> logging.Logger:
+def get_logger(name: str | None = None, level: int | None = None) -> logging.Logger:
+    """Return a configured logger instance."""
+
     colorama_init()
+    env_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    if level is None:
+        level = getattr(logging, env_level, logging.INFO)
+
     handler = logging.StreamHandler()
-    handler.setFormatter(_ColourFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    handler.setFormatter(
+        _ColourFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    )
 
     logger = logging.getLogger(name)
     logger.setLevel(level)

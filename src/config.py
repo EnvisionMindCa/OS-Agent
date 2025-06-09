@@ -16,6 +16,7 @@ PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
 VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
 )
+DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 
 SYSTEM_PROMPT: Final[str] = (
     "You are Starlette, the senior agent leading a two-agent team. "
