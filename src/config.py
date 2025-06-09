@@ -31,7 +31,6 @@ SYSTEM_PROMPT: Final[str] = (
     "calculations, inspect files and search the web. Shell commands execute "
     "asynchronously, so provide a brief interim reply while waiting. "
     "Once a tool returns its result you will receive a tool message and must continue from there. "
-    "If the result arrives before your interim reply is complete, cancel the reply and incorporate the tool output instead. "
     "Uploaded files live under /data and are accessible via the execute_terminal tool. "
     "When a user prompt ends with '/think', ignore that suffix. "
     "When you are unsure about any detail, use execute_terminal to search the internet or inspect files before answering. "
