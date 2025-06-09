@@ -8,6 +8,14 @@
 - **Tool execution** – a built-in `execute_terminal` tool runs commands inside a Docker-based VM. Network access is enabled and both stdout and stderr are captured (up to 10,000 characters). The VM is reused across chats when `PERSIST_VMS=1` so installed packages remain available.
 - **System prompts** – every request includes a system prompt that guides the assistant to plan tool usage, verify results and avoid unnecessary jargon.
 
+## Environment Variables
+
+Several settings can be customised via environment variables:
+
+- `DB_PATH` – location of the SQLite database (default `chat.db` in the project directory).
+- `LOG_LEVEL` – logging verbosity (`DEBUG`, `INFO`, etc.).
+- `VM_IMAGE` and `VM_STATE_DIR` control the Docker-based VM.
+
 ## Quick Start
 
 ```bash

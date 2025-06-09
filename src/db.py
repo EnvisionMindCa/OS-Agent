@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from .config import DB_PATH
+
 from peewee import (
     AutoField,
     CharField,
@@ -14,7 +16,7 @@ from peewee import (
 )
 
 
-_DB_PATH = Path(__file__).resolve().parent.parent / "chat.db"
+_DB_PATH = Path(DB_PATH)
 _db = SqliteDatabase(_DB_PATH)
 
 
