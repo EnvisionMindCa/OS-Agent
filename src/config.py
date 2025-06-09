@@ -6,10 +6,10 @@ from typing import Final
 from dotenv import load_dotenv
 load_dotenv()
 
-MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3")
+MODEL_NAME: Final[str] = os.getenv("OLLAMA_MODEL", "qwen3:1.7b")
 OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MAX_TOOL_CALL_DEPTH: Final[int] = 15
-NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32768"))
+NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
 UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
 VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "python:3.11")
 PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
