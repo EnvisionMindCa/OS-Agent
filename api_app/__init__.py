@@ -11,7 +11,12 @@ from pathlib import Path
 from typing import List
 import shutil
 
-from src.config import UPLOAD_DIR
+from src.config import UPLOAD_DIR, CORS_ORIGINS, RATE_LIMIT
+from src.security import (
+    APIKeyAuthMiddleware,
+    RateLimiterMiddleware,
+    SecurityHeadersMiddleware,
+)
 
 from src.team import TeamChatSession
 from src.log import get_logger
@@ -50,9 +55,13 @@ def _vm_host_path(user: str, vm_path: str) -> Path:
 def create_app() -> FastAPI:
     app = FastAPI(title="LLM Backend API")
 
+    app.add_middleware(APIKeyAuthMiddleware)
+    app.add_middleware(RateLimiterMiddleware, rate_limit=RATE_LIMIT)
+    app.add_middleware(SecurityHeadersMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
