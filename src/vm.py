@@ -120,6 +120,7 @@ class LinuxVM:
         cmd = [
             "docker",
             "exec",
+            "-i",
         ]
         if detach:
             cmd.append("-d")
