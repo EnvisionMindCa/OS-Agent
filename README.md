@@ -91,6 +91,10 @@ uvicorn api_app:app --host 0.0.0.0 --port 8000
 - `POST /chat/stream` – stream the assistant's response as plain text.
 - `POST /upload` – upload a document that can be referenced in chats.
 - `GET /sessions/{user}` – list available session names for a user.
+- `GET /vm/{user}/list` – list files in a directory under `/data`.
+- `GET /vm/{user}/file` – read a file from the VM.
+- `POST /vm/{user}/file` – create or overwrite a file in the VM.
+- `DELETE /vm/{user}/file` – delete a file or directory from the VM.
 
 Example request:
 
