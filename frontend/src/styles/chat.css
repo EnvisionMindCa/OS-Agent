@@ -1,0 +1,87 @@
+.chat-container {
+  width: 420px;
+  max-width: 90vw;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(180%);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-right: 4px;
+}
+
+.message {
+  width: fit-content;
+  max-width: 80%;
+  padding: 0.5rem 1rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  animation: jelly 0.5s ease;
+}
+
+.message.user {
+  align-self: flex-end;
+}
+
+.input-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.input-bar input {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  border-radius: 20px;
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  color: #000;
+}
+
+.input-bar button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.input-bar button:hover {
+  transform: scale(1.05);
+}
+
+.input-bar button:active {
+  transform: scale(0.95);
+}
+
+@keyframes jelly {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
