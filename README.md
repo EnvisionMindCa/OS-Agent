@@ -129,3 +129,20 @@ pyinstaller --onefile -n llm-chat cli_app/main.py
 ```
 
 The resulting `llm-chat.exe` works on Windows 10/11.
+
+## macOS GUI Application
+
+A simple graphical client built with Tkinter lives in the `mac_gui` module. It
+provides a text chat interface and supports file uploads via the REST API.
+
+### Run the GUI
+
+```bash
+pip install -r requirements.txt
+python -m mac_gui
+```
+
+Use the fields at the top of the window to configure the API URL, optional API
+key, user name and session. Type a message and press **Send** to chat or click
+**Upload** to select a document to upload. Responses stream into the main text
+area.
