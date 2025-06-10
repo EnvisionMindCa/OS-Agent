@@ -1,26 +1,27 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { streamChat, ChatRequest } from '../utils/api';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
+import { Message } from './MessageItem';
 
 export default function ChatApp() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const scrollToEnd = () => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    scrollToEnd();
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-
     const prompt = input;
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: prompt }, { role: 'assistant', content: '' }]);
@@ -36,57 +37,25 @@ export default function ChatApp() {
           };
           return msgs;
         });
-        scrollToEnd();
       }
     } catch (err) {
       console.error(err);
       setMessages((prev) => {
         const msgs = [...prev];
-        msgs[msgs.length - 1] = {
-          role: 'assistant',
-          content: 'Error retrieving response',
-        };
+        msgs[msgs.length - 1] = { role: 'assistant', content: 'Error retrieving response' };
         return msgs;
       });
     } finally {
       setLoading(false);
-      scrollToEnd();
     }
   };
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    void sendMessage();
-  };
-
   return (
-    <div className="flex flex-col max-w-2xl mx-auto h-screen p-4">
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
-            <span className="px-3 py-2 inline-block rounded bg-gray-200 dark:bg-gray-700">
-              {msg.content}
-            </span>
-          </div>
-        ))}
-        <div ref={endRef} />
+    <div className="flex flex-col items-center h-screen bg-gradient-to-br from-gray-950/60 to-gray-800/60 text-white p-4">
+      <div className="w-full max-w-3xl flex flex-col flex-1 backdrop-blur-lg rounded-lg border border-white/20 bg-white/10 shadow-xl overflow-hidden">
+        <MessageList ref={listRef} messages={messages} />
+        <MessageInput value={input} onChange={setInput} onSend={sendMessage} disabled={loading} />
       </div>
-      <form onSubmit={onSubmit} className="mt-4 flex gap-2">
-        <input
-          type="text"
-          className="flex-1 border rounded px-3 py-2 text-black"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-        />
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-          disabled={loading}
-        >
-          Send
-        </button>
-      </form>
     </div>
   );
 }
