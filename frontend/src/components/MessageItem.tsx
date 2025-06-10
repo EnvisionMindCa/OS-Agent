@@ -14,7 +14,7 @@ export default function MessageItem({ message }: MessageItemProps) {
   return (
     <div className={`flex flex-col ${alignment} animate-fadeIn`}>
       <div className="w-full max-w-xl p-3 my-2 glass-panel rounded-lg shadow-md">
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
     </div>
   );

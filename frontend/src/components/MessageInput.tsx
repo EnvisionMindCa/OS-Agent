@@ -15,7 +15,7 @@ export default function MessageInput({ value, onChange, onSend, disabled }: Mess
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 p-2">
+    <form onSubmit={handleSubmit} className="flex gap-2 p-2 border-t border-gray-200">
       <input
         type="text"
         className="flex-1 bg-white/60 backdrop-blur-sm border border-gray-300 text-gray-900 px-3 py-2 rounded-md focus:outline-none"
