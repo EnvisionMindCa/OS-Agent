@@ -8,4 +8,3 @@ fastapi
 uvicorn
 python-multipart
 httpx
-typer
