@@ -104,6 +104,12 @@ curl -N -X POST http://localhost:8000/chat/stream \
      -d '{"user":"demo","session":"default","prompt":"Hello"}'
 ```
 
+### Security
+
+Set one or more API keys in the ``API_KEYS`` environment variable. Requests must
+include the ``X-API-Key`` header when keys are configured. A simple rate limit is
+also enforced per key or client IP, configurable via ``RATE_LIMIT``.
+
 ## Command Line Interface
 
 Run the interactive CLI on any platform:

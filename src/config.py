@@ -59,3 +59,12 @@ Continue using tools until you have gathered everything the senior agent needs.
 Then send a brief, accurate summary so the senior agent can craft the final response.  
 Remember: you never speak to the user directly; all communication flows through the senior agent.
 """.strip()
+
+# Security settings
+API_KEYS: Final[list[str]] = (
+    os.getenv("API_KEYS", "").split(",") if os.getenv("API_KEYS") else []
+)
+RATE_LIMIT: Final[int] = int(os.getenv("RATE_LIMIT", "60"))
+CORS_ORIGINS: Final[list[str]] = (
+    os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") else ["*"]
+)
