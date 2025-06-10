@@ -47,7 +47,8 @@
 }
 
 body {
-  background: var(--background);
+  background: var(--background) url('/background.svg') no-repeat center center fixed;
+  background-size: cover;
   color: var(--foreground);
   font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }
