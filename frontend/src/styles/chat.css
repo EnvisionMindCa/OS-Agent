@@ -11,6 +11,17 @@
   border-radius: var(--radius);
   padding: 1rem;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--glare);
+  mix-blend-mode: overlay;
+  pointer-events: none;
 }
 
 .message-list {
@@ -20,6 +31,7 @@
   flex-direction: column;
   gap: 0.5rem;
   padding-right: 4px;
+  scroll-behavior: smooth;
 }
 
 .session-list {
@@ -38,6 +50,7 @@
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
   font-size: 0.75rem;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .session-item.active {
@@ -54,7 +67,7 @@
   border-radius: var(--radius);
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
-  animation: jelly 0.6s ease;
+  animation: jelly 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .message.user {
@@ -87,7 +100,7 @@
   color: #000;
   font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .username-form {
@@ -119,7 +132,7 @@
   background: rgba(255, 255, 255, 0.7);
   font-weight: bold;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .username-form button:hover {
@@ -146,7 +159,7 @@
     transform: scale(1.05);
   }
   60% {
-    transform: scale(0.98);
+    transform: scale(0.97);
   }
   100% {
     transform: scale(1);

@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
 import os
@@ -25,6 +26,14 @@ class ChatRequest(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="LLM Backend API")
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.post("/chat/stream")
     async def chat_stream(req: ChatRequest):
