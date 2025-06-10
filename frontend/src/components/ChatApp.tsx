@@ -51,8 +51,8 @@ export default function ChatApp() {
   };
 
   return (
-    <div className="flex flex-col items-center h-screen bg-gradient-to-br from-white to-gray-100 text-gray-900 p-4">
-      <div className="w-full max-w-3xl flex flex-col flex-1 glass-panel rounded-lg overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-white to-gray-100 text-gray-900 p-4">
+      <div className="w-full max-w-3xl flex flex-col flex-1 mx-auto glass-panel rounded-lg overflow-hidden">
         <MessageList ref={listRef} messages={messages} />
         <MessageInput value={input} onChange={setInput} onSend={sendMessage} disabled={loading} />
       </div>
