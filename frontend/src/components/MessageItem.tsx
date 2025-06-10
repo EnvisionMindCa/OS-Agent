@@ -12,8 +12,8 @@ interface MessageItemProps {
 export default function MessageItem({ message }: MessageItemProps) {
   const alignment = message.role === 'user' ? 'items-end' : 'items-start';
   return (
-    <div className={`flex flex-col ${alignment} animate-fadeIn`}>      
-      <div className="w-full max-w-xl p-3 my-2 bg-white/10 border border-white/30 backdrop-blur-lg rounded-lg shadow-md">
+    <div className={`flex flex-col ${alignment} animate-fadeIn`}>
+      <div className="w-full max-w-xl p-3 my-2 glass-panel rounded-lg shadow-md">
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
