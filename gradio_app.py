@@ -127,12 +127,16 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         del_btn = gr.Button("Delete")
 
     refresh.click(load_sessions, outputs=[session_dd, table])
-    send.click(send_message, inputs=[msg, chatbox, session_dd], outputs=chatbox)
+    send_click = send.click(
+        send_message,
+        inputs=[msg, chatbox, session_dd],
+        outputs=chatbox,
+    )
     list_btn.click(list_dir, inputs=dir_path, outputs=table)
     load_btn.click(read_file, inputs=file_path, outputs=content)
     save_btn.click(save_file, inputs=[file_path, content], outputs=content)
     del_btn.click(delete_path, inputs=file_path, outputs=content)
-    send.then(lambda: "", None, msg)
+    send_click.then(lambda: "", None, msg)
 
 
 demo.queue()
