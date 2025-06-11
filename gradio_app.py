@@ -112,7 +112,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     with gr.Tab("Chat"):
         session_dd = gr.Dropdown(["default"], label="Session", value="default")
         refresh = gr.Button("Refresh Sessions")
-        chatbox = gr.Chatbot()
+        chatbox = gr.Chatbot(type="messages")
         msg = gr.Textbox(label="Message")
         send = gr.Button("Send")
 
@@ -122,7 +122,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         table = gr.Dataframe(headers=["name", "is_dir"], datatype=["str", "bool"])
         file_path = gr.Textbox(label="File Path")
         load_btn = gr.Button("Load")
-        content = gr.Code(label="Content", language="text")
+        content = gr.Code(label="Content", language=None)
         save_btn = gr.Button("Save")
         del_btn = gr.Button("Delete")
 
