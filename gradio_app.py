@@ -1,6 +1,7 @@
 import asyncio
-import shutil
-from pathlib import Path
+import base64
+import json
+import shlex
 
 import gradio as gr
 from gradio.oauth import attach_oauth, OAuthToken
@@ -8,7 +9,6 @@ from huggingface_hub import HfApi
 
 from src.team import TeamChatSession
 from src.db import list_sessions_info
-from src.config import UPLOAD_DIR
 
 # Store active chat sessions
 _SESSIONS: dict[tuple[str, str], TeamChatSession] = {}
@@ -32,16 +32,18 @@ async def _get_chat(user: str, session: str) -> TeamChatSession:
     return chat
 
 
-def _vm_host_path(user: str, vm_path: str) -> Path:
-    rel = Path(vm_path).relative_to("/data")
-    base = (Path(UPLOAD_DIR) / user).resolve()
-    target = (base / rel).resolve()
-    if not target.is_relative_to(base):
-        raise ValueError("Invalid path")
-    return target
+async def _vm_execute(user: str, session: str, command: str) -> str:
+    """Execute ``command`` inside the user's VM and return output."""
+    chat = await _get_chat(user, session)
+    vm = getattr(chat.senior, "_vm", None)
+    if vm is None:
+        raise RuntimeError("VM not running")
+    return await vm.execute_async(command, timeout=5)
 
 
-async def send_message(message: str, history: list[tuple[str, str]], session: str, token: OAuthToken):
+async def send_message(
+    message: str, history: list[tuple[str, str]], session: str, token: OAuthToken
+):
     user = _username(token)
     chat = await _get_chat(user, session)
     history = history or []
@@ -60,48 +62,48 @@ def load_sessions(token: OAuthToken):
     return gr.update(choices=names or ["default"], value=value), table
 
 
-def list_dir(path: str, token: OAuthToken):
+async def list_dir(path: str, session: str, token: OAuthToken):
     user = _username(token)
-    target = _vm_host_path(user, path)
-    if not target.exists() or not target.is_dir():
+    cmd = f"ls -1ap {shlex.quote(path)}"
+    output = await _vm_execute(user, session, cmd)
+    if output.startswith("ls:"):
         return []
     entries = []
-    for entry in sorted(target.iterdir()):
-        entries.append({"name": entry.name, "is_dir": entry.is_dir()})
+    for line in output.splitlines():
+        line = line.strip()
+        if not line or line in (".", ".."):
+            continue
+        is_dir = line.endswith("/")
+        name = line[:-1] if is_dir else line
+        entries.append({"name": name, "is_dir": is_dir})
     return entries
 
 
-def read_file(path: str, token: OAuthToken):
+async def read_file(path: str, session: str, token: OAuthToken):
     user = _username(token)
-    target = _vm_host_path(user, path)
-    if not target.exists():
-        return "File not found"
-    if target.is_dir():
-        return "Path is a directory"
-    try:
-        return target.read_text()
-    except UnicodeDecodeError:
-        return "Binary file not supported"
+    cmd = f"cat {shlex.quote(path)}"
+    return await _vm_execute(user, session, cmd)
 
 
-def save_file(path: str, content: str, token: OAuthToken):
+async def save_file(path: str, content: str, session: str, token: OAuthToken):
     user = _username(token)
-    target = _vm_host_path(user, path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content)
+    encoded = base64.b64encode(content.encode()).decode()
+    cmd = (
+        f"python -c 'import base64,os; "
+        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
+    )
+    await _vm_execute(user, session, cmd)
     return "Saved"
 
 
-def delete_path(path: str, token: OAuthToken):
+async def delete_path(path: str, session: str, token: OAuthToken):
     user = _username(token)
-    target = _vm_host_path(user, path)
-    if target.is_dir():
-        shutil.rmtree(target)
-    elif target.exists():
-        target.unlink()
-    else:
-        return "File not found"
-    return "Deleted"
+    cmd = (
+        f"bash -c 'if [ -d {shlex.quote(path)} ]; then rm -rf {shlex.quote(path)} && echo Deleted; "
+        f"elif [ -e {shlex.quote(path)} ]; then rm -f {shlex.quote(path)} && echo Deleted; "
+        f"else echo File not found; fi'"
+    )
+    return await _vm_execute(user, session, cmd)
 
 
 with gr.Blocks(theme=gr.themes.Soft()) as demo:
@@ -117,7 +119,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         send = gr.Button("Send")
 
     with gr.Tab("Files"):
-        dir_path = gr.Textbox(label="Directory", value="/data")
+        dir_path = gr.Textbox(label="Directory", value="/")
         list_btn = gr.Button("List")
         table = gr.Dataframe(headers=["name", "is_dir"], datatype=["str", "bool"])
         file_path = gr.Textbox(label="File Path")
@@ -132,10 +134,10 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         inputs=[msg, chatbox, session_dd],
         outputs=chatbox,
     )
-    list_btn.click(list_dir, inputs=dir_path, outputs=table)
-    load_btn.click(read_file, inputs=file_path, outputs=content)
-    save_btn.click(save_file, inputs=[file_path, content], outputs=content)
-    del_btn.click(delete_path, inputs=file_path, outputs=content)
+    list_btn.click(list_dir, inputs=[dir_path, session_dd], outputs=table)
+    load_btn.click(read_file, inputs=[file_path, session_dd], outputs=content)
+    save_btn.click(save_file, inputs=[file_path, content, session_dd], outputs=content)
+    del_btn.click(delete_path, inputs=[file_path, session_dd], outputs=content)
     send_click.then(lambda: "", None, msg)
 
 
