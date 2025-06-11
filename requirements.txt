@@ -11,3 +11,4 @@ httpx
 
 gradio
 huggingface_hub
+gradio[oauth]
