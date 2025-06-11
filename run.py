@@ -12,6 +12,7 @@ async def _main() -> None:
         # print("Document uploaded to:", doc_path)
         # async for resp in chat.chat_stream("ask how junior agent is doing"):
         # async for resp in chat.chat_stream("run hello.py"):
+        # async for resp in chat.chat_stream("what is the current date?"):
         async for resp in chat.chat_stream("what is in requirements.txt"):
             print("\n>>>", resp)
 
