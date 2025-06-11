@@ -68,14 +68,14 @@ async def list_dir(path: str, session: str, token: OAuthToken):
     output = await _vm_execute(user, session, cmd)
     if output.startswith("ls:"):
         return []
-    entries = []
+    entries: list[list[str | bool]] = []
     for line in output.splitlines():
         line = line.strip()
         if not line or line in (".", ".."):
             continue
         is_dir = line.endswith("/")
         name = line[:-1] if is_dir else line
-        entries.append({"name": name, "is_dir": is_dir})
+        entries.append([name, is_dir])
     return entries
 
 
