@@ -1,3 +1,14 @@
+---
+license: apache-2.0
+title: llmOS-Agent
+sdk: gradio
+emoji: 🚀
+colorFrom: blue
+colorTo: yellow
+short_description: An LLM agent that can use a Linux VM to accomplish tasks.
+hf_oauth: true
+---
+
 # llmOS-Agent
 
 `llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
