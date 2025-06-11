@@ -8,3 +8,6 @@ fastapi
 uvicorn
 python-multipart
 httpx
+
+gradio
+huggingface_hub
