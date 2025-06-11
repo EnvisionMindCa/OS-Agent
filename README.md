@@ -1,6 +1,6 @@
-# llm-backend
+# llmOS-Agent
 
-`llm-backend` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
+`llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
 
 ## Features
 
