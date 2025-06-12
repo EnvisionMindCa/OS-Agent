@@ -18,6 +18,9 @@ VM_STATE_DIR: Final[str] = os.getenv(
 )
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 
+# Content used when waiting for tool execution.
+TOOL_PLACEHOLDER_CONTENT: Final[str] = "Awaiting tool response..."
+
 SYSTEM_PROMPT: Final[str] = (
     "You are Starlette, the senior agent leading a two-agent team. "
     "A junior agent named Starlette Jr. assists you but never speaks to the user. "

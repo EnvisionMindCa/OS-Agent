@@ -15,6 +15,7 @@ from .config import (
     NUM_CTX,
     OLLAMA_HOST,
     SYSTEM_PROMPT,
+    TOOL_PLACEHOLDER_CONTENT,
     UPLOAD_DIR,
 )
 from .db import (
@@ -201,7 +202,7 @@ class ChatSession:
             msg = messages[i]
             if (
                 msg.get("role") == "tool"
-                and msg.get("content") == "Awaiting tool response..."
+                and msg.get("content") == TOOL_PLACEHOLDER_CONTENT
             ):
                 messages.pop(i)
                 break
@@ -219,6 +220,17 @@ class ChatSession:
             DBMessage.create(
                 conversation=conversation, role="assistant", content=content
             )
+
+    def _save_tool_placeholder(self) -> None:
+        """Persist the placeholder message if it hasn't been saved."""
+
+        if not self._placeholder_saved:
+            DBMessage.create(
+                conversation=self._conversation,
+                role="tool",
+                content=TOOL_PLACEHOLDER_CONTENT,
+            )
+            self._placeholder_saved = True
 
     async def ask(
         self, messages: List[Msg], *, think: bool | None = None
@@ -286,7 +298,7 @@ class ChatSession:
                 placeholder = {
                     "role": "tool",
                     "name": "junior" if call.function.name == "send_to_junior" else call.function.name,
-                    "content": "Awaiting tool response...",
+                    "content": TOOL_PLACEHOLDER_CONTENT,
                 }
                 messages.append(placeholder)
                 self._placeholder_saved = False
@@ -330,13 +342,7 @@ class ChatSession:
                     yield nxt
                 else:
                     followup = await follow_task
-                    if not self._placeholder_saved:
-                        DBMessage.create(
-                            conversation=conversation,
-                            role="tool",
-                            content=placeholder["content"],
-                        )
-                        self._placeholder_saved = True
+                    self._save_tool_placeholder()
                     self._store_assistant_message(conversation, followup.message)
                     messages.append(followup.message.model_dump())
                     yield followup
@@ -476,13 +482,7 @@ class ChatSession:
                     yield text
         else:
             resp = await user_task
-            if not self._placeholder_saved:
-                DBMessage.create(
-                    conversation=self._conversation,
-                    role="tool",
-                    content="Awaiting tool response...",
-                )
-                self._placeholder_saved = True
+            self._save_tool_placeholder()
             self._store_assistant_message(self._conversation, resp.message)
             self._messages.append(resp.message.model_dump())
             async with self._lock:
