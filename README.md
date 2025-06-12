@@ -28,7 +28,7 @@ The script issues a sample command to the model and prints the streamed response
 ### Uploading Documents
 
 ```python
-async with ChatSession() as chat:
+async with ChatSession(think=False) as chat:
     path = chat.upload_document("path/to/file.pdf")
     async for part in chat.chat_stream(f"Summarize {path}"):
         print(part)

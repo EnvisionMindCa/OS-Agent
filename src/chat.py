@@ -64,6 +64,7 @@ class ChatSession:
         *,
         system_prompt: str = SYSTEM_PROMPT,
         tools: list[callable] | None = None,
+        think: bool = True,
     ) -> None:
         init_db()
         self._client = AsyncClient(host=host)
@@ -76,6 +77,7 @@ class ChatSession:
         self._system_prompt = system_prompt
         self._tools = tools or [execute_terminal]
         self._tool_funcs = {func.__name__: func for func in self._tools}
+        self._think = think
         self._current_tool_name: str | None = None
         self._messages: List[Msg] = self._load_history()
         self._data = _get_session_data(self._conversation.id)
@@ -102,6 +104,16 @@ class ChatSession:
     @_tool_task.setter
     def _tool_task(self, task: asyncio.Task | None) -> None:
         self._data.tool_task = task
+
+    @property
+    def think(self) -> bool:
+        """Default value for the ``think`` parameter in :meth:`ask`."""
+
+        return self._think
+
+    @think.setter
+    def think(self, value: bool) -> None:
+        self._think = value
 
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
@@ -199,13 +211,18 @@ class ChatSession:
                 conversation=conversation, role="assistant", content=content
             )
 
-    async def ask(self, messages: List[Msg], *, think: bool = True) -> ChatResponse:
+    async def ask(
+        self, messages: List[Msg], *, think: bool | None = None
+    ) -> ChatResponse:
         """Send a chat request, automatically prepending the system prompt."""
 
         if not messages or messages[0].get("role") != "system":
             payload = [{"role": "system", "content": self._system_prompt}, *messages]
         else:
             payload = messages
+
+        if think is None:
+            think = self._think
 
         return await self._client.chat(
             self._model,
@@ -264,7 +281,7 @@ class ChatSession:
                 }
                 messages.append(placeholder)
 
-                follow_task = asyncio.create_task(self.ask(messages, think=True))
+                follow_task = asyncio.create_task(self.ask(messages))
 
                 async with self._lock:
                     self._state = "awaiting_tool"
@@ -295,7 +312,7 @@ class ChatSession:
                     async with self._lock:
                         self._state = "generating"
                         self._tool_task = None
-                    nxt = await self.ask(messages, think=True)
+                    nxt = await self.ask(messages)
                     self._store_assistant_message(conversation, nxt.message)
                     messages.append(nxt.message.model_dump())
                     response = nxt
@@ -319,7 +336,7 @@ class ChatSession:
                     async with self._lock:
                         self._state = "generating"
                         self._tool_task = None
-                    nxt = await self.ask(messages, think=True)
+                    nxt = await self.ask(messages)
                     self._store_assistant_message(conversation, nxt.message)
                     messages.append(nxt.message.model_dump())
                     response = nxt
@@ -425,7 +442,7 @@ class ChatSession:
             )
             async with self._lock:
                 self._state = "generating"
-            nxt = await self.ask(self._messages, think=True)
+            nxt = await self.ask(self._messages)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
             text = self._format_output(nxt.message)
@@ -457,7 +474,7 @@ class ChatSession:
             )
             async with self._lock:
                 self._state = "generating"
-            nxt = await self.ask(self._messages, think=True)
+            nxt = await self.ask(self._messages)
             self._store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
             text = self._format_output(nxt.message)

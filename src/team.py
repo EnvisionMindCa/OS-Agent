@@ -44,6 +44,8 @@ class TeamChatSession:
         session: str = "default",
         host: str = OLLAMA_HOST,
         model: str = MODEL_NAME,
+        *,
+        think: bool = True,
     ) -> None:
         self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = asyncio.Queue()
         self._to_senior: asyncio.Queue[str] = asyncio.Queue()
@@ -55,6 +57,7 @@ class TeamChatSession:
             model=model,
             system_prompt=SYSTEM_PROMPT,
             tools=[execute_terminal, send_to_junior],
+            think=think,
         )
         self.junior = ChatSession(
             user=user,
@@ -63,6 +66,7 @@ class TeamChatSession:
             model=model,
             system_prompt=JUNIOR_PROMPT,
             tools=[execute_terminal],
+            think=think,
         )
 
     async def __aenter__(self) -> "TeamChatSession":
