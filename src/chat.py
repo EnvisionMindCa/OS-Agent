@@ -163,16 +163,30 @@ class ChatSession:
                 continue
             if msg.role == "assistant":
                 try:
-                    calls = json.loads(msg.content)
+                    data = json.loads(msg.content)
                 except json.JSONDecodeError:
+                    # Plain text message from older versions
                     messages.append({"role": "assistant", "content": msg.content})
                 else:
-                    messages.append(
-                        {
-                            "role": "assistant",
-                            "tool_calls": [Message.ToolCall(**c) for c in calls],
-                        }
-                    )
+                    if isinstance(data, list):
+                        # Legacy format: list of tool calls only
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "tool_calls": [Message.ToolCall(**c) for c in data],
+                            }
+                        )
+                    elif isinstance(data, dict):
+                        msg_data: Msg = {"role": "assistant"}
+                        if content := data.get("content"):
+                            msg_data["content"] = content
+                        if calls := data.get("tool_calls"):
+                            msg_data["tool_calls"] = [
+                                Message.ToolCall(**c) for c in calls
+                            ]
+                        messages.append(msg_data)
+                    else:
+                        messages.append({"role": "assistant", "content": str(data)})
             elif msg.role == "user":
                 messages.append({"role": "user", "content": msg.content})
             else:
@@ -212,11 +226,15 @@ class ChatSession:
         """Persist assistant messages, storing tool calls when present."""
 
         if message.tool_calls:
-            content = ChatSession._serialize_tool_calls(message.tool_calls)
+            data = {
+                "content": message.content or "",
+                "tool_calls": [c.model_dump() for c in message.tool_calls],
+            }
+            content = json.dumps(data)
         else:
             content = message.content or ""
 
-        if content.strip():
+        if content.strip() or message.tool_calls:
             DBMessage.create(
                 conversation=conversation, role="assistant", content=content
             )
