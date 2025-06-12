@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import List, AsyncIterator
-from dataclasses import dataclass, field
-import json
 import asyncio
+import json
 import shutil
 from pathlib import Path
+from typing import AsyncIterator, List
 
 from ollama import AsyncClient, ChatResponse, Message
 
-from .config import (
+from ..config import (
     MAX_TOOL_CALL_DEPTH,
     MODEL_NAME,
     NUM_CTX,
@@ -18,7 +17,7 @@ from .config import (
     TOOL_PLACEHOLDER_CONTENT,
     UPLOAD_DIR,
 )
-from .db import (
+from ..db import (
     Conversation,
     Message as DBMessage,
     User,
@@ -26,37 +25,24 @@ from .db import (
     init_db,
     add_document,
 )
-from .log import get_logger
-from .schema import Msg
-from .tools import execute_terminal, execute_terminal_async, set_vm
-from .vm import VMRegistry
+from ..log import get_logger
+from ..schema import Msg
+from ..tools import execute_terminal, execute_terminal_async, set_vm
+from ..vm import VMRegistry
 
-
-@dataclass
-class _SessionData:
-    """Shared state for each conversation session."""
-
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    state: str = "idle"
-    tool_task: asyncio.Task | None = None
-    placeholder_saved: bool = False
-
-
-_SESSION_DATA: dict[int, _SessionData] = {}
-
-
-def _get_session_data(conv_id: int) -> _SessionData:
-    data = _SESSION_DATA.get(conv_id)
-    if data is None:
-        data = _SessionData()
-        _SESSION_DATA[conv_id] = data
-    return data
-
+from .state import SessionState, get_state
+from .messages import (
+    format_output,
+    remove_tool_placeholder,
+    store_assistant_message,
+)
 
 _LOG = get_logger(__name__)
 
 
 class ChatSession:
+    """Manage a conversation with persistent history and tool execution."""
+
     def __init__(
         self,
         user: str = "default",
@@ -82,38 +68,38 @@ class ChatSession:
         self._think = think
         self._current_tool_name: str | None = None
         self._messages: List[Msg] = self._load_history()
-        self._data = _get_session_data(self._conversation.id)
-        self._lock = self._data.lock
+        self._state_data: SessionState = get_state(self._conversation.id)
+        self._lock = self._state_data.lock
         self._prompt_queue: asyncio.Queue[
             tuple[str, asyncio.Queue[str | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
 
-    # Shared state properties -------------------------------------------------
-
+    # ------------------------------------------------------------------
+    # Properties exposing session state
     @property
     def _state(self) -> str:
-        return self._data.state
+        return self._state_data.status
 
     @_state.setter
     def _state(self, value: str) -> None:
-        self._data.state = value
+        self._state_data.status = value
 
     @property
     def _tool_task(self) -> asyncio.Task | None:
-        return self._data.tool_task
+        return self._state_data.tool_task
 
     @_tool_task.setter
     def _tool_task(self, task: asyncio.Task | None) -> None:
-        self._data.tool_task = task
+        self._state_data.tool_task = task
 
     @property
     def _placeholder_saved(self) -> bool:
-        return self._data.placeholder_saved
+        return self._state_data.placeholder_saved
 
     @_placeholder_saved.setter
     def _placeholder_saved(self, value: bool) -> None:
-        self._data.placeholder_saved = value
+        self._state_data.placeholder_saved = value
 
     @property
     def think(self) -> bool:
@@ -137,12 +123,9 @@ class ChatSession:
         if not _db.is_closed():
             _db.close()
 
+    # ------------------------------------------------------------------
     def upload_document(self, file_path: str) -> str:
-        """Save a document for later access inside the VM.
-
-        The file is copied into ``UPLOAD_DIR`` and recorded in the database. The
-        returned path is the location inside the VM (prefixed with ``/data``).
-        """
+        """Save a document for later access inside the VM."""
 
         src = Path(file_path)
         if not src.exists():
@@ -155,21 +138,19 @@ class ChatSession:
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
 
+    # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
         for msg in self._conversation.messages.order_by(DBMessage.created_at):
             if msg.role == "system":
-                # Skip persisted system prompts from older versions
                 continue
             if msg.role == "assistant":
                 try:
                     data = json.loads(msg.content)
                 except json.JSONDecodeError:
-                    # Plain text message from older versions
                     messages.append({"role": "assistant", "content": msg.content})
                 else:
                     if isinstance(data, list):
-                        # Legacy format: list of tool calls only
                         messages.append(
                             {
                                 "role": "assistant",
@@ -194,58 +175,6 @@ class ChatSession:
         return messages
 
     # ------------------------------------------------------------------
-    @staticmethod
-    def _serialize_tool_calls(calls: List[Message.ToolCall]) -> str:
-        """Convert tool calls to a JSON string for storage or output."""
-
-        return json.dumps([c.model_dump() for c in calls])
-
-    @staticmethod
-    def _format_output(message: Message) -> str:
-        """Return tool calls as JSON or message content if present."""
-
-        # if message.tool_calls:
-        #     return ChatSession._serialize_tool_calls(message.tool_calls)
-        return message.content or ""
-
-    @staticmethod
-    def _remove_tool_placeholder(messages: List[Msg]) -> None:
-        """Remove the pending placeholder tool message if present."""
-
-        for i in range(len(messages) - 1, -1, -1):
-            msg = messages[i]
-            if (
-                msg.get("role") == "tool"
-                and msg.get("content") == TOOL_PLACEHOLDER_CONTENT
-            ):
-                messages.pop(i)
-                break
-
-    @staticmethod
-    def _store_assistant_message(conversation: Conversation, message: Message) -> None:
-        """Persist assistant messages, storing tool calls when present."""
-
-        data = {"content": message.content or ""}
-        if message.tool_calls:
-            data["tool_calls"] = [c.model_dump() for c in message.tool_calls]
-
-        DBMessage.create(
-            conversation=conversation,
-            role="assistant",
-            content=json.dumps(data),
-        )
-
-    def _save_tool_placeholder(self) -> None:
-        """Persist the placeholder message if it hasn't been saved."""
-
-        if not self._placeholder_saved:
-            DBMessage.create(
-                conversation=self._conversation,
-                role="tool",
-                content=TOOL_PLACEHOLDER_CONTENT,
-            )
-            self._placeholder_saved = True
-
     async def ask(
         self, messages: List[Msg], *, think: bool | None = None
     ) -> ChatResponse:
@@ -264,7 +193,7 @@ class ChatSession:
             messages=payload,
             think=think,
             tools=self._tools,
-            options={"num_ctx": NUM_CTX, "temperature": 0.01}
+            options={"num_ctx": NUM_CTX, "temperature": 0.01},
         )
 
     async def _run_tool_async(self, func, **kwargs) -> str:
@@ -334,7 +263,7 @@ class ChatSession:
                         await follow_task
                     except asyncio.CancelledError:
                         pass
-                    self._remove_tool_placeholder(messages)
+                    remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
                     self._placeholder_saved = False
                     result = await exec_task
                     name = (
@@ -350,18 +279,18 @@ class ChatSession:
                         self._state = "generating"
                         self._tool_task = None
                     nxt = await self.ask(messages)
-                    self._store_assistant_message(conversation, nxt.message)
+                    store_assistant_message(conversation, nxt.message)
                     messages.append(nxt.message.model_dump())
                     response = nxt
                     yield nxt
                 else:
                     followup = await follow_task
                     self._save_tool_placeholder()
-                    self._store_assistant_message(conversation, followup.message)
+                    store_assistant_message(conversation, followup.message)
                     messages.append(followup.message.model_dump())
                     yield followup
                     result = await exec_task
-                    self._remove_tool_placeholder(messages)
+                    remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
                     self._placeholder_saved = False
                     name = (
                         "junior" if call.function.name == "send_to_junior" else call.function.name
@@ -376,7 +305,7 @@ class ChatSession:
                         self._state = "generating"
                         self._tool_task = None
                     nxt = await self.ask(messages)
-                    self._store_assistant_message(conversation, nxt.message)
+                    store_assistant_message(conversation, nxt.message)
                     messages.append(nxt.message.model_dump())
                     response = nxt
                     yield nxt
@@ -399,12 +328,12 @@ class ChatSession:
 
         response = await self.ask(self._messages)
         self._messages.append(response.message.model_dump())
-        self._store_assistant_message(self._conversation, response.message)
+        store_assistant_message(self._conversation, response.message)
 
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            text = self._format_output(resp.message)
+            text = format_output(resp.message)
             if text:
                 yield text
 
@@ -443,12 +372,12 @@ class ChatSession:
 
         response = await self.ask(self._messages)
         self._messages.append(response.message.model_dump())
-        self._store_assistant_message(self._conversation, response.message)
+        store_assistant_message(self._conversation, response.message)
 
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            text = self._format_output(resp.message)
+            text = format_output(resp.message)
             if text:
                 yield text
 
@@ -470,7 +399,7 @@ class ChatSession:
                 await user_task
             except asyncio.CancelledError:
                 pass
-            self._remove_tool_placeholder(self._messages)
+            remove_tool_placeholder(self._messages, TOOL_PLACEHOLDER_CONTENT)
             self._placeholder_saved = False
             result = await exec_task
             self._tool_task = None
@@ -483,30 +412,30 @@ class ChatSession:
             async with self._lock:
                 self._state = "generating"
             nxt = await self.ask(self._messages)
-            self._store_assistant_message(self._conversation, nxt.message)
+            store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            text = self._format_output(nxt.message)
+            text = format_output(nxt.message)
             if text:
                 yield text
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                text = self._format_output(part.message)
+                text = format_output(part.message)
                 if text:
                     yield text
         else:
             resp = await user_task
             self._save_tool_placeholder()
-            self._store_assistant_message(self._conversation, resp.message)
+            store_assistant_message(self._conversation, resp.message)
             self._messages.append(resp.message.model_dump())
             async with self._lock:
                 self._state = "awaiting_tool"
-            text = self._format_output(resp.message)
+            text = format_output(resp.message)
             if text:
                 yield text
             result = await exec_task
             self._tool_task = None
-            self._remove_tool_placeholder(self._messages)
+            remove_tool_placeholder(self._messages, TOOL_PLACEHOLDER_CONTENT)
             self._placeholder_saved = False
             name = self._current_tool_name or "tool"
             self._current_tool_name = None
@@ -517,14 +446,25 @@ class ChatSession:
             async with self._lock:
                 self._state = "generating"
             nxt = await self.ask(self._messages)
-            self._store_assistant_message(self._conversation, nxt.message)
+            store_assistant_message(self._conversation, nxt.message)
             self._messages.append(nxt.message.model_dump())
-            text = self._format_output(nxt.message)
+            text = format_output(nxt.message)
             if text:
                 yield text
             async for part in self._handle_tool_calls_stream(
                 self._messages, nxt, self._conversation
             ):
-                text = self._format_output(part.message)
+                text = format_output(part.message)
                 if text:
                     yield text
+
+    # ------------------------------------------------------------------
+    def _save_tool_placeholder(self) -> None:
+        if not self._placeholder_saved:
+            DBMessage.create(
+                conversation=self._conversation,
+                role="tool",
+                content=TOOL_PLACEHOLDER_CONTENT,
+            )
+            self._placeholder_saved = True
+
