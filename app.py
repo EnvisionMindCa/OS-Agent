@@ -7,8 +7,8 @@ import gradio as gr
 from gradio.oauth import attach_oauth, OAuthToken
 from huggingface_hub import HfApi
 
-from src.team import TeamChatSession
-from src.db import list_sessions_info
+from agent.team import TeamChatSession
+from agent.db import list_sessions_info
 
 # Store active chat sessions
 _SESSIONS: dict[tuple[str, str], TeamChatSession] = {}
