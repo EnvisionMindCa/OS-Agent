@@ -11,7 +11,7 @@
 
 ## Recommended Models
 
-Any model supported by [Ollama](https://ollama.com) with `tool` tags are compatible with this repository. I personally recommend `devstral`, I found it to work the best with this repository.
+Any model supported by [Ollama](https://ollama.com) with `tool` tags are compatible with this repository. I personally recommend `mistral-small3.1`, I found it to work the best with this repository.
 
 ## Environment Variables
 
