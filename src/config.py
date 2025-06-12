@@ -56,12 +56,3 @@ JUNIOR_PROMPT: Final[str] = (
     "Even if you have executed a command before, always re-run it to ensure you have the most up-to-date information upon senior request. "
     "Remember: you never speak to the user directly; all communication flows through the senior agent."
 ).strip()
-
-# Security settings
-API_KEYS: Final[list[str]] = (
-    os.getenv("API_KEYS", "").split(",") if os.getenv("API_KEYS") else []
-)
-RATE_LIMIT: Final[int] = int(os.getenv("RATE_LIMIT", "60"))
-CORS_ORIGINS: Final[list[str]] = (
-    os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") else ["*"]
-)
