@@ -7,7 +7,7 @@ from src.vm import VMRegistry
 
 
 async def _main() -> None:
-    async with TeamChatSession(user="demo_user", session="demo_session") as chat:
+    async with TeamChatSession(user="demo_user", session="demo_session", think=False) as chat:
         # doc_path = chat.upload_document("requirements.txt")
         # print("Document uploaded to:", doc_path)
         # async for resp in chat.chat_stream("ask how junior agent is doing"):
