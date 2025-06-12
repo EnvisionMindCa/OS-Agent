@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from .chat import ChatSession
-from .config import OLLAMA_HOST, MODEL_NAME, SOLO_SYSTEM_PROMPT
-from .tools import execute_terminal
+from ..chat import ChatSession
+from ..config import OLLAMA_HOST, MODEL_NAME, SOLO_SYSTEM_PROMPT
+from ..tools import execute_terminal
 
 __all__ = ["SoloChatSession"]
 

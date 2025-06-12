@@ -7,10 +7,10 @@ from pathlib import Path
 
 from threading import Lock
 
-from .config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
-from .utils import limit_chars
+from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
+from ..utils.helpers import limit_chars
 
-from .log import get_logger
+from ..utils.logging import get_logger
 
 _LOG = get_logger(__name__)
 
