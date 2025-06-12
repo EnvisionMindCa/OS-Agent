@@ -229,7 +229,7 @@ class ChatSession:
             messages=payload,
             think=think,
             tools=self._tools,
-            options={"num_ctx": NUM_CTX},
+            options={"num_ctx": NUM_CTX, "temperature": 0.01}
         )
 
     async def _run_tool_async(self, func, **kwargs) -> str:
