@@ -38,6 +38,7 @@ class _SessionData:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     state: str = "idle"
     tool_task: asyncio.Task | None = None
+    placeholder_saved: bool = False
 
 
 _SESSION_DATA: dict[int, _SessionData] = {}
@@ -104,6 +105,14 @@ class ChatSession:
     @_tool_task.setter
     def _tool_task(self, task: asyncio.Task | None) -> None:
         self._data.tool_task = task
+
+    @property
+    def _placeholder_saved(self) -> bool:
+        return self._data.placeholder_saved
+
+    @_placeholder_saved.setter
+    def _placeholder_saved(self, value: bool) -> None:
+        self._data.placeholder_saved = value
 
     @property
     def think(self) -> bool:
@@ -280,6 +289,7 @@ class ChatSession:
                     "content": "Awaiting tool response...",
                 }
                 messages.append(placeholder)
+                self._placeholder_saved = False
 
                 follow_task = asyncio.create_task(self.ask(messages))
 
@@ -299,6 +309,7 @@ class ChatSession:
                     except asyncio.CancelledError:
                         pass
                     self._remove_tool_placeholder(messages)
+                    self._placeholder_saved = False
                     result = await exec_task
                     name = (
                         "junior" if call.function.name == "send_to_junior" else call.function.name
@@ -319,11 +330,19 @@ class ChatSession:
                     yield nxt
                 else:
                     followup = await follow_task
+                    if not self._placeholder_saved:
+                        DBMessage.create(
+                            conversation=conversation,
+                            role="tool",
+                            content=placeholder["content"],
+                        )
+                        self._placeholder_saved = True
                     self._store_assistant_message(conversation, followup.message)
                     messages.append(followup.message.model_dump())
                     yield followup
                     result = await exec_task
                     self._remove_tool_placeholder(messages)
+                    self._placeholder_saved = False
                     name = (
                         "junior" if call.function.name == "send_to_junior" else call.function.name
                     )
@@ -432,6 +451,7 @@ class ChatSession:
             except asyncio.CancelledError:
                 pass
             self._remove_tool_placeholder(self._messages)
+            self._placeholder_saved = False
             result = await exec_task
             self._tool_task = None
             name = self._current_tool_name or "tool"
@@ -456,6 +476,13 @@ class ChatSession:
                     yield text
         else:
             resp = await user_task
+            if not self._placeholder_saved:
+                DBMessage.create(
+                    conversation=self._conversation,
+                    role="tool",
+                    content="Awaiting tool response...",
+                )
+                self._placeholder_saved = True
             self._store_assistant_message(self._conversation, resp.message)
             self._messages.append(resp.message.model_dump())
             async with self._lock:
@@ -466,6 +493,7 @@ class ChatSession:
             result = await exec_task
             self._tool_task = None
             self._remove_tool_placeholder(self._messages)
+            self._placeholder_saved = False
             name = self._current_tool_name or "tool"
             self._current_tool_name = None
             self._messages.append({"role": "tool", "name": name, "content": result})
