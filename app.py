@@ -7,7 +7,7 @@ import gradio as gr
 from gradio.oauth import attach_oauth, OAuthToken
 from huggingface_hub import HfApi
 
-from agent.team import TeamChatSession
+from agent.sessions.team import TeamChatSession
 from agent.db import list_sessions_info
 
 # Store active chat sessions

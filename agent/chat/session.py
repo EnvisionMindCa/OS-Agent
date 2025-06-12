@@ -25,8 +25,8 @@ from ..db import (
     init_db,
     add_document,
 )
-from ..log import get_logger
-from ..schema import Msg
+from ..utils.logging import get_logger
+from .schema import Msg
 from ..tools import execute_terminal, execute_terminal_async, set_vm
 from ..vm import VMRegistry
 

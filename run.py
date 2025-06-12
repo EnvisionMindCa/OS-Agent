@@ -4,8 +4,8 @@ import asyncio
 
 import argparse
 
-from agent.team import TeamChatSession
-from agent.solo import SoloChatSession
+from agent.sessions.team import TeamChatSession
+from agent.sessions.solo import SoloChatSession
 from agent.vm import VMRegistry
 
 

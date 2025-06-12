@@ -5,7 +5,7 @@ from typing import List
 
 from ollama import Message
 
-from ..schema import Msg
+from .schema import Msg
 from ..db import Conversation, Message as DBMessage
 
 __all__ = [

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from .config import DB_PATH
+from ..config import DB_PATH
 
 from peewee import (
     AutoField,

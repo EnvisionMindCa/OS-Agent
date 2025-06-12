@@ -14,8 +14,8 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from agent.db import reset_history
-from agent.log import get_logger
-from agent.team import TeamChatSession
+from agent.utils.logging import get_logger
+from agent.sessions.team import TeamChatSession
 
 
 class DiscordTeamBot(commands.Bot):

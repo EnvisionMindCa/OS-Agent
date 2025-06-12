@@ -7,9 +7,9 @@ import os
 from typing import Optional
 import asyncio
 
-from .utils import limit_chars
+from ..utils.helpers import limit_chars
 
-from .vm import LinuxVM
+from ..vm import LinuxVM
 
 _VM: Optional[LinuxVM] = None
 

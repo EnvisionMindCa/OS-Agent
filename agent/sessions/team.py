@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import AsyncIterator, Optional
 
-from .chat import ChatSession
-from .config import OLLAMA_HOST, MODEL_NAME, SYSTEM_PROMPT, JUNIOR_PROMPT
-from .tools import execute_terminal
-from .db import Message as DBMessage
+from ..chat import ChatSession
+from ..config import OLLAMA_HOST, MODEL_NAME, SYSTEM_PROMPT, JUNIOR_PROMPT
+from ..tools import execute_terminal
+from ..db import Message as DBMessage
 
 __all__ = [
     "TeamChatSession",
