@@ -225,19 +225,15 @@ class ChatSession:
     def _store_assistant_message(conversation: Conversation, message: Message) -> None:
         """Persist assistant messages, storing tool calls when present."""
 
+        data = {"content": message.content or ""}
         if message.tool_calls:
-            data = {
-                "content": message.content or "",
-                "tool_calls": [c.model_dump() for c in message.tool_calls],
-            }
-            content = json.dumps(data)
-        else:
-            content = message.content or ""
+            data["tool_calls"] = [c.model_dump() for c in message.tool_calls]
 
-        if content.strip() or message.tool_calls:
-            DBMessage.create(
-                conversation=conversation, role="assistant", content=content
-            )
+        DBMessage.create(
+            conversation=conversation,
+            role="assistant",
+            content=json.dumps(data),
+        )
 
     def _save_tool_placeholder(self) -> None:
         """Persist the placeholder message if it hasn't been saved."""
