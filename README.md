@@ -9,6 +9,10 @@
 - **System prompts** – every request includes a system prompt that guides the assistant to plan tool usage, verify results and avoid unnecessary jargon.
 - **Gradio interface** – a web UI in `gradio_app.py` lets you chat and browse the VM file system. The Files tab now allows navigating any directory inside the container.
 
+## Recommended Models
+
+Any model supported by [Ollama](https://ollama.com) with `tool` tags are compatible with this repository. I personally recommend `devstral`, I found it to work the best with this repository.
+
 ## Environment Variables
 
 Several settings can be customised via environment variables:
