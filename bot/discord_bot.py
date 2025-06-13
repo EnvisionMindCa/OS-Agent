@@ -87,7 +87,7 @@ class DiscordTeamBot(commands.Bot):
             for attachment in attachments:
                 dest = tmpdir / attachment.filename
                 await attachment.save(dest)
-                vm_path = agent.upload_document(str(dest))
+                vm_path = await agent.upload_document(str(dest))
                 uploaded.append((attachment.filename, vm_path))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
