@@ -46,7 +46,9 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        docs = await self._handle_attachments(message.attachments)
+        docs = await self._handle_attachments(
+            message.attachments, user_id=str(message.author.id)
+        )
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
@@ -74,9 +76,21 @@ class DiscordTeamBot(commands.Bot):
     # Helpers
     # ------------------------------------------------------------------
     async def _handle_attachments(
-        self, attachments: Iterable[discord.Attachment]
+        self,
+        attachments: Iterable[discord.Attachment],
+        *,
+        user_id: str,
     ) -> list[tuple[str, str]]:
-        """Download any attachments and return their VM paths."""
+        """Download attachments and return their VM paths.
+
+        Parameters
+        ----------
+        attachments:
+            Iterable of Discord attachments to download.
+        user_id:
+            Identifier of the user uploading the attachments. This ensures
+            documents are stored in the correct VM space.
+        """
 
         if not attachments:
             return []
@@ -87,7 +101,7 @@ class DiscordTeamBot(commands.Bot):
             for attachment in attachments:
                 dest = tmpdir / attachment.filename
                 await attachment.save(dest)
-                vm_path = await agent.upload_document(str(dest))
+                vm_path = await agent.upload_document(str(dest), user=user_id)
                 uploaded.append((attachment.filename, vm_path))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
