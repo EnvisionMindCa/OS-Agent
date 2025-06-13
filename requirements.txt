@@ -4,11 +4,3 @@ peewee
 discord.py
 colorama
 python-dotenv
-fastapi
-uvicorn
-python-multipart
-httpx
-
-gradio
-huggingface_hub
-gradio[oauth]
