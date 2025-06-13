@@ -193,6 +193,7 @@ class ChatSession:
             messages=payload,
             think=think,
             tools=self._tools,
+            keep_alive=-1,
             options={"num_ctx": NUM_CTX, "temperature": 0.01},
         )
 
