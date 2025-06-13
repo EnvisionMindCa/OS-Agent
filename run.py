@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-import argparse
-
 import agent
 from agent.vm import VMRegistry
 
