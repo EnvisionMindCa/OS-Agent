@@ -13,6 +13,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+import agent
 from agent.db import reset_history
 from agent.utils.logging import get_logger
 from agent.sessions.solo import SoloChatSession
@@ -45,21 +46,18 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        async with SoloChatSession(
-            user=str(message.author.id), session=str(message.channel.id), think=False
-        ) as chat:
-            docs = await self._handle_attachments(chat, message.attachments)
-            if docs:
-                info = "\n".join(f"{name} -> {path}" for name, path in docs)
-                await message.reply(f"Uploaded:\n{info}", mention_author=False)
+        # docs = await self._handle_attachments(chat, message.attachments)
+        if docs:
+            info = "\n".join(f"{name} -> {path}" for name, path in docs)
+            await message.reply(f"Uploaded:\n{info}", mention_author=False)
 
-            if message.content.strip():
-                try:
-                    async for part in chat.chat_stream(message.content):
-                        await message.reply(part, mention_author=False)
-                except Exception as exc:  # pragma: no cover - runtime errors
-                    self._log.error("Failed to process message: %s", exc)
-                    await message.reply(f"Error: {exc}", mention_author=False)
+        if message.content.strip():
+            try:
+                async for part in agent.solo_chat(message.content):
+                    await message.reply(part, mention_author=False)
+            except Exception as exc:  # pragma: no cover - runtime errors
+                self._log.error("Failed to process message: %s", exc)
+                await message.reply(f"Error: {exc}", mention_author=False)
 
     # ------------------------------------------------------------------
     # Commands

@@ -4,21 +4,12 @@ import asyncio
 
 import argparse
 
-from agent.sessions.team import TeamChatSession
-from agent.sessions.solo import SoloChatSession
+import agent
 from agent.vm import VMRegistry
 
-
 async def _main(mode: str) -> None:
-    session_cls = TeamChatSession if mode == "team" else SoloChatSession
-    async with session_cls(user="demo_user", session="demo_session", think=False) as chat:
-        # doc_path = chat.upload_document("requirements.txt")
-        # print("Document uploaded to:", doc_path)
-        # async for resp in chat.chat_stream("ask how junior agent is doing"):
-        # async for resp in chat.chat_stream("run hello.py"):
-        # async for resp in chat.chat_stream("what is the current date?"):
-        async for resp in chat.chat_stream("what is in requirements.txt"):
-            print("\n>>>", resp)
+    async for resp in agent.solo_chat("what is in requirements.txt", user="test_user", session="test_session", think=False): # or agent.team_chat()
+        print("\n>>>", resp)
 
 
 def main() -> None:

@@ -8,9 +8,7 @@ from .sessions.team import (
 from .sessions.solo import SoloChatSession
 from .simple import (
     solo_chat,
-    solo_chat_stream,
     team_chat,
-    team_chat_stream,
 )
 from .tools import execute_terminal, execute_terminal_async, set_vm
 from .utils.helpers import limit_chars
@@ -30,7 +28,5 @@ __all__ = [
     "limit_chars",
     "solo_chat",
     "team_chat",
-    "solo_chat_stream",
-    "team_chat_stream",
 ]
 
