@@ -50,6 +50,14 @@ async with ChatSession(think=False) as chat:
     path = chat.upload_document("path/to/file.pdf")
     async for part in chat.chat_stream(f"Summarize {path}"):
         print(part)
+
+# The same can be done without managing sessions directly
+path = asyncio.run(agent.upload_document("path/to/file.pdf"))
+listing = asyncio.run(agent.list_dir("/data"))
+print(listing)
+content = asyncio.run(agent.read_file(path))
+asyncio.run(agent.write_file("/data/new.txt", "Hello"))
+asyncio.run(agent.delete_path("/data/new.txt"))
 ```
 
 ## Discord Bot

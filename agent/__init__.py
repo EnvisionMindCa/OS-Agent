@@ -9,6 +9,12 @@ from .sessions.solo import SoloChatSession
 from .simple import (
     solo_chat,
     team_chat,
+    upload_document,
+    list_dir,
+    read_file,
+    write_file,
+    delete_path,
+    vm_execute,
 )
 from .tools import execute_terminal, execute_terminal_async, set_vm
 from .utils.helpers import limit_chars
@@ -28,5 +34,11 @@ __all__ = [
     "limit_chars",
     "solo_chat",
     "team_chat",
+    "upload_document",
+    "list_dir",
+    "read_file",
+    "write_file",
+    "delete_path",
+    "vm_execute",
 ]
 
