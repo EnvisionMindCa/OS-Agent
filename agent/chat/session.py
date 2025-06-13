@@ -209,9 +209,12 @@ class ChatSession:
         conversation: Conversation,
         depth: int = 0,
     ) -> AsyncIterator[ChatResponse]:
+        if response.message.content:
+            # Yield the assistant's content even when a tool call is present.
+            # This ensures helpful context isn't dropped before executing tools.
+            yield response
+
         if not response.message.tool_calls:
-            if response.message.content:
-                yield response
             async with self._lock:
                 self._state = "idle"
             return
