@@ -2,6 +2,8 @@
 
 `llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
 
+## This repo requires Python >= 3.10
+
 ## Features
 
 - **Persistent chat history** – conversations are stored in `chat.db` per user and session so they can be resumed later.
