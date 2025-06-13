@@ -75,6 +75,12 @@ asyncio.run(agent.delete_path("/data/new.txt"))
 
 Attachments sent to the bot are uploaded automatically and the VM path is returned so they can be referenced in later messages.
 
+Run shell commands manually with `!exec <command>`. For example:
+
+```text
+!exec ls /data
+```
+
 ## VM Configuration
 
 The shell commands run inside a Docker container. By default the image defined by `VM_IMAGE` is used (falling back to `python:3.11-slim`). When `PERSIST_VMS=1` (default) each user keeps the same container across sessions. Set `VM_STATE_DIR` to choose where per-user data is stored on the host.
