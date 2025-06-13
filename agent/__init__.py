@@ -16,7 +16,13 @@ from .simple import (
     delete_path,
     vm_execute,
 )
-from .tools import execute_terminal, execute_terminal_async, set_vm
+from .tools import (
+    execute_terminal,
+    execute_terminal_async,
+    execute_with_secret,
+    execute_with_secret_async,
+    set_vm,
+)
 from .utils.helpers import limit_chars
 from .vm import LinuxVM
 
@@ -30,6 +36,8 @@ __all__ = [
     "send_to_junior_async",
     "set_team",
     "set_vm",
+    "execute_with_secret",
+    "execute_with_secret_async",
     "LinuxVM",
     "limit_chars",
     "solo_chat",

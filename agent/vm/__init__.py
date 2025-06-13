@@ -100,7 +100,12 @@ class LinuxVM:
             raise RuntimeError(f"Failed to start VM: {exc}") from exc
 
     def execute(
-        self, command: str, *, timeout: int | None = 3, detach: bool = False
+        self,
+        command: str,
+        *,
+        timeout: int | None = 3,
+        detach: bool = False,
+        stdin_data: str | bytes | None = None,
     ) -> str:
         """Execute a command inside the running VM.
 
@@ -136,8 +141,9 @@ class LinuxVM:
         try:
             completed = subprocess.run(
                 cmd,
+                input=stdin_data,
                 capture_output=True,
-                text=True,
+                text=isinstance(stdin_data, str),
                 timeout=None if detach or timeout is None else timeout,
             )
         except subprocess.TimeoutExpired as exc:
@@ -151,11 +157,22 @@ class LinuxVM:
         return limit_chars(output)
 
     async def execute_async(
-        self, command: str, *, timeout: int | None = 3, detach: bool = False
+        self,
+        command: str,
+        *,
+        timeout: int | None = 3,
+        detach: bool = False,
+        stdin_data: str | bytes | None = None,
     ) -> str:
         """Asynchronously execute ``command`` inside the running VM."""
         loop = asyncio.get_running_loop()
-        func = partial(self.execute, command, timeout=timeout, detach=detach)
+        func = partial(
+            self.execute,
+            command,
+            timeout=timeout,
+            detach=detach,
+            stdin_data=stdin_data,
+        )
         return await loop.run_in_executor(None, func)
 
     def stop(self) -> None:
