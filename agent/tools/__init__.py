@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-__all__ = ["execute_terminal", "execute_terminal_async", "set_vm"]
+__all__ = [
+    "execute_terminal",
+    "execute_terminal_async",
+    "execute_with_secret",
+    "execute_with_secret_async",
+    "set_vm",
+]
 
 import subprocess
 import os
 from typing import Optional
 import asyncio
+from functools import partial
 
 from ..utils.helpers import limit_chars
 
@@ -21,7 +28,7 @@ def set_vm(vm: LinuxVM | None) -> None:
     _VM = vm
 
 
-def execute_terminal(command: str) -> str:
+def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """
     Execute a shell command in a Ubuntu terminal.
     Use this tool to inspect uploaded documents under ``/data``, fetch web
@@ -42,7 +49,7 @@ def execute_terminal(command: str) -> str:
 
     if _VM:
         try:
-            output = _VM.execute(command, timeout=None)
+            output = _VM.execute(command, timeout=None, stdin_data=stdin_data)
             return limit_chars(output)
         except Exception as exc:  # pragma: no cover - unforeseen errors
             return f"Failed to execute command in VM: {exc}"
@@ -51,8 +58,9 @@ def execute_terminal(command: str) -> str:
         completed = subprocess.run(
             command,
             shell=True,
+            input=stdin_data,
             capture_output=True,
-            text=True,
+            text=isinstance(stdin_data, str),
             env=os.environ.copy(),
             timeout=None,
         )
@@ -64,8 +72,34 @@ def execute_terminal(command: str) -> str:
         return f"Failed to execute command: {exc}"
 
 
-async def execute_terminal_async(command: str) -> str:
+async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """Asynchronously execute a shell command."""
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, execute_terminal, command)
+    func = partial(execute_terminal, command, stdin_data=stdin_data)
+    return await loop.run_in_executor(None, func)
+
+
+def execute_with_secret(
+    command: str,
+    secret_name: str,
+    *,
+    prompt: str | None = None,
+) -> str:
+    """Execute ``command`` passing the retrieved secret to ``stdin``."""
+    from ..utils.secrets import get_secret
+
+    secret = get_secret(secret_name, prompt)
+    return execute_terminal(command, stdin_data=f"{secret}\n")
+
+
+async def execute_with_secret_async(
+    command: str,
+    secret_name: str,
+    *,
+    prompt: str | None = None,
+) -> str:
+    """Asynchronously execute ``command`` with a secret fed to ``stdin``."""
+    loop = asyncio.get_running_loop()
+    func = partial(execute_with_secret, command, secret_name, prompt=prompt)
+    return await loop.run_in_executor(None, func)
 
