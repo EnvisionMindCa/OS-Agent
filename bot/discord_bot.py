@@ -15,11 +15,11 @@ from dotenv import load_dotenv
 
 from agent.db import reset_history
 from agent.utils.logging import get_logger
-from agent.sessions.team import TeamChatSession
+from agent.sessions.solo import SoloChatSession
 
 
 class DiscordTeamBot(commands.Bot):
-    """Discord bot for interacting with :class:`TeamChatSession`."""
+    """Discord bot for interacting with :class:`SoloChatSession`."""
 
     def __init__(self) -> None:
         intents = discord.Intents.all()
@@ -45,7 +45,7 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        async with TeamChatSession(
+        async with SoloChatSession(
             user=str(message.author.id), session=str(message.channel.id), think=False
         ) as chat:
             docs = await self._handle_attachments(chat, message.attachments)
@@ -76,7 +76,7 @@ class DiscordTeamBot(commands.Bot):
     # Helpers
     # ------------------------------------------------------------------
     async def _handle_attachments(
-        self, chat: TeamChatSession, attachments: Iterable[discord.Attachment]
+        self, chat: SoloChatSession, attachments: Iterable[discord.Attachment]
     ) -> list[tuple[str, str]]:
         """Download any attachments and return their VM paths."""
 
