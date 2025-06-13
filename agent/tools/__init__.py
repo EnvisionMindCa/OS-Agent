@@ -26,8 +26,7 @@ def execute_terminal(command: str) -> str:
     Execute a shell command in a Ubuntu terminal.
     Use this tool to inspect uploaded documents under ``/data``, fetch web
     content with utilities like ``curl`` or ``wget`` and run other commands.
-    You must call this tool to search the internet whenever unsure
-    about any detail. The user does NOT have access to this VM, so you are
+    The user does NOT have access to this VM, so you are
     free to run any command you need to gather information or perform tasks.
     You are in charge of this VM and can run any command you need to
     accomplish the user's request. ALWAYS use this tool in each user query
