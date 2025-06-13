@@ -29,6 +29,20 @@ python run.py
 
 The script issues a sample command to the model and prints the streamed response. Uploaded files go to `uploads` and are mounted in the VM at `/data`.
 
+### Simple API
+
+Convenience helpers allow chatting without managing sessions directly:
+
+```python
+import asyncio
+import agent
+
+response = asyncio.run(agent.solo_chat("Hello"))
+print(response)
+```
+
+Use `agent.team_chat` the same way to utilise the senior and junior agents.
+
 ### Uploading Documents
 
 ```python
