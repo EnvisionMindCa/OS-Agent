@@ -46,14 +46,14 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        # docs = await self._handle_attachments(chat, message.attachments)
+        docs = await self._handle_attachments(message.attachments)
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
 
         if message.content.strip():
             try:
-                async for part in agent.solo_chat(message.content):
+                async for part in agent.solo_chat(message.content, user=str(message.author.id), session=str(message.channel.id), think=False):
                     await message.reply(part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process message: %s", exc)
@@ -74,7 +74,7 @@ class DiscordTeamBot(commands.Bot):
     # Helpers
     # ------------------------------------------------------------------
     async def _handle_attachments(
-        self, chat: SoloChatSession, attachments: Iterable[discord.Attachment]
+        self, attachments: Iterable[discord.Attachment]
     ) -> list[tuple[str, str]]:
         """Download any attachments and return their VM paths."""
 
@@ -87,7 +87,7 @@ class DiscordTeamBot(commands.Bot):
             for attachment in attachments:
                 dest = tmpdir / attachment.filename
                 await attachment.save(dest)
-                vm_path = chat.upload_document(str(dest))
+                vm_path = agent.upload_document(str(dest))
                 uploaded.append((attachment.filename, vm_path))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
