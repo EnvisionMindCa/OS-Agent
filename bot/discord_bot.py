@@ -72,6 +72,18 @@ class DiscordTeamBot(commands.Bot):
                 f"Chat history cleared ({deleted} messages deleted).",
             )
 
+        @self.command(name="exec")
+        async def exec_cmd(ctx: commands.Context, *, command: str) -> None:
+            """Run ``command`` inside the user's VM and return the output."""
+
+            output = await agent.vm_execute(command, user=str(ctx.author.id))
+            output = output.strip()
+            if not output:
+                output = "(no output)"
+            if len(output) > 1900:
+                output = output[:1900] + "..."
+            await ctx.reply(f"```\n{output}\n```", mention_author=False)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
