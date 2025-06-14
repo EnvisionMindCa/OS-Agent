@@ -76,9 +76,6 @@ class ChatSession:
             tuple[str, asyncio.Queue[ChatEvent | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._input_prompts: asyncio.Queue[str] = asyncio.Queue()
-        self._input_values: asyncio.Queue[str] = asyncio.Queue()
 
     # ------------------------------------------------------------------
     # Properties exposing session state
@@ -119,7 +116,6 @@ class ChatSession:
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
         set_vm(self._vm)
-        self._loop = asyncio.get_running_loop()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -143,27 +139,6 @@ class ChatSession:
         shutil.copy(src, target)
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
-
-    # ------------------------------------------------------------------
-    async def request_user_input(self, prompt: str) -> str:
-        """Notify the client that input is required and wait for a response."""
-
-        await self._input_prompts.put(prompt)
-        return await self._input_values.get()
-
-    async def send_user_input(self, value: str) -> None:
-        """Provide ``value`` in response to an input request."""
-
-        await self._input_values.put(value)
-
-    # Synchronous wrapper used from threads
-    def _request_user_input_sync(self, prompt: str) -> str:
-        if not self._loop:
-            raise RuntimeError("ChatSession not active")
-        fut = asyncio.run_coroutine_threadsafe(
-            self.request_user_input(prompt), self._loop
-        )
-        return fut.result()
 
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
@@ -228,8 +203,6 @@ class ChatSession:
         if asyncio.iscoroutinefunction(func):
             return await func(**kwargs)
         loop = asyncio.get_running_loop()
-        if func.__name__ in {"execute_terminal", "execute_terminal_async"}:
-            kwargs["input_callback"] = self._request_user_input_sync
         return await loop.run_in_executor(None, lambda: func(**kwargs))
 
     # ------------------------------------------------------------------
@@ -409,25 +382,9 @@ class ChatSession:
     async def _wait_for_event(
         self, queue: asyncio.Queue[ChatEvent | None]
     ) -> ChatEvent | None:
-        """Return the next chat event or input prompt whichever comes first."""
+        """Return the next chat event from ``queue``."""
 
-        if not self._input_prompts.empty():
-            prompt = await self._input_prompts.get()
-            return {"input_required": prompt}
-
-        input_task = asyncio.create_task(self._input_prompts.get())
-        event_task = asyncio.create_task(queue.get())
-
-        done, _ = await asyncio.wait(
-            {input_task, event_task}, return_when=asyncio.FIRST_COMPLETED
-        )
-
-        if input_task in done:
-            event_task.cancel()
-            return {"input_required": input_task.result()}
-
-        input_task.cancel()
-        return event_task.result()
+        return await queue.get()
 
     async def chat_stream(self, prompt: str) -> AsyncIterator[ChatEvent]:
         result_q: asyncio.Queue[ChatEvent | None] = asyncio.Queue()
@@ -455,9 +412,6 @@ class ChatSession:
             self._messages, response, self._conversation
         ):
             yield event
-            while not self._input_prompts.empty():
-                prompt_msg = await self._input_prompts.get()
-                yield {"input_required": prompt_msg}
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[ChatEvent]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
@@ -475,9 +429,6 @@ class ChatSession:
         ):
             if event:
                 yield event
-            while not self._input_prompts.empty():
-                prompt_msg = await self._input_prompts.get()
-                yield {"input_required": prompt_msg}
             if resp is not None:
                 async for part in self._handle_tool_calls_stream(
                     self._messages, resp, self._conversation

@@ -3,14 +3,12 @@ from __future__ import annotations
 import subprocess
 import asyncio
 from functools import partial
-from typing import Callable, Optional
 from pathlib import Path
 
 from threading import Lock
 
 from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
 from ..utils.helpers import limit_chars
-from ..utils.interactive import run_interactive
 import pexpect
 
 from ..utils.logging import get_logger
@@ -44,6 +42,8 @@ class LinuxVM:
         self._host_dir.mkdir(parents=True, exist_ok=True)
         self._state_dir = Path(VM_STATE_DIR) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
+        self._hostname = None
+        self._prompt = None
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -59,15 +59,23 @@ class LinuxVM:
             if inspect.returncode == 0:
                 if inspect.stdout.strip() == "true":
                     self._running = True
-                    return
-                subprocess.run(
-                    ["docker", "start", self._name],
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                else:
+                    subprocess.run(
+                        ["docker", "start", self._name],
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+                    self._running = True
+                result = subprocess.run(
+                    ["docker", "exec", self._name, "hostname"],
+                    capture_output=True,
                     text=True,
+                    check=False,
                 )
-                self._running = True
+                self._hostname = result.stdout.strip() or self._name
+                self._prompt = f"root@{self._hostname}:/# "
                 return
 
             subprocess.run(
@@ -98,6 +106,14 @@ class LinuxVM:
                 text=True,
             )
             self._running = True
+            result = subprocess.run(
+                ["docker", "exec", self._name, "hostname"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self._hostname = result.stdout.strip() or self._name
+            self._prompt = f"root@{self._hostname}:/# "
         except Exception as exc:  # pragma: no cover - runtime failures
             _LOG.error("Failed to start VM: %s", exc)
             raise RuntimeError(f"Failed to start VM: {exc}") from exc
@@ -107,78 +123,56 @@ class LinuxVM:
         command: str,
         *,
         timeout: int | None = 3,
-        detach: bool = False,
         stdin_data: str | bytes | None = None,
-        input_callback: Optional[Callable[[str], str]] = None,
     ) -> str:
-        """Execute a command inside the running VM.
+        """Execute ``command`` inside the VM and return a full terminal transcript."""
 
-        Parameters
-        ----------
-        command:
-            The shell command to run inside the container.
-        timeout:
-            Maximum time in seconds to wait for completion. Set to ``None``
-            to wait indefinitely. Ignored when ``detach`` is ``True``.
-        detach:
-            Run the command in the background without waiting for it to finish.
-        """
         if not self._running:
             raise RuntimeError("VM is not running")
 
-        cmd = [
+        prompt = self._prompt or ""
+        child = pexpect.spawn(
             "docker",
-            "exec",
-            "-i",
-        ]
-        if detach:
-            cmd.append("-d")
-        cmd.extend(
             [
+                "exec",
+                "-i",
+                "-t",
                 self._name,
                 "bash",
-                "-lc",
-                command,
-            ]
+                "--noprofile",
+                "--norc",
+                "-i",
+            ],
+            env={"PS1": prompt},
+            encoding="utf-8",
+            echo=True,
         )
 
-        if input_callback is not None:
-            return self._execute_interactive(cmd, input_callback)
+        try:
+            child.expect(prompt)
+        except Exception:
+            child.close(force=True)
+            return "Failed to start shell"
+
+        child.sendline(command)
+        if stdin_data is not None:
+            child.send(stdin_data)
 
         try:
-            completed = subprocess.run(
-                cmd,
-                input=stdin_data,
-                capture_output=True,
-                text=isinstance(stdin_data, str),
-                timeout=None if detach or timeout is None else timeout,
-            )
-        except subprocess.TimeoutExpired as exc:
-            return f"Command timed out after {timeout}s: {exc.cmd}"
-        except Exception as exc:  # pragma: no cover - unforeseen errors
-            return f"Failed to execute command: {exc}"
-
-        output = completed.stdout
-        if completed.stderr:
-            output = f"{output}\n{completed.stderr}" if output else completed.stderr
-        return limit_chars(output)
-
-    def _execute_interactive(
-        self, cmd: list[str], input_callback: Callable[[str], str]
-    ) -> str:
-        """Run ``cmd`` interactively using ``input_callback`` for prompts."""
-
-        child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", echo=False)
-        return run_interactive(child, input_callback)
+            child.expect(prompt, timeout=None if timeout is None else timeout)
+            output = child.before
+        except pexpect.TIMEOUT:
+            output = child.before
+        child.close(force=True)
+        transcript = f"{prompt}{command}\n{output}{prompt}"
+        return limit_chars(transcript)
 
     async def execute_async(
         self,
         command: str,
         *,
         timeout: int | None = 3,
-        detach: bool = False,
         stdin_data: str | bytes | None = None,
-        input_callback: Optional[Callable[[str], str]] = None,
     ) -> str:
         """Asynchronously execute ``command`` inside the running VM."""
         loop = asyncio.get_running_loop()
@@ -186,9 +180,7 @@ class LinuxVM:
             self.execute,
             command,
             timeout=timeout,
-            detach=detach,
             stdin_data=stdin_data,
-            input_callback=input_callback,
         )
         return await loop.run_in_executor(None, func)
 

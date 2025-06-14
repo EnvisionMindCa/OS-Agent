@@ -61,12 +61,7 @@ class DiscordTeamBot(commands.Bot):
                 async for event in agent.solo_chat(
                     message.content, user=user, session=session, think=False
                 ):
-                    if event.get("input_required"):
-                        await message.reply(
-                            f"{event['input_required']}\nRespond with `!input <value>`",
-                            mention_author=False,
-                        )
-                    elif event.get("tool_call"):
+                    if event.get("tool_call"):
                         await message.reply(
                             f"[tool] {event['tool_call']}", mention_author=False
                         )
@@ -104,16 +99,7 @@ class DiscordTeamBot(commands.Bot):
                 output = output[:1900] + "..."
             await ctx.reply(f"```\n{output}\n```", mention_author=False)
 
-        @self.command(name="input")
-        async def input_cmd(ctx: commands.Context, *, value: str) -> None:
-            """Send ``value`` to a running chat session."""
-
-            await agent.send_input(
-                value, user=str(ctx.author.id), session=str(ctx.channel.id)
-            )
-            await ctx.message.add_reaction("✅")
-
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
     async def _handle_attachments(

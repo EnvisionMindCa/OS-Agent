@@ -12,10 +12,7 @@ async def _main() -> None:
     async for event in agent.solo_chat(
         "what is in requirements.txt", user=user, session=session, think=False
     ):  # or agent.team_chat()
-        if event.get("input_required"):
-            user_input = input(f"{event['input_required']} ")
-            await agent.send_input(user_input, user=user, session=session)
-        elif event.get("tool_call"):
+        if event.get("tool_call"):
             print("\n[TOOL CALL]", event["tool_call"])
         elif event.get("tool_result"):
             print("\n[TOOL RESULT]", event["tool_result"])
