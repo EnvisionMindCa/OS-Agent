@@ -4,6 +4,8 @@ import subprocess
 import asyncio
 from functools import partial
 from pathlib import Path
+import re
+from io import StringIO
 
 from threading import Lock
 
@@ -43,7 +45,35 @@ class LinuxVM:
         self._state_dir = Path(VM_STATE_DIR) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
         self._hostname = None
-        self._prompt = None
+        self._user = None
+        self._prompt_env = None
+        self._prompt_re = None
+
+    def _fetch_username(self) -> str:
+        """Return the username inside the running container."""
+        try:
+            result = subprocess.run(
+                ["docker", "exec", self._name, "id", "-un"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            user = result.stdout.strip()
+            return user or "root"
+        except Exception as exc:  # pragma: no cover - runtime failures
+            _LOG.error("Failed to get container username: %s", exc)
+            return "root"
+
+    def _update_prompt(self) -> None:
+        """Update prompt patterns based on current user and host."""
+        if not self._user or not self._hostname:
+            return
+        suffix = "#" if self._user == "root" else "$"
+        prefix = f"{self._user}@{self._hostname}:"
+        self._prompt_env = f"{prefix}" + r"\w" + f"{suffix} "
+        self._prompt_re = re.compile(
+            re.escape(prefix) + r"[^\r\n]*" + re.escape(f"{suffix} ")
+        )
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -75,7 +105,8 @@ class LinuxVM:
                     check=False,
                 )
                 self._hostname = result.stdout.strip() or self._name
-                self._prompt = f"root@{self._hostname}:/# "
+                self._user = self._fetch_username()
+                self._update_prompt()
                 return
 
             subprocess.run(
@@ -113,7 +144,8 @@ class LinuxVM:
                 check=False,
             )
             self._hostname = result.stdout.strip() or self._name
-            self._prompt = f"root@{self._hostname}:/# "
+            self._user = self._fetch_username()
+            self._update_prompt()
         except Exception as exc:  # pragma: no cover - runtime failures
             _LOG.error("Failed to start VM: %s", exc)
             raise RuntimeError(f"Failed to start VM: {exc}") from exc
@@ -125,12 +157,14 @@ class LinuxVM:
         timeout: int | None = 3,
         stdin_data: str | bytes | None = None,
     ) -> str:
-        """Execute ``command`` inside the VM and return a full terminal transcript."""
+        """Execute ``command`` in the VM and return the raw terminal transcript."""
 
         if not self._running:
             raise RuntimeError("VM is not running")
 
-        prompt = self._prompt or ""
+        prompt_env = self._prompt_env or ""
+        prompt_re = self._prompt_re or ""
+        transcript_io = StringIO()
         child = pexpect.spawn(
             "docker",
             [
@@ -143,13 +177,14 @@ class LinuxVM:
                 "--norc",
                 "-i",
             ],
-            env={"PS1": prompt},
+            env={"PS1": prompt_env},
             encoding="utf-8",
             echo=True,
         )
+        child.logfile_read = transcript_io
 
         try:
-            child.expect(prompt)
+            child.expect(prompt_re)
         except Exception:
             child.close(force=True)
             return "Failed to start shell"
@@ -159,12 +194,11 @@ class LinuxVM:
             child.send(stdin_data)
 
         try:
-            child.expect(prompt, timeout=None if timeout is None else timeout)
-            output = child.before
+            child.expect(prompt_re, timeout=None if timeout is None else timeout)
         except pexpect.TIMEOUT:
-            output = child.before
+            pass
         child.close(force=True)
-        transcript = f"{prompt}{command}\n{output}{prompt}"
+        transcript = transcript_io.getvalue()
         return limit_chars(transcript)
 
     async def execute_async(
