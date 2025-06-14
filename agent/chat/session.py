@@ -29,7 +29,7 @@ from ..utils.logging import get_logger
 from .schema import Msg, ChatEvent
 from contextlib import suppress
 
-from ..tools import execute_terminal, set_vm
+from ..tools import execute_terminal, set_vm, close_terminal_session
 from ..vm import VMRegistry, is_vm_available
 
 from .state import SessionState, get_state
@@ -124,6 +124,7 @@ class ChatSession:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         set_vm(None)
+        close_terminal_session()
         if self._vm:
             VMRegistry.release(self._user.username)
         if not _db.is_closed():

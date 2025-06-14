@@ -6,62 +6,49 @@ __all__ = [
     "execute_with_secret",
     "execute_with_secret_async",
     "set_vm",
+    "close_terminal_session",
 ]
 
-import subprocess
-import os
-import platform
-from typing import Any, Optional
 import asyncio
 from functools import partial
-import io
-import pexpect
+from typing import Optional
 
 from ..utils.helpers import limit_chars
-
 from ..vm import LinuxVM
+from .terminal_session import TerminalSession
 
 
 _VM: Optional[LinuxVM] = None
+_SESSION: Optional[TerminalSession] = None
 
 
 def set_vm(vm: LinuxVM | None) -> None:
     """Register the VM instance used for command execution."""
 
-    global _VM
+    global _VM, _SESSION
     _VM = vm
+    if _SESSION is not None:
+        _SESSION.close()
+        _SESSION = None
 
 
-def _execute_local(command: str, *, stdin_data: str | bytes | None = None) -> str:
-    """Execute ``command`` directly on the host and return a terminal transcript."""
 
-    user = os.environ.get("USER", "user")
-    host = platform.node().split(".")[0]
-    cwd = os.path.basename(os.getcwd())
-    prompt = f"{user}@{host} {cwd} % "
+def _get_session() -> TerminalSession:
+    """Return the current ``TerminalSession`` creating one if needed."""
 
-    child = pexpect.spawn(
-        "bash",
-        ["--noprofile", "--norc"],
-        env={"PS1": prompt},
-        encoding="utf-8",
-        echo=True,
-    )
+    global _SESSION
+    if _SESSION is None:
+        _SESSION = TerminalSession(_VM)
+    return _SESSION
 
-    transcript = io.StringIO()
-    child.logfile_read = transcript
 
-    child.expect_exact(prompt)
-    child.sendline(command)
-    if stdin_data is not None:
-        if isinstance(stdin_data, bytes):
-            child.send(stdin_data.decode())
-        else:
-            child.send(stdin_data)
-    child.expect_exact(prompt)
-    child.close(force=True)
+def close_terminal_session() -> None:
+    """Terminate the active terminal session if any."""
 
-    return limit_chars(transcript.getvalue())
+    global _SESSION
+    if _SESSION is not None:
+        _SESSION.close()
+        _SESSION = None
 
 
 def execute_terminal(
@@ -84,19 +71,14 @@ def execute_terminal(
     returned (up to 10,000 characters). Execution happens asynchronously so
     the assistant can continue responding while the command runs.
     """
-    if not command:
+    if not command and stdin_data is None:
         return "No command provided."
 
-    if _VM:
-        try:
-            output = _VM.execute(command, timeout=None, stdin_data=stdin_data)
-            return limit_chars(output)
-        except Exception as exc:  # pragma: no cover - unforeseen errors
-            return f"Failed to execute command in VM: {exc}"
-
+    session = _get_session()
     try:
-        return _execute_local(command, stdin_data=stdin_data)
+        return session.execute(command, stdin_data=stdin_data)
     except Exception as exc:  # pragma: no cover - unforeseen errors
+        session.close()
         return f"Failed to execute command: {exc}"
 
 

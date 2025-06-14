@@ -235,6 +235,35 @@ class ContainerVM:
         )
         return await loop.run_in_executor(None, func)
 
+    # ------------------------------------------------------------------
+    def open_shell(self) -> tuple[pexpect.spawn, str]:
+        """Return a spawned interactive shell and prompt regex."""
+
+        if not self._running:
+            raise RuntimeError("VM is not running")
+
+        prompt_env = self._prompt_env or ""
+        prompt_re = self._prompt_re or ""
+
+        child = pexpect.spawn(
+            VM_CMD,
+            [
+                "exec",
+                "-i",
+                "-t",
+                self._name,
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-i",
+            ],
+            env={"PS1": prompt_env},
+            encoding="utf-8",
+            echo=True,
+        )
+        child.expect(prompt_re)
+        return child, prompt_re
+
     def stop(self) -> None:
         """Terminate the VM if running."""
         if not self._running:
