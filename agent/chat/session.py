@@ -30,7 +30,7 @@ from .schema import Msg, ChatEvent
 from contextlib import suppress
 
 from ..tools import execute_terminal, set_vm
-from ..vm import VMRegistry
+from ..vm import VMRegistry, is_docker_available
 
 from .state import SessionState, get_state
 from .messages import (
@@ -114,8 +114,12 @@ class ChatSession:
         self._think = value
 
     async def __aenter__(self) -> "ChatSession":
-        self._vm = VMRegistry.acquire(self._user.username)
-        set_vm(self._vm)
+        if is_docker_available():
+            self._vm = VMRegistry.acquire(self._user.username)
+            set_vm(self._vm)
+        else:
+            self._vm = None
+            set_vm(None)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
