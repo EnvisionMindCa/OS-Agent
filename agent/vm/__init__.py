@@ -7,7 +7,7 @@ from pathlib import Path
 
 from threading import Lock
 
-from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
+from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR, HARD_TIMEOUT
 from ..utils.helpers import limit_chars
 
 from ..utils.logging import get_logger
@@ -144,7 +144,7 @@ class LinuxVM:
                 input=stdin_data,
                 capture_output=True,
                 text=isinstance(stdin_data, str),
-                timeout=None if detach or timeout is None else timeout,
+                timeout=HARD_TIMEOUT,
             )
         except subprocess.TimeoutExpired as exc:
             return f"Command timed out after {timeout}s: {exc.cmd}"
@@ -169,7 +169,7 @@ class LinuxVM:
         func = partial(
             self.execute,
             command,
-            timeout=timeout,
+            timeout=HARD_TIMEOUT,
             detach=detach,
             stdin_data=stdin_data,
         )
