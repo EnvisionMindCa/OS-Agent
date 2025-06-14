@@ -6,8 +6,8 @@ import agent
 from agent.vm import VMRegistry
 
 async def _main() -> None:
-    document = await agent.upload_document("requirements.txt")
-    async for resp in agent.solo_chat("what is in requirements.txt", user="test_user", session="test_session", think=False): # or agent.team_chat()
+    # document = await agent.upload_document("requirements.txt")
+    async for resp in agent.solo_chat("run ls", user="test_user", session="test_session", think=False): # or agent.team_chat()
         print("\n>>>", resp)
 
 
