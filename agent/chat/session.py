@@ -406,6 +406,29 @@ class ChatSession:
         finally:
             self._worker = None
 
+    async def _wait_for_event(
+        self, queue: asyncio.Queue[ChatEvent | None]
+    ) -> ChatEvent | None:
+        """Return the next chat event or input prompt whichever comes first."""
+
+        if not self._input_prompts.empty():
+            prompt = await self._input_prompts.get()
+            return {"input_required": prompt}
+
+        input_task = asyncio.create_task(self._input_prompts.get())
+        event_task = asyncio.create_task(queue.get())
+
+        done, _ = await asyncio.wait(
+            {input_task, event_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+
+        if input_task in done:
+            event_task.cancel()
+            return {"input_required": input_task.result()}
+
+        input_task.cancel()
+        return event_task.result()
+
     async def chat_stream(self, prompt: str) -> AsyncIterator[ChatEvent]:
         result_q: asyncio.Queue[ChatEvent | None] = asyncio.Queue()
         await self._prompt_queue.put((prompt, result_q))
@@ -413,12 +436,7 @@ class ChatSession:
             self._worker = asyncio.create_task(self._process_prompt_queue())
 
         while True:
-            if not self._input_prompts.empty():
-                prompt_msg = await self._input_prompts.get()
-                yield {"input_required": prompt_msg}
-                continue
-
-            part = await result_q.get()
+            part = await self._wait_for_event(result_q)
             if part is None:
                 break
             yield part
@@ -436,10 +454,10 @@ class ChatSession:
         async for event in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            if not self._input_prompts.empty():
+            yield event
+            while not self._input_prompts.empty():
                 prompt_msg = await self._input_prompts.get()
                 yield {"input_required": prompt_msg}
-            yield event
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[ChatEvent]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
@@ -455,11 +473,11 @@ class ChatSession:
             self._conversation,
             self._current_tool_name or "tool",
         ):
-            if not self._input_prompts.empty():
-                prompt_msg = await self._input_prompts.get()
-                yield {"input_required": prompt_msg}
             if event:
                 yield event
+            while not self._input_prompts.empty():
+                prompt_msg = await self._input_prompts.get()
+                yield {"input_required": prompt_msg}
             if resp is not None:
                 async for part in self._handle_tool_calls_stream(
                     self._messages, resp, self._conversation
