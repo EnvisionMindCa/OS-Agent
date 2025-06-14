@@ -30,7 +30,7 @@ def set_vm(vm: LinuxVM | None) -> None:
 
 def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """
-    Execute a shell command in a Ubuntu terminal.
+    Execute a shell command in an **unrestricted** Debian terminal.
     Use this tool to inspect uploaded documents under ``/data``, fetch web
     content with utilities like ``curl`` or ``wget`` and run other commands.
     The user does NOT have access to this VM, so you are
