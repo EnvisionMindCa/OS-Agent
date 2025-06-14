@@ -16,6 +16,7 @@ PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
 VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
 )
+VM_CMD: Final[str] = os.getenv("VM_CMD", "podman")
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 
 # Content used when waiting for tool execution.

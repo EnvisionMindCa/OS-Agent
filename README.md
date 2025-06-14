@@ -2,16 +2,16 @@
 
 `llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
 
-## This repo requires Python >= 3.10. Docker is recommended but optional.
+## This repo requires Python >= 3.10. Podman is recommended but optional.
 
-If Docker is not available, shell commands are executed directly on the host
-with reduced isolation. Installing Docker ensures commands run inside a
+If Podman is not available, shell commands are executed directly on the host
+with reduced isolation. Installing Podman ensures commands run inside a
 dedicated VM for better separation.
 
 ## Features
 
 - **Persistent chat history** – conversations are stored in `chat.db` per user and session so they can be resumed later.
-- **Tool execution** – a built-in `execute_terminal` tool runs commands inside a Docker-based VM using `docker exec -i`. Network access is enabled and both stdout and stderr are captured (up to 10,000 characters). The VM is reused across chats when `PERSIST_VMS=1` so installed packages remain available.
+- **Tool execution** – a built-in `execute_terminal` tool runs commands inside a Podman-based VM using `podman exec -i`. Network access is enabled and both stdout and stderr are captured (up to 10,000 characters). The VM is reused across chats when `PERSIST_VMS=1` so installed packages remain available.
 - **System prompts** – every request includes a system prompt that guides the assistant to plan tool usage, verify results and avoid unnecessary jargon.
 
 ## Recommended Models
@@ -24,7 +24,7 @@ Several settings can be customised via environment variables:
 
 - `DB_PATH` – location of the SQLite database (default `chat.db` in the project directory).
 - `LOG_LEVEL` – logging verbosity (`DEBUG`, `INFO`, etc.).
-- `VM_IMAGE` and `VM_STATE_DIR` control the Docker-based VM.
+- `VM_IMAGE`, `VM_STATE_DIR` and `VM_CMD` control the Podman-based VM.
 
 ## Quick Start
 
@@ -93,7 +93,7 @@ Run shell commands manually with `!exec <command>`. For example:
 
 ## VM Configuration
 
-The shell commands run inside a Docker container. By default the image defined by `VM_IMAGE` is used (falling back to `python:3.11-slim`). When `PERSIST_VMS=1` (default) each user keeps the same container across sessions. Set `VM_STATE_DIR` to choose where per-user data is stored on the host.
+The shell commands run inside a Podman container. By default the image defined by `VM_IMAGE` is used (falling back to `python:3.11-slim`). When `PERSIST_VMS=1` (default) each user keeps the same container across sessions. Set `VM_STATE_DIR` to choose where per-user data is stored on the host. Use `VM_CMD` to override the Podman binary if needed.
 
 To build a more complete environment you can create your own image, for example using `docker/Dockerfile.vm`:
 
@@ -114,7 +114,7 @@ CMD ["sleep", "infinity"]
 Build and run with:
 
 ```bash
-docker build -t llm-vm -f docker/Dockerfile.vm .
+podman build -t llm-vm -f docker/Dockerfile.vm .
 export VM_IMAGE=llm-vm
 python run.py
 ```
