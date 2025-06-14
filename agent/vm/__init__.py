@@ -10,7 +10,7 @@ import shutil
 
 from threading import Lock
 
-from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
+from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR, VM_CMD
 from ..utils.helpers import limit_chars
 import pexpect
 
@@ -19,13 +19,13 @@ from ..utils.logging import get_logger
 _LOG = get_logger(__name__)
 
 
-def is_docker_available() -> bool:
-    """Return ``True`` if the ``docker`` executable and daemon are available."""
-    if shutil.which("docker") is None:
+def is_vm_available() -> bool:
+    """Return ``True`` if the container runtime executable is available."""
+    if shutil.which(VM_CMD) is None:
         return False
     try:
         subprocess.run(
-            ["docker", "info"],
+            [VM_CMD, "info"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -36,13 +36,13 @@ def is_docker_available() -> bool:
 
 
 def _sanitize(name: str) -> str:
-    """Return a Docker-safe name fragment."""
+    """Return a runtime-safe name fragment."""
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
     return "".join(c if c in allowed else "_" for c in name)
 
 
-class LinuxVM:
-    """Manage a lightweight Docker-based VM.
+class ContainerVM:
+    """Manage a lightweight Podman-based VM.
 
     The default image provides Python and pip so packages can be installed
     immediately. A custom image can be supplied via ``VM_IMAGE``.
@@ -70,7 +70,7 @@ class LinuxVM:
         """Return the username inside the running container."""
         try:
             result = subprocess.run(
-                ["docker", "exec", self._name, "id", "-un"],
+                [VM_CMD, "exec", self._name, "id", "-un"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -99,7 +99,7 @@ class LinuxVM:
 
         try:
             inspect = subprocess.run(
-                ["docker", "inspect", "-f", "{{.State.Running}}", self._name],
+                [VM_CMD, "inspect", "-f", "{{.State.Running}}", self._name],
                 capture_output=True,
                 text=True,
             )
@@ -108,7 +108,7 @@ class LinuxVM:
                     self._running = True
                 else:
                     subprocess.run(
-                        ["docker", "start", self._name],
+                        [VM_CMD, "start", self._name],
                         check=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -116,7 +116,7 @@ class LinuxVM:
                     )
                     self._running = True
                 result = subprocess.run(
-                    ["docker", "exec", self._name, "hostname"],
+                    [VM_CMD, "exec", self._name, "hostname"],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -127,7 +127,7 @@ class LinuxVM:
                 return
 
             subprocess.run(
-                ["docker", "pull", self._image],
+                [VM_CMD, "pull", self._image],
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -135,7 +135,7 @@ class LinuxVM:
             )
             subprocess.run(
                 [
-                    "docker",
+                    VM_CMD,
                     "run",
                     "-d",
                     "--name",
@@ -155,7 +155,7 @@ class LinuxVM:
             )
             self._running = True
             result = subprocess.run(
-                ["docker", "exec", self._name, "hostname"],
+                [VM_CMD, "exec", self._name, "hostname"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -182,7 +182,7 @@ class LinuxVM:
         prompt_env = self._prompt_env or ""
         prompt_re = self._prompt_re or ""
         child = pexpect.spawn(
-            "docker",
+            VM_CMD,
             [
                 "exec",
                 "-i",
@@ -242,7 +242,7 @@ class LinuxVM:
 
         if PERSIST_VMS:
             subprocess.run(
-                ["docker", "stop", self._name],
+                [VM_CMD, "stop", self._name],
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -250,7 +250,7 @@ class LinuxVM:
             )
         else:
             subprocess.run(
-                ["docker", "rm", "-f", self._name],
+                [VM_CMD, "rm", "-f", self._name],
                 check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -258,7 +258,7 @@ class LinuxVM:
             )
         self._running = False
 
-    def __enter__(self) -> "LinuxVM":
+    def __enter__(self) -> "ContainerVM":
         self.start()
         return self
 
@@ -269,18 +269,18 @@ class LinuxVM:
 class VMRegistry:
     """Manage Linux VM instances on a per-user basis."""
 
-    _vms: dict[str, LinuxVM] = {}
+    _vms: dict[str, ContainerVM] = {}
     _counts: dict[str, int] = {}
     _lock = Lock()
 
     @classmethod
-    def acquire(cls, username: str) -> LinuxVM:
+    def acquire(cls, username: str) -> ContainerVM:
         """Return a running VM for ``username``, creating it if needed."""
 
         with cls._lock:
             vm = cls._vms.get(username)
             if vm is None:
-                vm = LinuxVM(
+                vm = ContainerVM(
                     username,
                     host_dir=str(Path(UPLOAD_DIR) / username),
                 )
@@ -318,3 +318,6 @@ class VMRegistry:
                     vm.stop()
             cls._vms.clear()
             cls._counts.clear()
+
+# Backwards compatibility
+LinuxVM = ContainerVM
