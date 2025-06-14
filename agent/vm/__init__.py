@@ -12,7 +12,10 @@ from threading import Lock
 
 from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
 from ..utils.helpers import limit_chars
-import pexpect
+import os
+import pty
+import select
+import time
 
 from ..utils.logging import get_logger
 
@@ -181,41 +184,66 @@ class LinuxVM:
 
         prompt_env = self._prompt_env or ""
         prompt_re = self._prompt_re or ""
-        child = pexpect.spawn(
+        command_list = [
             "docker",
-            [
-                "exec",
-                "-i",
-                "-t",
-                self._name,
-                "bash",
-                "--noprofile",
-                "--norc",
-                "-i",
-            ],
-            env={"PS1": prompt_env},
-            encoding="utf-8",
-            echo=True,
-        )
-        transcript = io.StringIO()
-        child.logfile_read = transcript
+            "exec",
+            "-i",
+            "-t",
+            self._name,
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-i",
+        ]
 
-        try:
-            child.expect(prompt_re)
-        except Exception:
-            child.close(force=True)
+        master_fd, slave_fd = pty.openpty()
+        proc = subprocess.Popen(
+            command_list,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            env={"PS1": prompt_env},
+            text=True,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+
+        transcript = io.StringIO()
+
+        def _read_until(pattern: re.Pattern[str], timeout_s: int | None) -> bool:
+            buffer = ""
+            start = time.monotonic()
+            while True:
+                ready, _, _ = select.select([master_fd], [], [], 0.1)
+                if master_fd in ready:
+                    data = os.read(master_fd, 1024).decode("utf-8", "ignore")
+                    if not data:
+                        return False
+                    transcript.write(data)
+                    buffer += data
+                    if pattern.search(buffer):
+                        return True
+                if timeout_s is not None and time.monotonic() - start > timeout_s:
+                    return False
+
+        if not _read_until(prompt_re, timeout):
+            proc.terminate()
+            proc.wait(timeout=1)
             return "Failed to start shell"
 
-        child.sendline(command)
+        os.write(master_fd, (command + "\n").encode())
         if stdin_data is not None:
-            child.send(stdin_data)
+            os.write(master_fd, stdin_data.encode() if isinstance(stdin_data, str) else stdin_data)
 
+        _read_until(prompt_re, timeout)
+
+        proc.terminate()
         try:
-            child.expect(prompt_re, timeout=None if timeout is None else timeout)
-        except pexpect.TIMEOUT:
-            pass
+            proc.wait(timeout=1)
+        except Exception:
+            proc.kill()
+        os.close(master_fd)
 
-        child.close(force=True)
         return limit_chars(transcript.getvalue())
 
     async def execute_async(

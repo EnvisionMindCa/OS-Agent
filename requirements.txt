@@ -4,4 +4,3 @@ peewee
 discord.py
 colorama
 python-dotenv
-pexpect
