@@ -76,6 +76,9 @@ class ChatSession:
             tuple[str, asyncio.Queue[str | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._input_prompts: asyncio.Queue[str] = asyncio.Queue()
+        self._input_values: asyncio.Queue[str] = asyncio.Queue()
 
     # ------------------------------------------------------------------
     # Properties exposing session state
@@ -116,6 +119,7 @@ class ChatSession:
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
         set_vm(self._vm)
+        self._loop = asyncio.get_running_loop()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -139,6 +143,27 @@ class ChatSession:
         shutil.copy(src, target)
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
+
+    # ------------------------------------------------------------------
+    async def request_user_input(self, prompt: str) -> str:
+        """Notify the client that input is required and wait for a response."""
+
+        await self._input_prompts.put(prompt)
+        return await self._input_values.get()
+
+    async def send_user_input(self, value: str) -> None:
+        """Provide ``value`` in response to an input request."""
+
+        await self._input_values.put(value)
+
+    # Synchronous wrapper used from threads
+    def _request_user_input_sync(self, prompt: str) -> str:
+        if not self._loop:
+            raise RuntimeError("ChatSession not active")
+        fut = asyncio.run_coroutine_threadsafe(
+            self.request_user_input(prompt), self._loop
+        )
+        return fut.result()
 
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
@@ -203,6 +228,8 @@ class ChatSession:
         if asyncio.iscoroutinefunction(func):
             return await func(**kwargs)
         loop = asyncio.get_running_loop()
+        if func.__name__ in {"execute_terminal", "execute_terminal_async"}:
+            kwargs["input_callback"] = self._request_user_input_sync
         return await loop.run_in_executor(None, lambda: func(**kwargs))
 
     # ------------------------------------------------------------------
@@ -380,6 +407,11 @@ class ChatSession:
             self._worker = asyncio.create_task(self._process_prompt_queue())
 
         while True:
+            if not self._input_prompts.empty():
+                prompt_msg = await self._input_prompts.get()
+                yield f"[INPUT REQUIRED] {prompt_msg}"
+                continue
+
             part = await result_q.get()
             if part is None:
                 break
@@ -398,6 +430,9 @@ class ChatSession:
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
+            if not self._input_prompts.empty():
+                prompt_msg = await self._input_prompts.get()
+                yield f"[INPUT REQUIRED] {prompt_msg}"
             text = format_output(resp.message)
             if text:
                 yield text
@@ -416,6 +451,9 @@ class ChatSession:
             self._conversation,
             self._current_tool_name or "tool",
         ):
+            if not self._input_prompts.empty():
+                prompt_msg = await self._input_prompts.get()
+                yield f"[INPUT REQUIRED] {prompt_msg}"
             text = format_output(resp.message)
             if text:
                 yield text

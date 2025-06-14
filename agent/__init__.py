@@ -15,6 +15,7 @@ from .simple import (
     write_file,
     delete_path,
     vm_execute,
+    send_input,
 )
 from .tools import (
     execute_terminal,
@@ -48,5 +49,6 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "send_input",
 ]
 

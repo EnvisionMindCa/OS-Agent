@@ -18,7 +18,19 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "send_input",
 ]
+
+_SESSIONS: dict[tuple[str, str], SoloChatSession | TeamChatSession] = {}
+
+
+async def send_input(value: str, *, user: str = "default", session: str = "default") -> None:
+    """Provide input to a running chat session."""
+
+    chat = _SESSIONS.get((user, session))
+    if chat is None:
+        raise RuntimeError("No active session")
+    await chat.send_user_input(value)
 
 
 async def solo_chat(
@@ -29,8 +41,12 @@ async def solo_chat(
     think: bool = True,
 ) -> AsyncIterator[str]:
     async with SoloChatSession(user=user, session=session, think=think) as chat:
-        async for part in chat.chat_stream(prompt):
-            yield part
+        _SESSIONS[(user, session)] = chat
+        try:
+            async for part in chat.chat_stream(prompt):
+                yield part
+        finally:
+            _SESSIONS.pop((user, session), None)
 
 
 async def team_chat(
@@ -41,8 +57,12 @@ async def team_chat(
     think: bool = True,
 ) -> AsyncIterator[str]:
     async with TeamChatSession(user=user, session=session, think=think) as chat:
-        async for part in chat.chat_stream(prompt):
-            yield part
+        _SESSIONS[(user, session)] = chat
+        try:
+            async for part in chat.chat_stream(prompt):
+                yield part
+        finally:
+            _SESSIONS.pop((user, session), None)
 
 
 async def upload_document(
