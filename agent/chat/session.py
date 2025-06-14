@@ -27,7 +27,9 @@ from ..db import (
 )
 from ..utils.logging import get_logger
 from .schema import Msg
-from ..tools import execute_terminal, execute_terminal_async, set_vm
+from contextlib import suppress
+
+from ..tools import execute_terminal, set_vm
 from ..vm import VMRegistry
 
 from .state import SessionState, get_state
@@ -203,6 +205,109 @@ class ChatSession:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: func(**kwargs))
 
+    # ------------------------------------------------------------------
+    def _add_tool_message(
+        self,
+        conversation: Conversation,
+        messages: list[Msg],
+        name: str,
+        content: str,
+    ) -> None:
+        messages.append({"role": "tool", "name": name, "content": content})
+        DBMessage.create(conversation=conversation, role="tool", content=content)
+
+    def _add_assistant_message(
+        self,
+        conversation: Conversation,
+        messages: list[Msg],
+        message: Message,
+    ) -> None:
+        store_assistant_message(conversation, message)
+        messages.append(message.model_dump())
+
+    async def _await_tool_and_followup(
+        self,
+        exec_task: asyncio.Task,
+        follow_task: asyncio.Task,
+        messages: list[Msg],
+        conversation: Conversation,
+        tool_name: str,
+    ) -> AsyncIterator[ChatResponse]:
+        done, _ = await asyncio.wait(
+            {exec_task, follow_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+
+        name = "junior" if tool_name == "send_to_junior" else tool_name
+
+        if exec_task in done:
+            follow_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await follow_task
+            remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
+            self._placeholder_saved = False
+            result = await exec_task
+            self._current_tool_name = None
+            self._add_tool_message(conversation, messages, name, result)
+            async with self._lock:
+                self._state = "generating"
+                self._tool_task = None
+            nxt = await self.ask(messages)
+            self._add_assistant_message(conversation, messages, nxt.message)
+            yield nxt
+        else:
+            followup = await follow_task
+            self._save_tool_placeholder()
+            self._add_assistant_message(conversation, messages, followup.message)
+            yield followup
+            result = await exec_task
+            remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
+            self._placeholder_saved = False
+            self._current_tool_name = None
+            self._add_tool_message(conversation, messages, name, result)
+            async with self._lock:
+                self._state = "generating"
+                self._tool_task = None
+            nxt = await self.ask(messages)
+            self._add_assistant_message(conversation, messages, nxt.message)
+            yield nxt
+
+    async def _process_tool_call(
+        self,
+        call: Message.ToolCall,
+        messages: list[Msg],
+        conversation: Conversation,
+    ) -> AsyncIterator[ChatResponse]:
+        func = self._tool_funcs.get(call.function.name)
+        if not func:
+            _LOG.warning("Unsupported tool call: %s", call.function.name)
+            result = f"Unsupported tool: {call.function.name}"
+            name = "junior" if call.function.name == "send_to_junior" else call.function.name
+            self._add_tool_message(conversation, messages, name, result)
+            return
+
+        exec_task = asyncio.create_task(
+            self._run_tool_async(func, **call.function.arguments)
+        )
+        self._current_tool_name = call.function.name
+
+        placeholder = {
+            "role": "tool",
+            "name": "junior" if call.function.name == "send_to_junior" else call.function.name,
+            "content": TOOL_PLACEHOLDER_CONTENT,
+        }
+        messages.append(placeholder)
+        self._placeholder_saved = False
+
+        follow_task = asyncio.create_task(self.ask(messages))
+        async with self._lock:
+            self._state = "awaiting_tool"
+            self._tool_task = exec_task
+
+        async for resp in self._await_tool_and_followup(
+            exec_task, follow_task, messages, conversation, call.function.name
+        ):
+            yield resp
+
     async def _handle_tool_calls_stream(
         self,
         messages: List[Msg],
@@ -211,110 +316,22 @@ class ChatSession:
         depth: int = 0,
     ) -> AsyncIterator[ChatResponse]:
         if response.message.content:
-            # Yield the assistant's content even when a tool call is present.
-            # This ensures helpful context isn't dropped before executing tools.
+            # Yield assistant content even when a tool call is present so context is not lost.
             yield response
 
         if not response.message.tool_calls:
             async with self._lock:
                 self._state = "idle"
             return
+
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
-                func = self._tool_funcs.get(call.function.name)
-                if not func:
-                    _LOG.warning("Unsupported tool call: %s", call.function.name)
-                    result = f"Unsupported tool: {call.function.name}"
-                    name = (
-                        "junior" if call.function.name == "send_to_junior" else call.function.name
-                    )
-                    messages.append({"role": "tool", "name": name, "content": result})
-                    DBMessage.create(
-                        conversation=conversation,
-                        role="tool",
-                        content=result,
-                    )
-                    continue
-
-                exec_task = asyncio.create_task(
-                    self._run_tool_async(func, **call.function.arguments)
-                )
-
-                self._current_tool_name = call.function.name
-
-                placeholder = {
-                    "role": "tool",
-                    "name": "junior" if call.function.name == "send_to_junior" else call.function.name,
-                    "content": TOOL_PLACEHOLDER_CONTENT,
-                }
-                messages.append(placeholder)
-                self._placeholder_saved = False
-
-                follow_task = asyncio.create_task(self.ask(messages))
-
-                async with self._lock:
-                    self._state = "awaiting_tool"
-                    self._tool_task = exec_task
-
-                done, _ = await asyncio.wait(
-                    {exec_task, follow_task},
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-
-                if exec_task in done:
-                    follow_task.cancel()
-                    try:
-                        await follow_task
-                    except asyncio.CancelledError:
-                        pass
-                    remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
-                    self._placeholder_saved = False
-                    result = await exec_task
-                    name = (
-                        "junior" if call.function.name == "send_to_junior" else call.function.name
-                    )
-                    messages.append({"role": "tool", "name": name, "content": result})
-                    DBMessage.create(
-                        conversation=conversation,
-                        role="tool",
-                        content=result,
-                    )
-                    async with self._lock:
-                        self._state = "generating"
-                        self._tool_task = None
-                    nxt = await self.ask(messages)
-                    store_assistant_message(conversation, nxt.message)
-                    messages.append(nxt.message.model_dump())
+                async for nxt in self._process_tool_call(call, messages, conversation):
                     response = nxt
                     yield nxt
-                else:
-                    followup = await follow_task
-                    self._save_tool_placeholder()
-                    store_assistant_message(conversation, followup.message)
-                    messages.append(followup.message.model_dump())
-                    yield followup
-                    result = await exec_task
-                    remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
-                    self._placeholder_saved = False
-                    name = (
-                        "junior" if call.function.name == "send_to_junior" else call.function.name
-                    )
-                    messages.append({"role": "tool", "name": name, "content": result})
-                    DBMessage.create(
-                        conversation=conversation,
-                        role="tool",
-                        content=result,
-                    )
-                    async with self._lock:
-                        self._state = "generating"
-                        self._tool_task = None
-                    nxt = await self.ask(messages)
-                    store_assistant_message(conversation, nxt.message)
-                    messages.append(nxt.message.model_dump())
-                    response = nxt
-                    yield nxt
-
                 depth += 1
+                if depth >= MAX_TOOL_CALL_DEPTH:
+                    break
 
         async with self._lock:
             self._state = "idle"
@@ -392,75 +409,22 @@ class ChatSession:
         user_task = asyncio.create_task(self.ask(self._messages))
         exec_task = self._tool_task
 
-        done, _ = await asyncio.wait(
-            {exec_task, user_task},
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        if exec_task in done:
-            user_task.cancel()
-            try:
-                await user_task
-            except asyncio.CancelledError:
-                pass
-            remove_tool_placeholder(self._messages, TOOL_PLACEHOLDER_CONTENT)
-            self._placeholder_saved = False
-            result = await exec_task
-            self._tool_task = None
-            name = self._current_tool_name or "tool"
-            self._current_tool_name = None
-            self._messages.append({"role": "tool", "name": name, "content": result})
-            DBMessage.create(
-                conversation=self._conversation, role="tool", content=result
-            )
-            async with self._lock:
-                self._state = "generating"
-            nxt = await self.ask(self._messages)
-            store_assistant_message(self._conversation, nxt.message)
-            self._messages.append(nxt.message.model_dump())
-            text = format_output(nxt.message)
-            if text:
-                yield text
-            async for part in self._handle_tool_calls_stream(
-                self._messages, nxt, self._conversation
-            ):
-                text = format_output(part.message)
-                if text:
-                    yield text
-        else:
-            resp = await user_task
-            self._save_tool_placeholder()
-            store_assistant_message(self._conversation, resp.message)
-            self._messages.append(resp.message.model_dump())
-            async with self._lock:
-                self._state = "awaiting_tool"
+        async for resp in self._await_tool_and_followup(
+            exec_task,
+            user_task,
+            self._messages,
+            self._conversation,
+            self._current_tool_name or "tool",
+        ):
             text = format_output(resp.message)
             if text:
                 yield text
-            result = await exec_task
-            self._tool_task = None
-            remove_tool_placeholder(self._messages, TOOL_PLACEHOLDER_CONTENT)
-            self._placeholder_saved = False
-            name = self._current_tool_name or "tool"
-            self._current_tool_name = None
-            self._messages.append({"role": "tool", "name": name, "content": result})
-            DBMessage.create(
-                conversation=self._conversation, role="tool", content=result
-            )
-            async with self._lock:
-                self._state = "generating"
-            nxt = await self.ask(self._messages)
-            store_assistant_message(self._conversation, nxt.message)
-            self._messages.append(nxt.message.model_dump())
-            text = format_output(nxt.message)
-            if text:
-                yield text
             async for part in self._handle_tool_calls_stream(
-                self._messages, nxt, self._conversation
+                self._messages, resp, self._conversation
             ):
-                text = format_output(part.message)
-                if text:
-                    yield text
+                part_text = format_output(part.message)
+                if part_text:
+                    yield part_text
 
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:
