@@ -5,6 +5,7 @@ import asyncio
 from functools import partial
 from pathlib import Path
 import re
+import io
 
 from threading import Lock
 
@@ -179,10 +180,11 @@ class LinuxVM:
             encoding="utf-8",
             echo=True,
         )
+        transcript = io.StringIO()
+        child.logfile_read = transcript
 
         try:
             child.expect(prompt_re)
-            first_prompt = child.after
         except Exception:
             child.close(force=True)
             return "Failed to start shell"
@@ -193,14 +195,11 @@ class LinuxVM:
 
         try:
             child.expect(prompt_re, timeout=None if timeout is None else timeout)
-            output = child.before
-            end_prompt = child.after
         except pexpect.TIMEOUT:
-            output = child.before
-            end_prompt = child.after if hasattr(child, "after") else ""
+            pass
+
         child.close(force=True)
-        transcript = f"{first_prompt}{command}\n{output}{end_prompt}"
-        return limit_chars(transcript)
+        return limit_chars(transcript.getvalue())
 
     async def execute_async(
         self,
