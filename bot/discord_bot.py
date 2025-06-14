@@ -54,9 +54,20 @@ class DiscordTeamBot(commands.Bot):
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
 
         if message.content.strip():
+            user = str(message.author.id)
+            session = str(message.channel.id)
             try:
-                async for part in agent.solo_chat(message.content, user=str(message.author.id), session=str(message.channel.id), think=False):
-                    await message.reply(part, mention_author=False)
+                async for part in agent.solo_chat(
+                    message.content, user=user, session=session, think=False
+                ):
+                    if part.startswith("[INPUT REQUIRED]"):
+                        prompt = part.removeprefix("[INPUT REQUIRED]").strip()
+                        await message.reply(
+                            f"{prompt}\nRespond with `!input <value>`",
+                            mention_author=False,
+                        )
+                    else:
+                        await message.reply(part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process message: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)
@@ -83,6 +94,15 @@ class DiscordTeamBot(commands.Bot):
             if len(output) > 1900:
                 output = output[:1900] + "..."
             await ctx.reply(f"```\n{output}\n```", mention_author=False)
+
+        @self.command(name="input")
+        async def input_cmd(ctx: commands.Context, *, value: str) -> None:
+            """Send ``value`` to a running chat session."""
+
+            await agent.send_input(
+                value, user=str(ctx.author.id), session=str(ctx.channel.id)
+            )
+            await ctx.message.add_reaction("✅")
 
     # ------------------------------------------------------------------
     # Helpers
