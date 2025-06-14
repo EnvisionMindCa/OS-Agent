@@ -18,5 +18,4 @@ class ChatEvent(TypedDict, total=False):
     message: Optional[str]
     tool_call: Optional[dict]
     tool_result: Optional[dict]
-    input_required: Optional[str]
 
