@@ -38,8 +38,12 @@ Convenience helpers allow chatting without managing sessions directly:
 import asyncio
 import agent
 
-response = asyncio.run(agent.solo_chat("Hello"))
-print(response)
+async def main():
+    async for event in agent.solo_chat("Hello"):
+        if event.get("message"):
+            print(event["message"])
+
+asyncio.run(main())
 ```
 
 Use `agent.team_chat` the same way to utilise the senior and junior agents.
@@ -49,8 +53,9 @@ Use `agent.team_chat` the same way to utilise the senior and junior agents.
 ```python
 async with ChatSession(think=False) as chat:
     path = chat.upload_document("path/to/file.pdf")
-    async for part in chat.chat_stream(f"Summarize {path}"):
-        print(part)
+    async for event in chat.chat_stream(f"Summarize {path}"):
+        if event.get("message"):
+            print(event["message"])
 
 # The same can be done without managing sessions directly
 path = asyncio.run(agent.upload_document("path/to/file.pdf"))
