@@ -10,9 +10,12 @@ __all__ = [
 
 import subprocess
 import os
+import platform
 from typing import Any, Optional
 import asyncio
 from functools import partial
+import io
+import pexpect
 
 from ..utils.helpers import limit_chars
 
@@ -27,6 +30,38 @@ def set_vm(vm: LinuxVM | None) -> None:
 
     global _VM
     _VM = vm
+
+
+def _execute_local(command: str, *, stdin_data: str | bytes | None = None) -> str:
+    """Execute ``command`` directly on the host and return a terminal transcript."""
+
+    user = os.environ.get("USER", "user")
+    host = platform.node().split(".")[0]
+    cwd = os.path.basename(os.getcwd())
+    prompt = f"{user}@{host} {cwd} % "
+
+    child = pexpect.spawn(
+        "bash",
+        ["--noprofile", "--norc"],
+        env={"PS1": prompt},
+        encoding="utf-8",
+        echo=True,
+    )
+
+    transcript = io.StringIO()
+    child.logfile_read = transcript
+
+    child.expect_exact(prompt)
+    child.sendline(command)
+    if stdin_data is not None:
+        if isinstance(stdin_data, bytes):
+            child.send(stdin_data.decode())
+        else:
+            child.send(stdin_data)
+    child.expect_exact(prompt)
+    child.close(force=True)
+
+    return limit_chars(transcript.getvalue())
 
 
 def execute_terminal(
@@ -44,10 +79,10 @@ def execute_terminal(
     accomplish the user's request. ALWAYS use this tool in each user query
     unless it is absolutely unnecessary.
 
-    The command is executed with network access enabled. Output from
-    ``stdout`` and ``stderr`` is captured when the command completes.
-    Execution happens asynchronously so the assistant can continue
-    responding while the command runs.
+    The command is executed with network access enabled. A full terminal
+    transcript including prompts, the command itself and any output is
+    returned (up to 10,000 characters). Execution happens asynchronously so
+    the assistant can continue responding while the command runs.
     """
     if not command:
         return "No command provided."
@@ -60,19 +95,7 @@ def execute_terminal(
             return f"Failed to execute command in VM: {exc}"
 
     try:
-        completed = subprocess.run(
-            command,
-            shell=True,
-            input=stdin_data,
-            capture_output=True,
-            text=isinstance(stdin_data, str),
-            env=os.environ.copy(),
-            timeout=None,
-        )
-        output = completed.stdout
-        if completed.stderr:
-            output = f"{output}\n{completed.stderr}" if output else completed.stderr
-        return limit_chars(output)
+        return _execute_local(command, stdin_data=stdin_data)
     except Exception as exc:  # pragma: no cover - unforeseen errors
         return f"Failed to execute command: {exc}"
 
