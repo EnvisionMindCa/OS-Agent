@@ -2,7 +2,11 @@
 
 `llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
 
-## This repo requires Python >= 3.10 and Docker installed on your system!
+## This repo requires Python >= 3.10. Docker is recommended but optional.
+
+If Docker is not available, shell commands are executed directly on the host
+with reduced isolation. Installing Docker ensures commands run inside a
+dedicated VM for better separation.
 
 ## Features
 

@@ -6,6 +6,7 @@ from functools import partial
 from pathlib import Path
 import re
 import io
+import shutil
 
 from threading import Lock
 
@@ -16,6 +17,22 @@ import pexpect
 from ..utils.logging import get_logger
 
 _LOG = get_logger(__name__)
+
+
+def is_docker_available() -> bool:
+    """Return ``True`` if the ``docker`` executable and daemon are available."""
+    if shutil.which("docker") is None:
+        return False
+    try:
+        subprocess.run(
+            ["docker", "info"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except Exception:
+        return False
+    return True
 
 
 def _sanitize(name: str) -> str:
