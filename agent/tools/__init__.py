@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 __all__ = [
     "execute_terminal",
@@ -10,7 +10,7 @@ __all__ = [
 
 import subprocess
 import os
-from typing import Optional, Callable
+from typing import Any, Optional, Callable
 import asyncio
 from functools import partial
 
@@ -41,7 +41,7 @@ def execute_terminal(
     command: str,
     *,
     stdin_data: str | bytes | None = None,
-    input_callback: Optional[Callable[[str], str]] = None,
+    input_callback: Any | None = None,
 ) -> str:
     """
     Execute a shell command in an **unrestricted** Debian terminal.
@@ -99,7 +99,7 @@ async def execute_terminal_async(
     command: str,
     *,
     stdin_data: str | bytes | None = None,
-    input_callback: Optional[Callable[[str], str]] = None,
+    input_callback: Any | None = None,
 ) -> str:
     """Asynchronously execute a shell command."""
     loop = asyncio.get_running_loop()
