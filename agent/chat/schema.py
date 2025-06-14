@@ -10,3 +10,13 @@ class Msg(TypedDict, total=False):
     content: str
     name: Optional[str]
     tool_calls: Optional[List[Message.ToolCall]]
+
+
+class ChatEvent(TypedDict, total=False):
+    """Object yielded during chat streaming."""
+
+    message: Optional[str]
+    tool_call: Optional[dict]
+    tool_result: Optional[dict]
+    input_required: Optional[str]
+

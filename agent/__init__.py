@@ -1,4 +1,4 @@
-from .chat import ChatSession
+from .chat import ChatSession, ChatEvent
 from .sessions.team import (
     TeamChatSession,
     send_to_junior,
@@ -29,6 +29,7 @@ from .vm import LinuxVM
 
 __all__ = [
     "ChatSession",
+    "ChatEvent",
     "SoloChatSession",
     "TeamChatSession",
     "execute_terminal",

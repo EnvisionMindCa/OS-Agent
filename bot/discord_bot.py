@@ -14,6 +14,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 import agent
+from agent.chat import ChatEvent
 from agent.db import reset_history
 from agent.utils.logging import get_logger
 from agent.sessions.solo import SoloChatSession
@@ -57,17 +58,25 @@ class DiscordTeamBot(commands.Bot):
             user = str(message.author.id)
             session = str(message.channel.id)
             try:
-                async for part in agent.solo_chat(
+                async for event in agent.solo_chat(
                     message.content, user=user, session=session, think=False
                 ):
-                    if part.startswith("[INPUT REQUIRED]"):
-                        prompt = part.removeprefix("[INPUT REQUIRED]").strip()
+                    if event.get("input_required"):
                         await message.reply(
-                            f"{prompt}\nRespond with `!input <value>`",
+                            f"{event['input_required']}\nRespond with `!input <value>`",
                             mention_author=False,
                         )
-                    else:
-                        await message.reply(part, mention_author=False)
+                    elif event.get("tool_call"):
+                        await message.reply(
+                            f"[tool] {event['tool_call']}", mention_author=False
+                        )
+                    elif event.get("tool_result"):
+                        await message.reply(
+                            f"[result] {event['tool_result']}",
+                            mention_author=False,
+                        )
+                    elif event.get("message"):
+                        await message.reply(event["message"], mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process message: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)

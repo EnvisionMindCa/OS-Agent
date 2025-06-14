@@ -7,6 +7,7 @@ import shlex
 
 from .sessions.solo import SoloChatSession
 from .sessions.team import TeamChatSession
+from .chat import ChatEvent
 from .vm import VMRegistry
 
 __all__ = [
@@ -39,7 +40,7 @@ async def solo_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
-) -> AsyncIterator[str]:
+) -> AsyncIterator[ChatEvent]:
     async with SoloChatSession(user=user, session=session, think=think) as chat:
         _SESSIONS[(user, session)] = chat
         try:
@@ -55,7 +56,7 @@ async def team_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
-) -> AsyncIterator[str]:
+) -> AsyncIterator[ChatEvent]:
     async with TeamChatSession(user=user, session=session, think=think) as chat:
         _SESSIONS[(user, session)] = chat
         try:

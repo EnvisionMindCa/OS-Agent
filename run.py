@@ -9,15 +9,18 @@ async def _main() -> None:
     await agent.upload_document("requirements.txt")
     user = "test_user"
     session = "test_session"
-    async for resp in agent.solo_chat(
+    async for event in agent.solo_chat(
         "what is in requirements.txt", user=user, session=session, think=False
     ):  # or agent.team_chat()
-        if resp.startswith("[INPUT REQUIRED]"):
-            prompt = resp.removeprefix("[INPUT REQUIRED]").strip()
-            user_input = input(f"{prompt} ")
+        if event.get("input_required"):
+            user_input = input(f"{event['input_required']} ")
             await agent.send_input(user_input, user=user, session=session)
-        else:
-            print("\n>>>", resp)
+        elif event.get("tool_call"):
+            print("\n[TOOL CALL]", event["tool_call"])
+        elif event.get("tool_result"):
+            print("\n[TOOL RESULT]", event["tool_result"])
+        elif event.get("message"):
+            print("\n>>>", event["message"])
 
 
 def main() -> None:

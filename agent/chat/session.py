@@ -26,7 +26,7 @@ from ..db import (
     add_document,
 )
 from ..utils.logging import get_logger
-from .schema import Msg
+from .schema import Msg, ChatEvent
 from contextlib import suppress
 
 from ..tools import execute_terminal, set_vm
@@ -73,7 +73,7 @@ class ChatSession:
         self._state_data: SessionState = get_state(self._conversation.id)
         self._lock = self._state_data.lock
         self._prompt_queue: asyncio.Queue[
-            tuple[str, asyncio.Queue[str | None]]
+            tuple[str, asyncio.Queue[ChatEvent | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -259,7 +259,7 @@ class ChatSession:
         messages: list[Msg],
         conversation: Conversation,
         tool_name: str,
-    ) -> AsyncIterator[ChatResponse]:
+    ) -> AsyncIterator[tuple[ChatEvent, ChatResponse | None]]:
         done, _ = await asyncio.wait(
             {exec_task, follow_task}, return_when=asyncio.FIRST_COMPLETED
         )
@@ -278,14 +278,15 @@ class ChatSession:
             async with self._lock:
                 self._state = "generating"
                 self._tool_task = None
+            yield {"tool_result": {"name": name, "output": result}}, None
             nxt = await self.ask(messages)
             self._add_assistant_message(conversation, messages, nxt.message)
-            yield nxt
+            yield {"message": format_output(nxt.message)}, nxt
         else:
             followup = await follow_task
             self._save_tool_placeholder()
             self._add_assistant_message(conversation, messages, followup.message)
-            yield followup
+            yield {"message": format_output(followup.message)}, followup
             result = await exec_task
             remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
             self._placeholder_saved = False
@@ -294,23 +295,27 @@ class ChatSession:
             async with self._lock:
                 self._state = "generating"
                 self._tool_task = None
+            yield {"tool_result": {"name": name, "output": result}}, None
             nxt = await self.ask(messages)
             self._add_assistant_message(conversation, messages, nxt.message)
-            yield nxt
+            yield {"message": format_output(nxt.message)}, nxt
 
     async def _process_tool_call(
         self,
         call: Message.ToolCall,
         messages: list[Msg],
         conversation: Conversation,
-    ) -> AsyncIterator[ChatResponse]:
+    ) -> AsyncIterator[tuple[ChatEvent, ChatResponse | None]]:
         func = self._tool_funcs.get(call.function.name)
         if not func:
             _LOG.warning("Unsupported tool call: %s", call.function.name)
             result = f"Unsupported tool: {call.function.name}"
             name = "junior" if call.function.name == "send_to_junior" else call.function.name
             self._add_tool_message(conversation, messages, name, result)
+            yield {"tool_result": {"name": name, "output": result}}, None
             return
+
+        yield {"tool_call": call.model_dump()}, None
 
         exec_task = asyncio.create_task(
             self._run_tool_async(func, **call.function.arguments)
@@ -330,10 +335,10 @@ class ChatSession:
             self._state = "awaiting_tool"
             self._tool_task = exec_task
 
-        async for resp in self._await_tool_and_followup(
+        async for event, resp in self._await_tool_and_followup(
             exec_task, follow_task, messages, conversation, call.function.name
         ):
-            yield resp
+            yield event, resp
 
     async def _handle_tool_calls_stream(
         self,
@@ -341,10 +346,10 @@ class ChatSession:
         response: ChatResponse,
         conversation: Conversation,
         depth: int = 0,
-    ) -> AsyncIterator[ChatResponse]:
+    ) -> AsyncIterator[ChatEvent]:
         if response.message.content:
             # Yield assistant content even when a tool call is present so context is not lost.
-            yield response
+            yield {"message": format_output(response.message)}
 
         if not response.message.tool_calls:
             async with self._lock:
@@ -353,9 +358,12 @@ class ChatSession:
 
         while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
             for call in response.message.tool_calls:
-                async for nxt in self._process_tool_call(call, messages, conversation):
-                    response = nxt
-                    yield nxt
+                async for event, nxt_resp in self._process_tool_call(
+                    call, messages, conversation
+                ):
+                    if nxt_resp is not None:
+                        response = nxt_resp
+                    yield event
                 depth += 1
                 if depth >= MAX_TOOL_CALL_DEPTH:
                     break
@@ -363,7 +371,7 @@ class ChatSession:
         async with self._lock:
             self._state = "idle"
 
-    async def _generate_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def _generate_stream(self, prompt: str) -> AsyncIterator[ChatEvent]:
         async with self._lock:
             if self._state == "awaiting_tool" and self._tool_task:
                 async for part in self._chat_during_tool(prompt):
@@ -378,12 +386,10 @@ class ChatSession:
         self._messages.append(response.message.model_dump())
         store_assistant_message(self._conversation, response.message)
 
-        async for resp in self._handle_tool_calls_stream(
+        async for event in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
-            text = format_output(resp.message)
-            if text:
-                yield text
+            yield event
 
     async def _process_prompt_queue(self) -> None:
         try:
@@ -394,14 +400,14 @@ class ChatSession:
                         await result_q.put(part)
                 except Exception as exc:  # pragma: no cover - unforeseen errors
                     _LOG.exception("Error processing prompt: %s", exc)
-                    await result_q.put(f"Error: {exc}")
+                    await result_q.put({"message": f"Error: {exc}"})
                 finally:
                     await result_q.put(None)
         finally:
             self._worker = None
 
-    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
-        result_q: asyncio.Queue[str | None] = asyncio.Queue()
+    async def chat_stream(self, prompt: str) -> AsyncIterator[ChatEvent]:
+        result_q: asyncio.Queue[ChatEvent | None] = asyncio.Queue()
         await self._prompt_queue.put((prompt, result_q))
         if not self._worker or self._worker.done():
             self._worker = asyncio.create_task(self._process_prompt_queue())
@@ -409,7 +415,7 @@ class ChatSession:
         while True:
             if not self._input_prompts.empty():
                 prompt_msg = await self._input_prompts.get()
-                yield f"[INPUT REQUIRED] {prompt_msg}"
+                yield {"input_required": prompt_msg}
                 continue
 
             part = await result_q.get()
@@ -417,7 +423,7 @@ class ChatSession:
                 break
             yield part
 
-    async def continue_stream(self) -> AsyncIterator[str]:
+    async def continue_stream(self) -> AsyncIterator[ChatEvent]:
         async with self._lock:
             if self._state != "idle":
                 return
@@ -427,24 +433,22 @@ class ChatSession:
         self._messages.append(response.message.model_dump())
         store_assistant_message(self._conversation, response.message)
 
-        async for resp in self._handle_tool_calls_stream(
+        async for event in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
         ):
             if not self._input_prompts.empty():
                 prompt_msg = await self._input_prompts.get()
-                yield f"[INPUT REQUIRED] {prompt_msg}"
-            text = format_output(resp.message)
-            if text:
-                yield text
+                yield {"input_required": prompt_msg}
+            yield event
 
-    async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
+    async def _chat_during_tool(self, prompt: str) -> AsyncIterator[ChatEvent]:
         DBMessage.create(conversation=self._conversation, role="user", content=prompt)
         self._messages.append({"role": "user", "content": prompt})
 
         user_task = asyncio.create_task(self.ask(self._messages))
         exec_task = self._tool_task
 
-        async for resp in self._await_tool_and_followup(
+        async for event, resp in self._await_tool_and_followup(
             exec_task,
             user_task,
             self._messages,
@@ -453,16 +457,14 @@ class ChatSession:
         ):
             if not self._input_prompts.empty():
                 prompt_msg = await self._input_prompts.get()
-                yield f"[INPUT REQUIRED] {prompt_msg}"
-            text = format_output(resp.message)
-            if text:
-                yield text
-            async for part in self._handle_tool_calls_stream(
-                self._messages, resp, self._conversation
-            ):
-                part_text = format_output(part.message)
-                if part_text:
-                    yield part_text
+                yield {"input_required": prompt_msg}
+            if event:
+                yield event
+            if resp is not None:
+                async for part in self._handle_tool_calls_stream(
+                    self._messages, resp, self._conversation
+                ):
+                    yield part
 
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:
