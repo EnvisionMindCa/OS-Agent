@@ -6,11 +6,11 @@ import agent
 from agent.vm import VMRegistry
 
 async def _main() -> None:
-    await agent.upload_document("requirements.txt")
+    # await agent.upload_document("requirements.txt")
     user = "test_user"
     session = "test_session"
     async for event in agent.solo_chat(
-        "what is in requirements.txt", user=user, session=session, think=False
+        "run ls and show me what's in the directory", user=user, session=session, think=False
     ):  # or agent.team_chat()
         if event.get("tool_call"):
             print("\n[TOOL CALL]", event["tool_call"])
