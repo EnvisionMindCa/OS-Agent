@@ -10,15 +10,24 @@ __all__ = [
 
 import subprocess
 import os
-from typing import Optional
+from typing import Optional, Callable
 import asyncio
 from functools import partial
 
 from ..utils.helpers import limit_chars
+from ..utils.interactive import run_interactive
 
 from ..vm import LinuxVM
+import pexpect
 
 _VM: Optional[LinuxVM] = None
+
+
+def _execute_interactive_local(command: str, input_callback: Callable[[str], str]) -> str:
+    """Run ``command`` interactively on the host."""
+
+    child = pexpect.spawn("bash", ["-lc", command], encoding="utf-8", echo=False)
+    return run_interactive(child, input_callback)
 
 
 def set_vm(vm: LinuxVM | None) -> None:
@@ -28,7 +37,12 @@ def set_vm(vm: LinuxVM | None) -> None:
     _VM = vm
 
 
-def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> str:
+def execute_terminal(
+    command: str,
+    *,
+    stdin_data: str | bytes | None = None,
+    input_callback: Optional[Callable[[str], str]] = None,
+) -> str:
     """
     Execute a shell command in an **unrestricted** Debian terminal.
     Use this tool to inspect uploaded documents under ``/data``, fetch web
@@ -49,12 +63,21 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
 
     if _VM:
         try:
-            output = _VM.execute(command, timeout=None, stdin_data=stdin_data)
+            output = _VM.execute(
+                command,
+                timeout=None,
+                stdin_data=stdin_data,
+                input_callback=input_callback,
+            )
             return limit_chars(output)
         except Exception as exc:  # pragma: no cover - unforeseen errors
             return f"Failed to execute command in VM: {exc}"
 
     try:
+        if input_callback is not None:
+            output = _execute_interactive_local(command, input_callback)
+            return limit_chars(output)
+
         completed = subprocess.run(
             command,
             shell=True,
@@ -72,10 +95,20 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
         return f"Failed to execute command: {exc}"
 
 
-async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
+async def execute_terminal_async(
+    command: str,
+    *,
+    stdin_data: str | bytes | None = None,
+    input_callback: Optional[Callable[[str], str]] = None,
+) -> str:
     """Asynchronously execute a shell command."""
     loop = asyncio.get_running_loop()
-    func = partial(execute_terminal, command, stdin_data=stdin_data)
+    func = partial(
+        execute_terminal,
+        command,
+        stdin_data=stdin_data,
+        input_callback=input_callback,
+    )
     return await loop.run_in_executor(None, func)
 
 

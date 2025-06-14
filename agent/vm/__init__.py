@@ -3,12 +3,15 @@ from __future__ import annotations
 import subprocess
 import asyncio
 from functools import partial
+from typing import Callable, Optional
 from pathlib import Path
 
 from threading import Lock
 
 from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR
 from ..utils.helpers import limit_chars
+from ..utils.interactive import run_interactive
+import pexpect
 
 from ..utils.logging import get_logger
 
@@ -106,6 +109,7 @@ class LinuxVM:
         timeout: int | None = 3,
         detach: bool = False,
         stdin_data: str | bytes | None = None,
+        input_callback: Optional[Callable[[str], str]] = None,
     ) -> str:
         """Execute a command inside the running VM.
 
@@ -138,6 +142,9 @@ class LinuxVM:
             ]
         )
 
+        if input_callback is not None:
+            return self._execute_interactive(cmd, input_callback)
+
         try:
             completed = subprocess.run(
                 cmd,
@@ -156,6 +163,14 @@ class LinuxVM:
             output = f"{output}\n{completed.stderr}" if output else completed.stderr
         return limit_chars(output)
 
+    def _execute_interactive(
+        self, cmd: list[str], input_callback: Callable[[str], str]
+    ) -> str:
+        """Run ``cmd`` interactively using ``input_callback`` for prompts."""
+
+        child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", echo=False)
+        return run_interactive(child, input_callback)
+
     async def execute_async(
         self,
         command: str,
@@ -163,6 +178,7 @@ class LinuxVM:
         timeout: int | None = 3,
         detach: bool = False,
         stdin_data: str | bytes | None = None,
+        input_callback: Optional[Callable[[str], str]] = None,
     ) -> str:
         """Asynchronously execute ``command`` inside the running VM."""
         loop = asyncio.get_running_loop()
@@ -172,6 +188,7 @@ class LinuxVM:
             timeout=timeout,
             detach=detach,
             stdin_data=stdin_data,
+            input_callback=input_callback,
         )
         return await loop.run_in_executor(None, func)
 
