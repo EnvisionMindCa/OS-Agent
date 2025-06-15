@@ -6,7 +6,7 @@ from typing import AsyncIterator, Optional
 from ..chat import ChatSession
 from ..config import OLLAMA_HOST, MODEL_NAME, SYSTEM_PROMPT, JUNIOR_PROMPT
 from ..tools import execute_terminal
-from ..db import Message as DBMessage
+from ..db import db
 
 __all__ = [
     "TeamChatSession",
@@ -100,7 +100,7 @@ class TeamChatSession:
             while not self._to_junior.empty():
                 msg, fut, enqueue = await self._to_junior.get()
                 self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
-                DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
+                db.create_message(self.junior._conversation, "tool", msg)
                 parts: list[str] = []
                 async for part in self.junior.continue_stream():
                     if part:
@@ -120,7 +120,7 @@ class TeamChatSession:
         while not self._to_senior.empty():
             msg = await self._to_senior.get()
             self.senior._messages.append({"role": "tool", "name": "junior", "content": msg})
-            DBMessage.create(conversation=self.senior._conversation, role="tool", content=msg)
+            db.create_message(self.senior._conversation, "tool", msg)
 
     async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
         await self._deliver_junior_messages()
