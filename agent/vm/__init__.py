@@ -258,3 +258,7 @@ class VMRegistry:
                     vm.stop()
             cls._vms.clear()
             cls._counts.clear()
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

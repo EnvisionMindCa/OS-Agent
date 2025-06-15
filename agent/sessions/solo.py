@@ -28,3 +28,7 @@ class SoloChatSession(ChatSession):
             tools=[execute_terminal],
             think=think,
         )
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

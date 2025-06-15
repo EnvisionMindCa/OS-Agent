@@ -127,3 +127,7 @@ class TeamChatSession:
         async for part in self.senior.chat_stream(prompt):
             yield part
         await self._deliver_junior_messages()
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

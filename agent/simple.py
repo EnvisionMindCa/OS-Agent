@@ -113,3 +113,7 @@ async def delete_path(path: str, *, user: str = "default") -> str:
         f"else echo File not found; fi'"
     )
     return await vm_execute(cmd, user=user)
+
+from .utils.debug import debug_all
+debug_all(globals())
+

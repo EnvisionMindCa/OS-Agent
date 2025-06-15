@@ -103,3 +103,7 @@ async def execute_with_secret_async(
     func = partial(execute_with_secret, command, secret_name, prompt=prompt)
     return await loop.run_in_executor(None, func)
 
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

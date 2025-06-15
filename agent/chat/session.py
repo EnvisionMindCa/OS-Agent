@@ -436,3 +436,7 @@ class ChatSession:
             )
             self._placeholder_saved = True
 
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

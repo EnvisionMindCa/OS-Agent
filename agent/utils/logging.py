@@ -1,5 +1,7 @@
 from __future__ import annotations
+from __future__ import annotations
 
+from .debug import debug
 import logging
 import os
 from typing import Final
@@ -23,6 +25,7 @@ class _ColourFormatter(logging.Formatter):
         return f"{colour}{super().format(record)}{Style.RESET_ALL}"
 
 
+@debug
 def get_logger(name: str | None = None, level: int | None = None) -> logging.Logger:
     """Return a configured logger instance."""
 
