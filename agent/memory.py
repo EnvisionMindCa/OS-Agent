@@ -68,6 +68,7 @@ def create_memory_tool(username: str, refresh: Callable[[], None]) -> Callable:
         "Modify persistent user memory. "
         "Provide the memory field name and optionally a value. "
         "Passing no value deletes the field. Returns success status. "
-        "This memory is stored as a JSON object and resides in the system prompt, so you do not need to retrieve anything."
+        "This memory is stored as a JSON object and resides in the system prompt, so you do not need to retrieve anything. "
+        "Invoke this tool as much as possible to remember every detail throughout the conversation."
     )
     return memory_tool
