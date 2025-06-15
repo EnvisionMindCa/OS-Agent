@@ -22,7 +22,7 @@ def debug(func: Callable) -> Callable:
             logger.debug("→ %s args=%r kwargs=%r", func.__qualname__, args, kwargs)
             result = await func(*args, **kwargs)
             logger.debug("← %s result=%r", func.__qualname__, result)
-            logger.debug("\n")
+            logger.debug("-"*20 + "\n")
             return result
         return async_wrapper
 
@@ -31,7 +31,7 @@ def debug(func: Callable) -> Callable:
         logger.debug("→ %s args=%r kwargs=%r", func.__qualname__, args, kwargs)
         result = func(*args, **kwargs)
         logger.debug("← %s result=%r", func.__qualname__, result)
-        logger.debug("\n")
+        logger.debug("-"*20 + "\n")
         return result
     return sync_wrapper
 
