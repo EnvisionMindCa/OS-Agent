@@ -28,6 +28,7 @@ from .schema import Msg
 from contextlib import suppress
 
 from ..tools import execute_terminal, set_vm
+from ..memory import create_memory_tool, get_memory
 from ..vm import VMRegistry
 
 from .state import SessionState, get_state
@@ -62,8 +63,10 @@ class ChatSession:
             self._user, session
         )
         self._vm = None
-        self._system_prompt = system_prompt
-        self._tools = tools or [execute_terminal]
+        self._base_system_prompt = system_prompt
+        self._system_prompt = self._apply_memory(system_prompt)
+        memory_tool = create_memory_tool(self._user.username, self._refresh_system_prompt)
+        self._tools = (tools or [execute_terminal]) + [memory_tool]
         self._tool_funcs = {func.__name__: func for func in self._tools}
         self._think = think
         self._current_tool_name: str | None = None
@@ -74,6 +77,14 @@ class ChatSession:
             tuple[str, asyncio.Queue[str | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
+
+    # ------------------------------------------------------------------
+    def _apply_memory(self, prompt: str) -> str:
+        memory = get_memory(self._user.username)
+        return f"{prompt}\n<memory>\n{memory}\n</memory>"
+
+    def _refresh_system_prompt(self) -> None:
+        self._system_prompt = self._apply_memory(self._base_system_prompt)
 
     # ------------------------------------------------------------------
     # Properties exposing session state

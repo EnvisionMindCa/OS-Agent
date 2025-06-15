@@ -26,6 +26,7 @@ from .tools import (
 from .utils.helpers import limit_chars
 from .utils.speech import transcribe_audio
 from .vm import LinuxVM
+from .memory import get_memory, set_memory, edit_memory
 
 __all__ = [
     "ChatSession",
@@ -50,5 +51,8 @@ __all__ = [
     "delete_path",
     "vm_execute",
     "transcribe_audio",
+    "get_memory",
+    "set_memory",
+    "edit_memory",
 ]
 

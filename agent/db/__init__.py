@@ -28,6 +28,7 @@ class BaseModel(Model):
 class User(BaseModel):
     id = AutoField()
     username = CharField(unique=True)
+    memory = TextField(default="")
 
 
 class Conversation(BaseModel):
@@ -143,6 +144,18 @@ class DatabaseManager:
             sessions.append({"name": conv.session_name, "last_message": snippet})
         return sessions
 
+    def get_memory(self, username: str) -> str:
+        self.init_db()
+        user = self.get_or_create_user(username)
+        return user.memory
+
+    def set_memory(self, username: str, memory: str) -> str:
+        self.init_db()
+        user = self.get_or_create_user(username)
+        user.memory = memory
+        user.save()
+        return memory
+
 
 db = DatabaseManager(_db)
 
@@ -159,6 +172,8 @@ __all__ = [
     "list_sessions",
     "list_sessions_info",
     "add_document",
+    "get_memory",
+    "set_memory",
 ]
 
 
@@ -177,6 +192,18 @@ def add_document(username: str, file_path: str, original_name: str) -> Document:
     """Record an uploaded document and return the created entry."""
 
     return db.add_document(username, file_path, original_name)
+
+
+def get_memory(username: str) -> str:
+    """Return persistent memory for ``username``."""
+
+    return db.get_memory(username)
+
+
+def set_memory(username: str, memory: str) -> str:
+    """Persist ``memory`` for ``username``."""
+
+    return db.set_memory(username, memory)
 
 
 def list_sessions(username: str) -> list[str]:

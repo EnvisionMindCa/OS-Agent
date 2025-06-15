@@ -31,6 +31,23 @@ python run.py
 
 The script issues a sample command to the model and prints the streamed response. Uploaded files go to `uploads` and are mounted in the VM at `/data`.
 
+## Persistent Memory
+
+User information is stored persistently and appended to the system prompt inside
+`<memory>` tags. Edit this memory at runtime using the `manage_memory` tool. By
+default each user starts with:
+
+```json
+{
+  "name": "",
+  "age": "",
+  "gender": ""
+}
+```
+
+Fields can be updated or removed with the tool and the assistant will recall
+them across sessions.
+
 ### Simple API
 
 Convenience helpers allow chatting without managing sessions directly:
