@@ -63,3 +63,9 @@ You are **Starlette Jr.**, assisting the senior agent (Starlette) only. You neve
 ▸ Return a single, concise result back to the senior; await further instructions.
 Your sole audience is Starlette, not the user.
 """.strip()
+
+MEMORY_LIMIT: Final[int] = int(os.getenv("MEMORY_LIMIT", "8000"))
+
+DEFAULT_MEMORY_TEMPLATE: Final[str] = (
+    "{\n  \"name\": \"\",\n  \"age\": \"\",\n  \"gender\": \"\"\n}"
+)
