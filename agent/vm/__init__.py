@@ -49,8 +49,9 @@ class LinuxVM:
         self._host_dir.mkdir(parents=True, exist_ok=True)
         self._state_dir = Path(VM_STATE_DIR) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
-        self._env = os.environ.copy()
+        self._env = {}
         if VM_DOCKER_HOST:
+            _LOG.debug("Using custom Docker host: %s", VM_DOCKER_HOST)
             self._env["DOCKER_HOST"] = VM_DOCKER_HOST
 
     def start(self) -> None:
@@ -63,7 +64,7 @@ class LinuxVM:
                 ["docker", "inspect", "-f", "{{.State.Running}}", self._name],
                 capture_output=True,
                 text=True,
-                env=self._env,
+                env=self._env if self._env else None,
             )
             if inspect.returncode == 0:
                 if inspect.stdout.strip() == "true":
@@ -75,7 +76,7 @@ class LinuxVM:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    env=self._env,
+                    env=self._env if self._env else None,
                 )
                 self._running = True
                 return
@@ -86,7 +87,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env=self._env,
+                env=self._env if self._env else None,
             )
             subprocess.run(
                 [
@@ -107,7 +108,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env=self._env,
+                env=self._env if self._env else None,
             )
             self._running = True
         except Exception as exc:  # pragma: no cover - runtime failures
@@ -160,7 +161,7 @@ class LinuxVM:
                 capture_output=True,
                 text=isinstance(stdin_data, str),
                 timeout=HARD_TIMEOUT,
-                env=self._env,
+                env=self._env if self._env else None,
             )
         except subprocess.TimeoutExpired as exc:
             return f"Command timed out after {timeout}s: {exc.cmd}"
@@ -203,7 +204,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env=self._env,
+                env=self._env if self._env else None,
             )
         else:
             subprocess.run(
@@ -212,7 +213,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                env=self._env,
+                env=self._env if self._env else None,
             )
         self._running = False
 
