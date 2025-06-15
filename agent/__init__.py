@@ -24,6 +24,7 @@ from .tools import (
     set_vm,
 )
 from .utils.helpers import limit_chars
+from .utils.speech import transcribe_audio
 from .vm import LinuxVM
 
 __all__ = [
@@ -48,5 +49,6 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "transcribe_audio",
 ]
 
