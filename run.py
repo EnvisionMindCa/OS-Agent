@@ -10,6 +10,10 @@ async def _main() -> None:
     # print("Document uploaded:", document)
     async for resp in agent.solo_chat("run data/test.py", user="test_user", session="test_session", think=False): # or agent.team_chat()
         print("\n>>>", resp)
+        
+    # or using speech:
+    # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
+    #     print("\n>>>", resp)
 
 
 def main() -> None:
