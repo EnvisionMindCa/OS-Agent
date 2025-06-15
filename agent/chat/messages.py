@@ -6,7 +6,7 @@ from typing import List
 from ollama import Message
 
 from .schema import Msg
-from ..db import Conversation, Message as DBMessage
+from ..db import Conversation, db
 
 __all__ = [
     "serialize_tool_calls",
@@ -45,10 +45,10 @@ def store_assistant_message(conversation: Conversation, message: Message) -> Non
     if message.tool_calls:
         data["tool_calls"] = [c.model_dump() for c in message.tool_calls]
 
-    DBMessage.create(
-        conversation=conversation,
-        role="assistant",
-        content=json.dumps(data),
+    db.create_message(
+        conversation,
+        "assistant",
+        json.dumps(data),
     )
 
 

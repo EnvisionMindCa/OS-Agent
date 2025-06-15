@@ -19,10 +19,8 @@ from ..config import (
 )
 from ..db import (
     Conversation,
-    Message as DBMessage,
     User,
-    _db,
-    init_db,
+    db,
     add_document,
 )
 from ..utils.logging import get_logger
@@ -56,12 +54,12 @@ class ChatSession:
         tools: list[callable] | None = None,
         think: bool = True,
     ) -> None:
-        init_db()
+        db.init_db()
         self._client = AsyncClient(host=host)
         self._model = model
-        self._user, _ = User.get_or_create(username=user)
-        self._conversation, _ = Conversation.get_or_create(
-            user=self._user, session_name=session
+        self._user = db.get_or_create_user(user)
+        self._conversation = db.get_or_create_conversation(
+            self._user, session
         )
         self._vm = None
         self._system_prompt = system_prompt
@@ -122,8 +120,7 @@ class ChatSession:
         set_vm(None)
         if self._vm:
             VMRegistry.release(self._user.username)
-        if not _db.is_closed():
-            _db.close()
+        db.close()
 
     # ------------------------------------------------------------------
     def upload_document(self, file_path: str) -> str:
@@ -143,7 +140,7 @@ class ChatSession:
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
-        for msg in self._conversation.messages.order_by(DBMessage.created_at):
+        for msg in db.list_messages(self._conversation):
             if msg.role == "system":
                 continue
             if msg.role == "assistant":
@@ -214,7 +211,7 @@ class ChatSession:
         content: str,
     ) -> None:
         messages.append({"role": "tool", "name": name, "content": content})
-        DBMessage.create(conversation=conversation, role="tool", content=content)
+        db.create_message(conversation, "tool", content)
 
     def _add_assistant_message(
         self,
@@ -344,7 +341,7 @@ class ChatSession:
                 return
             self._state = "generating"
 
-        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
+        db.create_message(self._conversation, "user", prompt)
         self._messages.append({"role": "user", "content": prompt})
 
         response = await self.ask(self._messages)
@@ -403,7 +400,7 @@ class ChatSession:
                 yield text
 
     async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
-        DBMessage.create(conversation=self._conversation, role="user", content=prompt)
+        db.create_message(self._conversation, "user", prompt)
         self._messages.append({"role": "user", "content": prompt})
 
         user_task = asyncio.create_task(self.ask(self._messages))
@@ -429,10 +426,10 @@ class ChatSession:
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:
         if not self._placeholder_saved:
-            DBMessage.create(
-                conversation=self._conversation,
-                role="tool",
-                content=TOOL_PLACEHOLDER_CONTENT,
+            db.create_message(
+                self._conversation,
+                "tool",
+                TOOL_PLACEHOLDER_CONTENT,
             )
             self._placeholder_saved = True
 
