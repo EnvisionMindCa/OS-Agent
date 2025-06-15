@@ -56,14 +56,17 @@ def create_memory_tool(username: str, refresh: Callable[[], None]) -> Callable:
     """Return a tool function bound to ``username`` for memory editing."""
 
     def memory_tool(field: str, value: str | None = None) -> str:
-        result = edit_memory(username, field, value)
-        refresh()
-        return result
+        try:
+            _ = edit_memory(username, field, value)
+            refresh()
+            return "Memory updated successfully."
+        except Exception as e:
+            return f"Error updating memory: {str(e)}"
 
     memory_tool.__name__ = "manage_memory"
     memory_tool.__doc__ = (
         "Modify persistent user memory. "
         "Provide the memory field name and optionally a value. "
-        "Passing no value deletes the field. Returns the updated memory."
+        "Passing no value deletes the field. Returns success status."
     )
     return memory_tool
