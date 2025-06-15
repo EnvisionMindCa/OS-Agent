@@ -7,7 +7,8 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Tuple, List
+import mimetypes
 
 import discord
 from discord.ext import commands
@@ -16,6 +17,7 @@ from dotenv import load_dotenv
 import agent
 from agent.db import reset_history
 from agent.utils.logging import get_logger
+from agent.utils.speech import transcribe_audio
 from agent.sessions.solo import SoloChatSession
 
 
@@ -46,12 +48,25 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        docs = await self._handle_attachments(
+        docs, transcripts = await self._handle_attachments(
             message.attachments, user_id=str(message.author.id)
         )
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
+        for text in transcripts:
+            try:
+                speech_prompt = f"[speech] {text}"
+                async for part in agent.solo_chat(
+                    speech_prompt,
+                    user=str(message.author.id),
+                    session=str(message.channel.id),
+                    think=False,
+                ):
+                    await message.reply(part, mention_author=False)
+            except Exception as exc:  # pragma: no cover - runtime errors
+                self._log.error("Failed to process speech: %s", exc)
+                await message.reply(f"Error: {exc}", mention_author=False)
 
         if message.content.strip():
             try:
@@ -92,8 +107,8 @@ class DiscordTeamBot(commands.Bot):
         attachments: Iterable[discord.Attachment],
         *,
         user_id: str,
-    ) -> list[tuple[str, str]]:
-        """Download attachments and return their VM paths.
+    ) -> Tuple[List[Tuple[str, str]], List[str]]:
+        """Download attachments and return their VM paths and audio transcripts.
 
         Parameters
         ----------
@@ -105,20 +120,30 @@ class DiscordTeamBot(commands.Bot):
         """
 
         if not attachments:
-            return []
+            return [], []
 
-        uploaded: list[tuple[str, str]] = []
+        uploaded: List[Tuple[str, str]] = []
+        transcripts: List[str] = []
         tmpdir = Path(tempfile.mkdtemp(prefix="discord_upload_"))
         try:
             for attachment in attachments:
                 dest = tmpdir / attachment.filename
                 await attachment.save(dest)
-                vm_path = await agent.upload_document(str(dest), user=user_id)
-                uploaded.append((attachment.filename, vm_path))
+                mime, _ = mimetypes.guess_type(attachment.filename)
+                if mime and mime.startswith("audio"):
+                    try:
+                        text = await transcribe_audio(str(dest))
+                        if text:
+                            transcripts.append(text)
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        self._log.error("Transcription failed for %s: %s", attachment.filename, exc)
+                else:
+                    vm_path = await agent.upload_document(str(dest), user=user_id)
+                    uploaded.append((attachment.filename, vm_path))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-        return uploaded
+        return uploaded, transcripts
 
 
 def run_bot(token: str) -> None:

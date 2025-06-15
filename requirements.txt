@@ -3,3 +3,6 @@ peewee
 discord.py
 colorama
 python-dotenv
+
+whisper
+

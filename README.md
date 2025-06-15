@@ -9,6 +9,7 @@
 - **Persistent chat history** – conversations are stored in `chat.db` per user and session so they can be resumed later.
 - **Tool execution** – a built-in `execute_terminal` tool runs commands inside a Docker-based VM using `docker exec -i`. Network access is enabled and both stdout and stderr are captured (up to 10,000 characters). The VM is reused across chats when `PERSIST_VMS=1` so installed packages remain available.
 - **System prompts** – every request includes a system prompt that guides the assistant to plan tool usage, verify results and avoid unnecessary jargon.
+- **Voice messages** – audio attachments are transcribed with Whisper and sent to the agent prefixed with `[speech]`.
 
 ## Recommended Models
 
