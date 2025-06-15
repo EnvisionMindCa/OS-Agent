@@ -16,3 +16,7 @@ def limit_chars(text: str, limit: int = 10_000) -> str:
     truncated = len(text) - limit
     return f"(output truncated, {truncated} characters hidden)\n{text[-limit:]}"
 
+
+from .debug import debug_all
+debug_all(globals())
+

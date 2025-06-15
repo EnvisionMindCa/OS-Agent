@@ -135,3 +135,7 @@ def list_sessions_info(username: str) -> list[dict[str, str]]:
         snippet = (last_msg.content[:50] + "…") if last_msg else ""
         sessions.append({"name": conv.session_name, "last_message": snippet})
     return sessions
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

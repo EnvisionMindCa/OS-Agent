@@ -51,3 +51,7 @@ def store_assistant_message(conversation: Conversation, message: Message) -> Non
         content=json.dumps(data),
     )
 
+
+from ..utils.debug import debug_all
+debug_all(globals())
+

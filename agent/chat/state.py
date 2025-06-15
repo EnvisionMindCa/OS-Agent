@@ -26,3 +26,7 @@ def get_state(conv_id: int) -> SessionState:
         _session_states[conv_id] = state
     return state
 
+
+from .debug import debug_all
+debug_all(globals())
+

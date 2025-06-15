@@ -23,3 +23,7 @@ if __name__ == "__main__":
         pass
     finally:
         VMRegistry.shutdown_all()
+
+from agent.utils.debug import debug_all
+debug_all(globals())
+
