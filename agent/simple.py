@@ -116,4 +116,3 @@ async def delete_path(path: str, *, user: str = "default") -> str:
 
 from .utils.debug import debug_all
 debug_all(globals())
-
