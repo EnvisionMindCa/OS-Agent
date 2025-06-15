@@ -3,12 +3,12 @@ import inspect
 from functools import wraps
 from typing import Any, Callable
 
-from .logging import get_logger
+import logging
 
 
 def debug(func: Callable) -> Callable:
     """Decorator to log function entry and exit at DEBUG level."""
-    logger = get_logger(func.__module__)
+    logger = logging.getLogger(func.__module__)
 
     if asyncio.iscoroutinefunction(func):
         @wraps(func)
@@ -38,6 +38,6 @@ def debug_all(globals_dict: dict[str, Any]) -> None:
         elif inspect.isclass(obj):
             for attr_name, attr in list(vars(obj).items()):
                 if inspect.isfunction(attr) or inspect.ismethoddescriptor(attr):
-                    if attr_name.startswith("__"):
+                    if attr_name.startswith("__") or not hasattr(attr, "__module__"):
                         continue
                     setattr(obj, attr_name, debug(attr))
