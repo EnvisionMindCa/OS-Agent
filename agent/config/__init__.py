@@ -18,8 +18,8 @@ VM_STATE_DIR: Final[str] = os.getenv(
 )
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 HARD_TIMEOUT: Final[int] = int(os.getenv("HARD_TIMEOUT", "5"))
+LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL", "INFO").upper()
 
-# Content used when waiting for tool execution.
 TOOL_PLACEHOLDER_CONTENT: Final[str] = "Awaiting tool response..."
 
 SYSTEM_PROMPT: Final[str] = """

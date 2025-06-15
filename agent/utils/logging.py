@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .debug import debug
+from ..config import LOG_LEVEL  # noqa: F401
 import logging
 import os
 from typing import Final
@@ -29,7 +30,7 @@ def get_logger(name: str | None = None, level: int | None = None) -> logging.Log
     """Return a configured logger instance."""
 
     colorama_init()
-    env_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    env_level = LOG_LEVEL.upper() if LOG_LEVEL else "INFO"
     if level is None:
         level = getattr(logging, env_level, logging.INFO)
 
