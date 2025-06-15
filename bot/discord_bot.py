@@ -55,8 +55,19 @@ class DiscordTeamBot(commands.Bot):
 
         if message.content.strip():
             try:
-                async for part in agent.solo_chat(message.content, user=str(message.author.id), session=str(message.channel.id), think=False):
-                    await message.reply(part, mention_author=False)
+                async for part in agent.solo_chat(
+                    message.content,
+                    user=str(message.author.id),
+                    session=str(message.channel.id),
+                    think=False,
+                ):
+                    if part.get("tool_call"):
+                        tc = part["tool_call"]
+                        await message.reply(
+                            f"**Running {tc['name']}**", mention_author=False
+                        )
+                    if msg := part.get("message"):
+                        await message.reply(msg, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process message: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)

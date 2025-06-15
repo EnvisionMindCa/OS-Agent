@@ -4,6 +4,7 @@ import asyncio
 from typing import AsyncIterator, Optional
 
 from ..chat import ChatSession
+from ..chat.schema import ChatEvent
 from ..config import OLLAMA_HOST, MODEL_NAME, SYSTEM_PROMPT, JUNIOR_PROMPT
 from ..tools import execute_terminal
 from ..db import Message as DBMessage
@@ -103,8 +104,8 @@ class TeamChatSession:
                 DBMessage.create(conversation=self.junior._conversation, role="tool", content=msg)
                 parts: list[str] = []
                 async for part in self.junior.continue_stream():
-                    if part:
-                        parts.append(part)
+                    if part.get("message"):
+                        parts.append(part["message"])
                 result = "\n".join(parts)
                 if enqueue and result.strip():
                     await self._to_senior.put(result)
@@ -122,7 +123,7 @@ class TeamChatSession:
             self.senior._messages.append({"role": "tool", "name": "junior", "content": msg})
             DBMessage.create(conversation=self.senior._conversation, role="tool", content=msg)
 
-    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def chat_stream(self, prompt: str) -> AsyncIterator[ChatEvent]:
         await self._deliver_junior_messages()
         async for part in self.senior.chat_stream(prompt):
             yield part

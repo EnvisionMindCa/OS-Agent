@@ -8,8 +8,16 @@ from agent.vm import VMRegistry
 async def _main() -> None:
     # document = await agent.upload_document("test.py", user="test_user", session="test_session")
     # print("Document uploaded:", document)
-    async for resp in agent.solo_chat("run data/test.py", user="test_user", session="test_session", think=False): # or agent.team_chat()
-        print("\n>>>", resp)
+    async for part in agent.solo_chat("run data/test.py", user="test_user", session="test_session", think=False):
+        if part.get("tool_call"):
+            tc = part["tool_call"]
+            print(f"[tool] {tc['name']} {tc['arguments']}")
+        if msg := part.get("message"):
+            if part.get("role") == "tool":
+                name = part.get("tool_name", "tool")
+                print(f"[{name}] {msg}")
+            else:
+                print(msg)
 
 
 def main() -> None:
