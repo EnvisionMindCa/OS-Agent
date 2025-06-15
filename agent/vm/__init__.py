@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import subprocess
 import asyncio
+import os
 from functools import partial
 from pathlib import Path
 
 from threading import Lock
 
-from ..config import UPLOAD_DIR, VM_IMAGE, PERSIST_VMS, VM_STATE_DIR, HARD_TIMEOUT
+from ..config import (
+    UPLOAD_DIR,
+    VM_IMAGE,
+    PERSIST_VMS,
+    VM_STATE_DIR,
+    HARD_TIMEOUT,
+    VM_DOCKER_HOST,
+)
 from ..utils.helpers import limit_chars
 
 from ..utils.logging import get_logger
@@ -41,6 +49,9 @@ class LinuxVM:
         self._host_dir.mkdir(parents=True, exist_ok=True)
         self._state_dir = Path(VM_STATE_DIR) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
+        self._env = os.environ.copy()
+        if VM_DOCKER_HOST:
+            self._env["DOCKER_HOST"] = VM_DOCKER_HOST
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -52,6 +63,7 @@ class LinuxVM:
                 ["docker", "inspect", "-f", "{{.State.Running}}", self._name],
                 capture_output=True,
                 text=True,
+                env=self._env,
             )
             if inspect.returncode == 0:
                 if inspect.stdout.strip() == "true":
@@ -63,6 +75,7 @@ class LinuxVM:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    env=self._env,
                 )
                 self._running = True
                 return
@@ -73,6 +86,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=self._env,
             )
             subprocess.run(
                 [
@@ -93,6 +107,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=self._env,
             )
             self._running = True
         except Exception as exc:  # pragma: no cover - runtime failures
@@ -145,6 +160,7 @@ class LinuxVM:
                 capture_output=True,
                 text=isinstance(stdin_data, str),
                 timeout=HARD_TIMEOUT,
+                env=self._env,
             )
         except subprocess.TimeoutExpired as exc:
             return f"Command timed out after {timeout}s: {exc.cmd}"
@@ -187,6 +203,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=self._env,
             )
         else:
             subprocess.run(
@@ -195,6 +212,7 @@ class LinuxVM:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=self._env,
             )
         self._running = False
 

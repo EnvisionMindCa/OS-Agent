@@ -22,6 +22,7 @@ Several settings can be customised via environment variables:
 - `DB_PATH` – location of the SQLite database (default `chat.db` in the project directory).
 - `LOG_LEVEL` – logging verbosity (`DEBUG`, `INFO`, etc.).
 - `VM_IMAGE` and `VM_STATE_DIR` control the Docker-based VM.
+- `VM_DOCKER_HOST` – Docker host to run the VM on (e.g. `ssh://user@host`).
 
 ## Quick Start
 
@@ -103,6 +104,7 @@ Run shell commands manually with `!exec <command>`. For example:
 ## VM Configuration
 
 The shell commands run inside a Docker container. By default the image defined by `VM_IMAGE` is used (falling back to `python:3.11-slim`). When `PERSIST_VMS=1` (default) each user keeps the same container across sessions. Set `VM_STATE_DIR` to choose where per-user data is stored on the host.
+If Docker runs on another machine, set `VM_DOCKER_HOST` to the remote connection URL.
 
 To build a more complete environment you can create your own image, for example using `docker/Dockerfile.vm`:
 

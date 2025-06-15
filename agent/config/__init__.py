@@ -16,6 +16,7 @@ PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
 VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
 )
+VM_DOCKER_HOST: Final[str | None] = os.getenv("VM_DOCKER_HOST")
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 HARD_TIMEOUT: Final[int] = int(os.getenv("HARD_TIMEOUT", "5"))
 LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL", "INFO").upper()
