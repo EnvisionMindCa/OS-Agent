@@ -3,7 +3,6 @@ from __future__ import annotations
 from .debug import debug
 from ..config import LOG_LEVEL  # noqa: F401
 import logging
-import os
 from typing import Final
 
 from colorama import Fore, Style, init as colorama_init
