@@ -12,8 +12,8 @@ __all__: Final[list[str]] = ["get_logger"]
 
 class _ColourFormatter(logging.Formatter):
     _COLOUR_FOR_LEVEL = {
-        logging.DEBUG: Fore.CYAN,
-        logging.INFO: Fore.GREEN,
+        logging.DEBUG: Fore.GREEN,
+        logging.INFO: Fore.WHITE,
         logging.WARNING: Fore.YELLOW,
         logging.ERROR: Fore.RED,
         logging.CRITICAL: Fore.MAGENTA,
