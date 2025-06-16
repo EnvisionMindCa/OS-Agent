@@ -42,12 +42,15 @@ default each user starts with:
 {
   "name": "",
   "age": "",
-  "gender": ""
+  "gender": "",
+  "protected_memory": {}
 }
 ```
 
 Fields can be updated or removed with the tool and the assistant will recall
-them across sessions.
+them across sessions. ``protected_memory`` is reserved for user-managed data.
+Use ``edit_protected_memory`` from the Python API to add or delete entries in
+this section. The assistant cannot modify it.
 
 ### Simple API
 
