@@ -89,10 +89,11 @@ class ChatSession:
     def _append_extra(self, prompt: str, extra: dict[str, str] | None) -> str:
         if not extra:
             return prompt
-        parts = [prompt]
-        for key, value in extra.items():
-            parts.append(f"<{key}>\n{value}\n</{key}>")
-        return "\n\n".join(parts)
+        
+        extra = {str(k): str(v) for k, v in extra.items() if v is not None}
+        
+        extra_str = json.dumps(extra, indent=2)
+        return f"{prompt}\n<extra>\n{extra_str}\n</extra>"
 
     # ------------------------------------------------------------------
     # Properties exposing session state
