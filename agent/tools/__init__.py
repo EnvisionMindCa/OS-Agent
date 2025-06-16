@@ -6,6 +6,7 @@ __all__ = [
     "execute_with_secret",
     "execute_with_secret_async",
     "set_vm",
+    "create_memory_tool",
 ]
 
 import subprocess
@@ -15,6 +16,7 @@ import asyncio
 from functools import partial
 
 from ..utils.helpers import limit_chars
+from .memory import create_memory_tool
 
 from ..vm import LinuxVM
 
