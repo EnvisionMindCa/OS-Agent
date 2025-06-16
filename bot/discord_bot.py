@@ -103,6 +103,26 @@ class DiscordTeamBot(commands.Bot):
                 output = output[:1900] + "..."
             await ctx.reply(f"```\n{output}\n```", mention_author=False)
 
+        @self.command(name="shutdown")
+        @commands.has_permissions(administrator=True)
+        async def shutdown_cmd(ctx: commands.Context) -> None:
+            """Shut down the bot. Only administrators can invoke this."""
+
+            await ctx.reply("Shutting down...", mention_author=False)
+            await ctx.bot.close()
+
+        @shutdown_cmd.error
+        async def shutdown_cmd_error(
+            ctx: commands.Context, exc: commands.CommandError
+        ) -> None:
+            if isinstance(exc, commands.MissingPermissions):
+                await ctx.reply(
+                    "You do not have permission to shut down the bot.",
+                    mention_author=False,
+                )
+            else:  # pragma: no cover - runtime errors
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
