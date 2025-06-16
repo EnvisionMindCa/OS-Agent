@@ -27,9 +27,10 @@ async def solo_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
+    extra: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     async with SoloChatSession(user=user, session=session, think=think) as chat:
-        async for part in chat.chat_stream(prompt):
+        async for part in chat.chat_stream(prompt, extra=extra):
             yield part
 
 
@@ -39,9 +40,10 @@ async def team_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
+    extra: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     async with TeamChatSession(user=user, session=session, think=think) as chat:
-        async for part in chat.chat_stream(prompt):
+        async for part in chat.chat_stream(prompt, extra=extra):
             yield part
 
 
@@ -99,7 +101,7 @@ async def write_file(path: str, content: str, *, user: str = "default") -> str:
     encoded = base64.b64encode(content.encode()).decode()
     cmd = (
         "python -c 'import base64,os; "
-        f"open({json.dumps(path)}, \"wb\").write(base64.b64decode({json.dumps(encoded)}))'"
+        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
     )
     await vm_execute(cmd, user=user)
     return "Saved"
@@ -114,5 +116,7 @@ async def delete_path(path: str, *, user: str = "default") -> str:
     )
     return await vm_execute(cmd, user=user)
 
+
 from .utils.debug import debug_all
+
 debug_all(globals())

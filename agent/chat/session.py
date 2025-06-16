@@ -59,13 +59,13 @@ class ChatSession:
         self._client = AsyncClient(host=host)
         self._model = model
         self._user = db.get_or_create_user(user)
-        self._conversation = db.get_or_create_conversation(
-            self._user, session
-        )
+        self._conversation = db.get_or_create_conversation(self._user, session)
         self._vm = None
         self._base_system_prompt = system_prompt
         self._system_prompt = self._apply_memory(system_prompt)
-        memory_tool = create_memory_tool(self._user.username, self._refresh_system_prompt)
+        memory_tool = create_memory_tool(
+            self._user.username, self._refresh_system_prompt
+        )
         self._tools = (tools or [execute_terminal]) + [memory_tool]
         self._tool_funcs = {func.__name__: func for func in self._tools}
         self._think = think
@@ -74,7 +74,7 @@ class ChatSession:
         self._state_data: SessionState = get_state(self._conversation.id)
         self._lock = self._state_data.lock
         self._prompt_queue: asyncio.Queue[
-            tuple[str, asyncio.Queue[str | None]]
+            tuple[str, dict[str, str] | None, asyncio.Queue[str | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
 
@@ -85,6 +85,14 @@ class ChatSession:
 
     def _refresh_system_prompt(self) -> None:
         self._system_prompt = self._apply_memory(self._base_system_prompt)
+
+    def _append_extra(self, prompt: str, extra: dict[str, str] | None) -> str:
+        if not extra:
+            return prompt
+        parts = [prompt]
+        for key, value in extra.items():
+            parts.append(f"<{key}>\n{value}\n</{key}>")
+        return "\n\n".join(parts)
 
     # ------------------------------------------------------------------
     # Properties exposing session state
@@ -289,7 +297,11 @@ class ChatSession:
         if not func:
             _LOG.warning("Unsupported tool call: %s", call.function.name)
             result = f"Unsupported tool: {call.function.name}"
-            name = "junior" if call.function.name == "send_to_junior" else call.function.name
+            name = (
+                "junior"
+                if call.function.name == "send_to_junior"
+                else call.function.name
+            )
             self._add_tool_message(conversation, messages, name, result)
             return
 
@@ -300,7 +312,11 @@ class ChatSession:
 
         placeholder = {
             "role": "tool",
-            "name": "junior" if call.function.name == "send_to_junior" else call.function.name,
+            "name": (
+                "junior"
+                if call.function.name == "send_to_junior"
+                else call.function.name
+            ),
             "content": TOOL_PLACEHOLDER_CONTENT,
         }
         messages.append(placeholder)
@@ -344,16 +360,19 @@ class ChatSession:
         async with self._lock:
             self._state = "idle"
 
-    async def _generate_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def _generate_stream(
+        self, prompt: str, extra: dict[str, str] | None = None
+    ) -> AsyncIterator[str]:
         async with self._lock:
             if self._state == "awaiting_tool" and self._tool_task:
-                async for part in self._chat_during_tool(prompt):
+                async for part in self._chat_during_tool(prompt, extra):
                     yield part
                 return
             self._state = "generating"
 
-        db.create_message(self._conversation, "user", prompt)
-        self._messages.append({"role": "user", "content": prompt})
+        prompt_with_extra = self._append_extra(prompt, extra)
+        db.create_message(self._conversation, "user", prompt_with_extra)
+        self._messages.append({"role": "user", "content": prompt_with_extra})
 
         response = await self.ask(self._messages)
         self._messages.append(response.message.model_dump())
@@ -369,9 +388,9 @@ class ChatSession:
     async def _process_prompt_queue(self) -> None:
         try:
             while not self._prompt_queue.empty():
-                prompt, result_q = await self._prompt_queue.get()
+                prompt, extra, result_q = await self._prompt_queue.get()
                 try:
-                    async for part in self._generate_stream(prompt):
+                    async for part in self._generate_stream(prompt, extra):
                         await result_q.put(part)
                 except Exception as exc:  # pragma: no cover - unforeseen errors
                     _LOG.exception("Error processing prompt: %s", exc)
@@ -381,9 +400,11 @@ class ChatSession:
         finally:
             self._worker = None
 
-    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def chat_stream(
+        self, prompt: str, *, extra: dict[str, str] | None = None
+    ) -> AsyncIterator[str]:
         result_q: asyncio.Queue[str | None] = asyncio.Queue()
-        await self._prompt_queue.put((prompt, result_q))
+        await self._prompt_queue.put((prompt, extra, result_q))
         if not self._worker or self._worker.done():
             self._worker = asyncio.create_task(self._process_prompt_queue())
 
@@ -410,9 +431,12 @@ class ChatSession:
             if text:
                 yield text
 
-    async def _chat_during_tool(self, prompt: str) -> AsyncIterator[str]:
-        db.create_message(self._conversation, "user", prompt)
-        self._messages.append({"role": "user", "content": prompt})
+    async def _chat_during_tool(
+        self, prompt: str, extra: dict[str, str] | None = None
+    ) -> AsyncIterator[str]:
+        prompt_with_extra = self._append_extra(prompt, extra)
+        db.create_message(self._conversation, "user", prompt_with_extra)
+        self._messages.append({"role": "user", "content": prompt_with_extra})
 
         user_task = asyncio.create_task(self.ask(self._messages))
         exec_task = self._tool_task
@@ -446,5 +470,5 @@ class ChatSession:
 
 
 from ..utils.debug import debug_all
-debug_all(globals())
 
+debug_all(globals())
