@@ -57,11 +57,16 @@ Convenience helpers allow chatting without managing sessions directly:
 import asyncio
 import agent
 
-response = asyncio.run(agent.solo_chat("Hello"))
+# Extra fields can be appended to each prompt
+response = asyncio.run(
+    agent.solo_chat("Hello", extra={"time": "2025-06-01T10:00"})
+)
 print(response)
 ```
 
 Use `agent.team_chat` the same way to utilise the senior and junior agents.
+Both chat helpers accept an optional ``extra`` dictionary that is
+appended to the prompt as XML tags.
 
 ### Uploading Documents
 

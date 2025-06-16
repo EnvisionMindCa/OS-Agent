@@ -47,7 +47,9 @@ class TeamChatSession:
         *,
         think: bool = True,
     ) -> None:
-        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = asyncio.Queue()
+        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = (
+            asyncio.Queue()
+        )
         self._to_senior: asyncio.Queue[str] = asyncio.Queue()
         self._junior_task: asyncio.Task | None = None
         self.senior = ChatSession(
@@ -99,7 +101,9 @@ class TeamChatSession:
         try:
             while not self._to_junior.empty():
                 msg, fut, enqueue = await self._to_junior.get()
-                self.junior._messages.append({"role": "tool", "name": "senior", "content": msg})
+                self.junior._messages.append(
+                    {"role": "tool", "name": "senior", "content": msg}
+                )
                 db.create_message(self.junior._conversation, "tool", msg)
                 parts: list[str] = []
                 async for part in self.junior.continue_stream():
@@ -119,15 +123,20 @@ class TeamChatSession:
     async def _deliver_junior_messages(self) -> None:
         while not self._to_senior.empty():
             msg = await self._to_senior.get()
-            self.senior._messages.append({"role": "tool", "name": "junior", "content": msg})
+            self.senior._messages.append(
+                {"role": "tool", "name": "junior", "content": msg}
+            )
             db.create_message(self.senior._conversation, "tool", msg)
 
-    async def chat_stream(self, prompt: str) -> AsyncIterator[str]:
+    async def chat_stream(
+        self, prompt: str, *, extra: dict[str, str] | None = None
+    ) -> AsyncIterator[str]:
         await self._deliver_junior_messages()
-        async for part in self.senior.chat_stream(prompt):
+        async for part in self.senior.chat_stream(prompt, extra=extra):
             yield part
         await self._deliver_junior_messages()
 
-from ..utils.debug import debug_all
-debug_all(globals())
 
+from ..utils.debug import debug_all
+
+debug_all(globals())
