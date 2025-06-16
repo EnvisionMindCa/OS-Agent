@@ -9,7 +9,8 @@ async def _main() -> None:
     import datetime
     # document = await agent.upload_document("test.py", user="test_user", session="test_session")
     # print("Document uploaded:", document)
-    async for resp in agent.solo_chat("what's the current time?", user="test_user", session="test_session", think=False, extra={"time": datetime.datetime.now()}): # or agent.team_chat()
+    agent.edit_protected_memory("test_user", ".env", "TEST_VAR=12345")
+    async for resp in agent.solo_chat("what's in the protected memory of yours?", user="test_user", session="test_session", think=False, extra={"time": datetime.datetime.now()}): # or agent.team_chat()
         print("\n>>>", resp)
         
     # or using speech:
