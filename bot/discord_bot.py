@@ -62,6 +62,10 @@ class DiscordTeamBot(commands.Bot):
                     user=str(message.author.id),
                     session=str(message.channel.id),
                     think=False,
+                    extra={
+                        "user_name": str(message.author.name),
+                        "channel_name": str(message.channel.name),
+                    }
                 ):
                     await message.reply(part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors
