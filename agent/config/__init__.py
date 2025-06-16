@@ -83,5 +83,10 @@ Your sole audience is Starlette, not the user.
 MEMORY_LIMIT: Final[int] = int(os.getenv("MEMORY_LIMIT", "8000"))
 
 DEFAULT_MEMORY_TEMPLATE: Final[str] = (
-    "{\n  \"name\": \"\",\n  \"age\": \"\",\n  \"gender\": \"\"\n}"
+    "{\n"
+    "  \"name\": \"\",\n"
+    "  \"age\": \"\",\n"
+    "  \"gender\": \"\",\n"
+    "  \"protected_memory\": {}\n"
+    "}"
 )

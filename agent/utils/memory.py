@@ -5,7 +5,7 @@ import json
 from ..config import DEFAULT_MEMORY_TEMPLATE, MEMORY_LIMIT
 from ..db import db
 
-__all__ = ["get_memory", "set_memory", "edit_memory"]
+__all__ = ["get_memory", "set_memory", "edit_memory", "edit_protected_memory"]
 
 
 def get_memory(username: str) -> str:
@@ -47,5 +47,33 @@ def edit_memory(username: str, field: str, value: str | None = None) -> str:
         data.pop(field, None)
     else:
         data[field] = value
+    memory = json.dumps(data, ensure_ascii=False, indent=2)
+    return set_memory(username, memory)
+
+
+def edit_protected_memory(username: str, field: str, value: str | None = None) -> str:
+    """Add, update or remove ``field`` in ``username``'s protected memory.
+
+    The protected memory dictionary is stored under the ``protected_memory`` key
+    inside the main memory JSON object. Only user code should invoke this
+    function as the LLM agent is not allowed to modify protected memory.
+    """
+
+    text = get_memory(username)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = {}
+
+    protected = data.get("protected_memory")
+    if not isinstance(protected, dict):
+        protected = {}
+    if value is None:
+        protected.pop(field, None)
+    else:
+        protected[field] = value
+
+    data["protected_memory"] = protected
+
     memory = json.dumps(data, ensure_ascii=False, indent=2)
     return set_memory(username, memory)
