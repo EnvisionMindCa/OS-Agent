@@ -27,8 +27,8 @@ from ..utils.logging import get_logger
 from .schema import Msg
 from contextlib import suppress
 
-from ..tools import execute_terminal, set_vm
-from ..memory import create_memory_tool, get_memory
+from ..tools import execute_terminal, set_vm, create_memory_tool
+from ..utils.memory import get_memory
 from ..vm import VMRegistry
 
 from .state import SessionState, get_state
