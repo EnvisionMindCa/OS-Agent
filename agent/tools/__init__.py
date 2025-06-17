@@ -29,6 +29,23 @@ def set_vm(vm: LinuxVM | None) -> None:
     global _VM
     _VM = vm
 
+    """
+        Parameters
+    ----------
+    command: str
+        The shell command to execute. It can be any valid shell command.
+    stdin_data: str | bytes | None
+        Optional data to send to the command's standard input. If provided,
+        it will be passed to the command as if it were typed in the terminal.
+        
+    Returns
+    -------
+    str
+        The output of the command, with limited number of characters. If the command
+        produces no output, an empty string is returned. If an error occurs,
+        an error message is returned instead.
+    """
+
 
 def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """
@@ -45,21 +62,6 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
     ``stdout`` and ``stderr`` is captured when the command completes.
     Execution happens asynchronously so the assistant can continue
     responding while the command runs.
-    
-    Parameters
-    ----------
-    command: str
-        The shell command to execute. It can be any valid shell command.
-    stdin_data: str | bytes | None
-        Optional data to send to the command's standard input. If provided,
-        it will be passed to the command as if it were typed in the terminal.
-        
-    Returns
-    -------
-    str
-        The output of the command, with limited number of characters. If the command
-        produces no output, an empty string is returned. If an error occurs,
-        an error message is returned instead.
     """
     if not command:
         return "No command provided."
