@@ -24,7 +24,11 @@ from .schema import Msg
 from contextlib import suppress
 
 from ..tools import execute_terminal, set_vm, create_memory_tool
-from ..utils.memory import get_memory
+from ..utils.memory import (
+    get_memory,
+    edit_memory as _edit_memory,
+    edit_protected_memory as _edit_protected_memory,
+)
 from ..vm import VMRegistry
 
 from .state import SessionState, get_state
@@ -166,6 +170,39 @@ class ChatSession:
         shutil.copy(src, target)
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
+
+    # ------------------------------------------------------------------
+    def edit_memory(
+        self,
+        field: str,
+        value: str | None = None,
+        *,
+        protected: bool = False,
+    ) -> str:
+        """Edit the persistent memory dictionary for this session's user.
+
+        Parameters
+        ----------
+        field:
+            Name of the memory entry to modify.
+        value:
+            New value for the field. If ``None``, the field is removed.
+        protected:
+            When ``True``, the field is stored under the ``protected_memory``
+            section which is immutable from the agent's perspective.
+
+        Returns
+        -------
+        str
+            The updated memory as a JSON string.
+        """
+
+        if protected:
+            memory = _edit_protected_memory(self._user.username, field, value)
+        else:
+            memory = _edit_memory(self._user.username, field, value)
+        self._refresh_system_prompt()
+        return memory
 
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
