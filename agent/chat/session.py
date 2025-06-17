@@ -344,7 +344,10 @@ class ChatSession:
         )
 
         if call.function.name == "send_to_agent":
-            display_name = str(call.function.arguments.get("name", "agent"))
+            if isinstance(args, Mapping):
+                display_name = str(args.get("name", "agent"))
+            else:
+                display_name = "agent"
         else:
             display_name = call.function.name
         self._current_tool_name = display_name
