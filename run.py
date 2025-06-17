@@ -4,6 +4,7 @@ import asyncio
 
 import agent
 from agent.vm import VMRegistry
+from agent.config import DEFAULT_CONFIG
 
 async def _main() -> None:
     import datetime

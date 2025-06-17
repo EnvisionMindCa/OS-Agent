@@ -59,7 +59,7 @@ class ChatSession:
         model = model or self._config.model_name
         system_prompt = system_prompt or self._config.system_prompt
 
-        db.configure_db(self._config.db_path)
+        # db.configure_db(self._config.db_path)
         db.init_db()
         self._client = AsyncClient(host=host)
         self._model = model
