@@ -21,7 +21,7 @@ async def _main() -> None:
 
     async with agent.TeamChatSession(user="test_user", session="test_session", think=True) as chat:
         async for part in chat.chat_stream(
-            "create a snake game in python",
+            "how many r's are in the word strawberry?",
         ):
             print("\nTEAM >>", part)
         

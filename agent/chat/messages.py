@@ -57,6 +57,7 @@ def store_tool_message(conversation: Conversation, name: str, content: str) -> N
     """Persist tool messages with structured data."""
 
     data = {"name": name, "content": content}
+    data = {str(k): str(v) for k, v in data.items() if v is not None}
     db.create_message(conversation, "tool", json.dumps(data))
 
 
