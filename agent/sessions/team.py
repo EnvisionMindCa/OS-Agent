@@ -6,11 +6,8 @@ from typing import AsyncIterator, Optional
 
 from ..chat import ChatSession
 from ..config import (
-    OLLAMA_HOST,
-    MODEL_NAME,
-    SYSTEM_PROMPT,
-    MINI_AGENT_PROMPT,
-    MAX_MINI_AGENTS,
+    Config,
+    DEFAULT_CONFIG,
 )
 from ..tools import execute_terminal
 from ..db import db
@@ -45,7 +42,9 @@ class _MiniAgent:
     def __init__(self, parent: "TeamChatSession", name: str, details: str, context: str) -> None:
         self.parent = parent
         self.name = name
-        prompt = MINI_AGENT_PROMPT.format(name=name, details=details, context=context)
+        prompt = parent._config.mini_agent_prompt.format(
+            name=name, details=details, context=context
+        )
         self.session = ChatSession(
             user=parent._user,
             session=f"{parent._session_name}-{name}",
@@ -55,6 +54,7 @@ class _MiniAgent:
             tools=[execute_terminal],
             think=parent._think,
             persist=False,
+            config=parent._config,
         )
         self.queue: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = asyncio.Queue()
         self.task: asyncio.Task | None = None
@@ -102,26 +102,29 @@ class TeamChatSession:
         self,
         user: str = "default",
         session: str = "default",
-        host: str = OLLAMA_HOST,
-        model: str = MODEL_NAME,
+        host: str | None = None,
+        model: str | None = None,
         *,
         think: bool = True,
+        config: Config | None = None,
     ) -> None:
+        self._config = config or DEFAULT_CONFIG
         self._user = user
         self._session_name = session
-        self._host = host
-        self._model = model
+        self._host = host or self._config.ollama_host
+        self._model = model or self._config.model_name
         self._think = think
         self._agents: dict[str, _MiniAgent] = {}
         self._to_master: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
         self.master = ChatSession(
             user=user,
             session=session,
-            host=host,
-            model=model,
-            system_prompt=SYSTEM_PROMPT,
+            host=self._host,
+            model=self._model,
+            system_prompt=self._config.system_prompt,
             tools=[execute_terminal, spawn_agent, send_to_agent],
             think=think,
+            config=self._config,
         )
 
     async def __aenter__(self) -> "TeamChatSession":
@@ -140,7 +143,7 @@ class TeamChatSession:
     async def spawn_agent(self, name: str, details: str = "", context: str = "") -> str:
         if name in self._agents:
             return f"Agent {name} already exists"
-        if len(self._agents) >= MAX_MINI_AGENTS:
+        if len(self._agents) >= self._config.max_mini_agents:
             return "Agent limit reached"
         agent = _MiniAgent(self, name, details, context)
         await agent.start()

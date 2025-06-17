@@ -9,12 +9,8 @@ from pathlib import Path
 from threading import Lock
 
 from ..config import (
-    UPLOAD_DIR,
-    VM_IMAGE,
-    PERSIST_VMS,
-    VM_STATE_DIR,
-    HARD_TIMEOUT,
-    VM_DOCKER_HOST,
+    DEFAULT_CONFIG,
+    Config,
 )
 from ..utils.helpers import limit_chars
 
@@ -39,20 +35,25 @@ class LinuxVM:
     def __init__(
         self,
         username: str,
-        image: str = VM_IMAGE,
-        host_dir: str = UPLOAD_DIR,
+        *,
+        config: Config = DEFAULT_CONFIG,
     ) -> None:
-        self._image = image
+        self.config = config
+        self._image = config.vm_image
         self._name = f"chat-vm-{_sanitize(username)}"
         self._running = False
-        self._host_dir = Path(host_dir)
+        self._host_dir = Path(config.upload_dir) / username
         self._host_dir.mkdir(parents=True, exist_ok=True)
-        self._state_dir = Path(VM_STATE_DIR) / _sanitize(username)
+        self._state_dir = Path(config.vm_state_dir) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
         self._env = {}
-        if VM_DOCKER_HOST:
-            _LOG.debug("Using custom Docker host: %s", VM_DOCKER_HOST)
-            self._env["DOCKER_HOST"] = VM_DOCKER_HOST
+        if config.vm_docker_host:
+            _LOG.debug("Using custom Docker host: %s", config.vm_docker_host)
+            self._env["DOCKER_HOST"] = config.vm_docker_host
+
+    @property
+    def persist_vms(self) -> bool:
+        return self.config.persist_vms
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -160,7 +161,7 @@ class LinuxVM:
                 input=stdin_data,
                 capture_output=True,
                 text=isinstance(stdin_data, str),
-                timeout=HARD_TIMEOUT,
+                timeout=self.config.hard_timeout,
                 env=self._env if self._env else None,
             )
         except subprocess.TimeoutExpired as exc:
@@ -186,7 +187,7 @@ class LinuxVM:
         func = partial(
             self.execute,
             command,
-            timeout=HARD_TIMEOUT,
+            timeout=self.config.hard_timeout,
             detach=detach,
             stdin_data=stdin_data,
         )
@@ -197,7 +198,7 @@ class LinuxVM:
         if not self._running:
             return
 
-        if PERSIST_VMS:
+        if self.config.persist_vms:
             subprocess.run(
                 ["docker", "stop", self._name],
                 check=False,
@@ -233,16 +234,13 @@ class VMRegistry:
     _lock = Lock()
 
     @classmethod
-    def acquire(cls, username: str) -> LinuxVM:
-        """Return a running VM for ``username``, creating it if needed."""
+    def acquire(cls, username: str, *, config: Config = DEFAULT_CONFIG) -> LinuxVM:
+        """Return a running VM for ``username`` using ``config``."""
 
         with cls._lock:
             vm = cls._vms.get(username)
             if vm is None:
-                vm = LinuxVM(
-                    username,
-                    host_dir=str(Path(UPLOAD_DIR) / username),
-                )
+                vm = LinuxVM(username, config=config)
                 cls._vms[username] = vm
                 cls._counts[username] = 0
             cls._counts[username] += 1
@@ -262,7 +260,7 @@ class VMRegistry:
             cls._counts[username] -= 1
             if cls._counts[username] <= 0:
                 cls._counts[username] = 0
-                if not PERSIST_VMS:
+                if not vm.config.persist_vms:
                     vm.stop()
                 del cls._vms[username]
                 del cls._counts[username]
@@ -272,8 +270,8 @@ class VMRegistry:
         """Stop and remove all managed VMs."""
 
         with cls._lock:
-            if not PERSIST_VMS:
-                for vm in cls._vms.values():
+            for vm in cls._vms.values():
+                if not vm.config.persist_vms:
                     vm.stop()
             cls._vms.clear()
             cls._counts.clear()

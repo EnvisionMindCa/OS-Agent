@@ -9,19 +9,15 @@ from typing import AsyncIterator, List, Mapping
 from ollama import AsyncClient, ChatResponse, Message
 
 from ..config import (
-    MAX_TOOL_CALL_DEPTH,
-    MODEL_NAME,
-    NUM_CTX,
-    OLLAMA_HOST,
-    SYSTEM_PROMPT,
-    TOOL_PLACEHOLDER_CONTENT,
-    UPLOAD_DIR,
+    Config,
+    DEFAULT_CONFIG,
 )
 from ..db import (
     Conversation,
     User,
     db,
     add_document,
+    configure_db,
 )
 from ..utils.logging import get_logger
 from .schema import Msg
@@ -49,14 +45,21 @@ class ChatSession:
         self,
         user: str = "default",
         session: str = "default",
-        host: str = OLLAMA_HOST,
-        model: str = MODEL_NAME,
+        host: str | None = None,
+        model: str | None = None,
         *,
-        system_prompt: str = SYSTEM_PROMPT,
+        system_prompt: str | None = None,
         tools: list[callable] | None = None,
         think: bool = True,
         persist: bool = True,
+        config: Config | None = None,
     ) -> None:
+        self._config = config or DEFAULT_CONFIG
+        host = host or self._config.ollama_host
+        model = model or self._config.model_name
+        system_prompt = system_prompt or self._config.system_prompt
+
+        db.configure_db(self._config.db_path)
         db.init_db()
         self._client = AsyncClient(host=host)
         self._model = model
@@ -157,7 +160,7 @@ class ChatSession:
         if not src.exists():
             raise FileNotFoundError(file_path)
 
-        dest = Path(UPLOAD_DIR) / self._user.username
+        dest = Path(self._config.upload_dir) / self._user.username
         dest.mkdir(parents=True, exist_ok=True)
         target = dest / src.name
         shutil.copy(src, target)
@@ -234,7 +237,7 @@ class ChatSession:
             think=think,
             tools=self._tools,
             keep_alive=-1,
-            options={"num_ctx": NUM_CTX, "temperature": 0.01},
+            options={"num_ctx": self._config.num_ctx, "temperature": 0.01},
         )
 
     async def _run_tool_async(self, func, **kwargs) -> str:
@@ -283,7 +286,7 @@ class ChatSession:
             follow_task.cancel()
             with suppress(asyncio.CancelledError):
                 await follow_task
-            remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
+            remove_tool_placeholder(messages, self._config.tool_placeholder_content)
             self._placeholder_saved = False
             result = await exec_task
             self._current_tool_name = None
@@ -300,7 +303,7 @@ class ChatSession:
             self._add_assistant_message(conversation, messages, followup.message)
             yield followup
             result = await exec_task
-            remove_tool_placeholder(messages, TOOL_PLACEHOLDER_CONTENT)
+            remove_tool_placeholder(messages, self._config.tool_placeholder_content)
             self._placeholder_saved = False
             self._current_tool_name = None
             self._add_tool_message(conversation, messages, name, result)
@@ -355,7 +358,7 @@ class ChatSession:
         placeholder = {
             "role": "tool",
             "name": display_name,
-            "content": TOOL_PLACEHOLDER_CONTENT,
+            "content": self._config.tool_placeholder_content,
         }
         messages.append(placeholder)
         self._placeholder_saved = False
@@ -386,13 +389,14 @@ class ChatSession:
                 self._state = "idle"
             return
 
-        while depth < MAX_TOOL_CALL_DEPTH and response.message.tool_calls:
+        max_depth = self._config.max_tool_call_depth
+        while depth < max_depth and response.message.tool_calls:
             for call in response.message.tool_calls:
                 async for nxt in self._process_tool_call(call, messages, conversation):
                     response = nxt
                     yield nxt
                 depth += 1
-                if depth >= MAX_TOOL_CALL_DEPTH:
+                if depth >= max_depth:
                     break
 
         async with self._lock:
@@ -507,7 +511,7 @@ class ChatSession:
                 store_tool_message(
                     self._conversation,
                     self._current_tool_name or "tool",
-                    TOOL_PLACEHOLDER_CONTENT,
+                    self._config.tool_placeholder_content,
                 )
             self._placeholder_saved = True
 
