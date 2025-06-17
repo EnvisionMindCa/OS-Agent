@@ -18,11 +18,11 @@ import agent
 from agent.db import reset_history
 from agent.utils.logging import get_logger
 from agent.utils.speech import transcribe_audio
-from agent.sessions.solo import SoloChatSession
+from agent.sessions.team import TeamChatSession
 
 
 class DiscordTeamBot(commands.Bot):
-    """Discord bot for interacting with :class:`SoloChatSession`."""
+    """Discord bot interface using :class:`TeamChatSession`."""
 
     def __init__(self) -> None:
         intents = discord.Intents.all()
@@ -48,37 +48,39 @@ class DiscordTeamBot(commands.Bot):
         if message.content.startswith("!"):
             return
 
-        docs, transcripts = await self._handle_attachments(
-            message.attachments, user_id=str(message.author.id)
-        )
-        if docs:
-            info = "\n".join(f"{name} -> {path}" for name, path in docs)
-            await message.reply(f"Uploaded:\n{info}", mention_author=False)
-        for text in transcripts:
-            try:
-                speech_prompt = f"[speech] {text}"
-                async for part in agent.solo_chat(
-                    speech_prompt,
-                    user=str(message.author.id),
-                    session=str(message.channel.id),
-                    think=False,
-                    extra={
-                        "user_name": str(message.author.name),
-                        "channel_name": str(message.channel.name),
-                    }
-                ):
-                    await message.reply(part, mention_author=False)
-            except Exception as exc:  # pragma: no cover - runtime errors
-                self._log.error("Failed to process speech: %s", exc)
-                await message.reply(f"Error: {exc}", mention_author=False)
+        async with TeamChatSession(
+            user=str(message.author.id),
+            session=str(message.channel.id),
+            think=False,
+        ) as chat:
+            docs, transcripts = await self._handle_attachments(
+                message.attachments, chat=chat
+            )
+            if docs:
+                info = "\n".join(f"{name} -> {path}" for name, path in docs)
+                await message.reply(f"Uploaded:\n{info}", mention_author=False)
+            for text in transcripts:
+                try:
+                    speech_prompt = f"[speech] {text}"
+                    async for part in chat.chat_stream(
+                        speech_prompt,
+                        extra={
+                            "user_name": str(message.author.name),
+                            "channel_name": str(message.channel.name),
+                        },
+                    ):
+                        await message.reply(part, mention_author=False)
+                except Exception as exc:  # pragma: no cover - runtime errors
+                    self._log.error("Failed to process speech: %s", exc)
+                    await message.reply(f"Error: {exc}", mention_author=False)
 
-        if message.content.strip():
-            try:
-                async for part in agent.solo_chat(message.content, user=str(message.author.id), session=str(message.channel.id), think=False):
-                    await message.reply(part, mention_author=False)
-            except Exception as exc:  # pragma: no cover - runtime errors
-                self._log.error("Failed to process message: %s", exc)
-                await message.reply(f"Error: {exc}", mention_author=False)
+            if message.content.strip():
+                try:
+                    async for part in chat.chat_stream(message.content):
+                        await message.reply(part, mention_author=False)
+                except Exception as exc:  # pragma: no cover - runtime errors
+                    self._log.error("Failed to process message: %s", exc)
+                    await message.reply(f"Error: {exc}", mention_author=False)
 
     # ------------------------------------------------------------------
     # Commands
@@ -130,7 +132,7 @@ class DiscordTeamBot(commands.Bot):
         self,
         attachments: Iterable[discord.Attachment],
         *,
-        user_id: str,
+        chat: TeamChatSession,
     ) -> Tuple[List[Tuple[str, str]], List[str]]:
         """Download attachments and return their VM paths and audio transcripts.
 
@@ -138,9 +140,9 @@ class DiscordTeamBot(commands.Bot):
         ----------
         attachments:
             Iterable of Discord attachments to download.
-        user_id:
-            Identifier of the user uploading the attachments. This ensures
-            documents are stored in the correct VM space.
+        chat:
+            Active chat session used to upload files so they are stored in
+            the correct VM space.
         """
 
         if not attachments:
@@ -162,7 +164,7 @@ class DiscordTeamBot(commands.Bot):
                     except Exception as exc:  # pragma: no cover - runtime errors
                         self._log.error("Transcription failed for %s: %s", attachment.filename, exc)
                 else:
-                    vm_path = await agent.upload_document(str(dest), user=user_id)
+                    vm_path = chat.upload_document(str(dest))
                     uploaded.append((attachment.filename, vm_path))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
