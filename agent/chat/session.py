@@ -4,7 +4,7 @@ import asyncio
 import json
 import shutil
 from pathlib import Path
-from typing import AsyncIterator, List
+from typing import AsyncIterator, List, Mapping
 
 from ollama import AsyncClient, ChatResponse, Message
 
@@ -325,8 +325,22 @@ class ChatSession:
             self._add_tool_message(conversation, messages, name, result)
             return
 
+        args = call.function.arguments
+        if isinstance(args, str):
+            with suppress(Exception):
+                args = json.loads(args)
+
+        if isinstance(args, Mapping) and "arguments" in args and set(args) <= {"name", "arguments"}:
+            maybe_args = args.get("arguments")
+            if isinstance(maybe_args, Mapping):
+                args = maybe_args
+
+        if not isinstance(args, Mapping):
+            _LOG.warning("Invalid tool arguments for %s: %r", call.function.name, args)
+            args = {}
+
         exec_task = asyncio.create_task(
-            self._run_tool_async(func, **call.function.arguments)
+            self._run_tool_async(func, **args)
         )
 
         if call.function.name == "send_to_agent":
