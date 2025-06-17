@@ -51,7 +51,7 @@ class DiscordTeamBot(commands.Bot):
         async with TeamChatSession(
             user=str(message.author.id),
             session=str(message.channel.id),
-            think=False,
+            think=True,
         ) as chat:
             docs, transcripts = await self._handle_attachments(
                 message.attachments, chat=chat
