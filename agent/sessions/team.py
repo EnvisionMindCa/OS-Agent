@@ -10,8 +10,6 @@ from ..config import (
     DEFAULT_CONFIG,
 )
 from ..tools import execute_terminal
-from ..db import db
-from ..chat.messages import store_tool_message
 
 __all__ = [
     "TeamChatSession",
@@ -46,9 +44,9 @@ class _MiniAgent:
             name=name, details=details, context=context
         )
         self.session = ChatSession(
-            user=parent._user,
+            user=parent._user.username,
             session=f"{parent._session_name}-{name}",
-            host=parent._host,
+            host=parent._config.ollama_host,
             model=parent._model,
             system_prompt=prompt,
             tools=[execute_terminal],
@@ -91,13 +89,13 @@ class _MiniAgent:
                     await self.parent._to_master.put((self.name, result))
                 if not fut.done():
                     fut.set_result(result)
-            if self.parent.master._state == "idle":
+            if self.parent._state == "idle":
                 await self.parent._deliver_agent_messages()
         finally:
             self.task = None
 
 
-class TeamChatSession:
+class TeamChatSession(ChatSession):
     def __init__(
         self,
         user: str = "default",
@@ -108,37 +106,30 @@ class TeamChatSession:
         think: bool = True,
         config: Config | None = None,
     ) -> None:
-        self._config = config or DEFAULT_CONFIG
-        self._user = user
-        self._session_name = session
-        self._host = host or self._config.ollama_host
-        self._model = model or self._config.model_name
-        self._think = think
-        self._agents: dict[str, _MiniAgent] = {}
-        self._to_master: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
-        self.master = ChatSession(
+        config = config or DEFAULT_CONFIG
+        super().__init__(
             user=user,
             session=session,
-            host=self._host,
-            model=self._model,
-            system_prompt=self._config.system_prompt,
+            host=host or config.ollama_host,
+            model=model or config.model_name,
+            system_prompt=config.system_prompt,
             tools=[execute_terminal, spawn_agent, send_to_agent],
             think=think,
-            config=self._config,
+            config=config,
         )
+        self._session_name = session
+        self._agents: dict[str, _MiniAgent] = {}
+        self._to_master: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
 
     async def __aenter__(self) -> "TeamChatSession":
-        await self.master.__aenter__()
+        await super().__aenter__()
         set_team(self)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         set_team(None)
         await self._destroy_agents()
-        await self.master.__aexit__(exc_type, exc, tb)
-
-    def upload_document(self, file_path: str) -> str:
-        return self.master.upload_document(file_path)
+        await super().__aexit__(exc_type, exc, tb)
 
     async def spawn_agent(self, name: str, details: str = "", context: str = "") -> str:
         if name in self._agents:
@@ -156,16 +147,12 @@ class TeamChatSession:
             return f"Agent {name} not found"
         return await agent.queue_message(message, enqueue=enqueue)
 
-    async def _process_agents(self) -> None:
-        for agent in list(self._agents.values()):
-            if agent.task and not agent.task.done():
-                await agent.task
-
     async def _deliver_agent_messages(self) -> None:
         while not self._to_master.empty():
             name, msg = await self._to_master.get()
-            self.master._messages.append({"role": "tool", "name": name, "content": msg})
-            store_tool_message(self.master._conversation, name, msg)
+            self._add_tool_message(
+                self._conversation, self._messages, name, msg
+            )
 
     async def _destroy_agents(self) -> None:
         for name, agent in list(self._agents.items()):
@@ -174,7 +161,7 @@ class TeamChatSession:
 
     async def chat_stream(self, prompt: str, *, extra: dict[str, str] | None = None) -> AsyncIterator[str]:
         await self._deliver_agent_messages()
-        async for part in self.master.chat_stream(prompt, extra=extra):
+        async for part in super().chat_stream(prompt, extra=extra):
             yield part
         await self._deliver_agent_messages()
         await self._destroy_agents()
