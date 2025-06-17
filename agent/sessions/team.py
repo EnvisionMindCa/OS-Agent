@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from typing import AsyncIterator, Optional
 
 from ..chat import ChatSession
-from ..config import OLLAMA_HOST, MODEL_NAME, SYSTEM_PROMPT, JUNIOR_PROMPT
+from ..config import (
+    OLLAMA_HOST,
+    MODEL_NAME,
+    SYSTEM_PROMPT,
+    MINI_AGENT_PROMPT,
+    MAX_MINI_AGENTS,
+)
 from ..tools import execute_terminal
 from ..db import db
+from ..chat.messages import store_tool_message
 
 __all__ = [
     "TeamChatSession",
-    "send_to_junior",
-    "send_to_junior_async",
     "set_team",
 ]
 
@@ -23,18 +29,72 @@ def set_team(team: "TeamChatSession" | None) -> None:
     _TEAM = team
 
 
-async def send_to_junior(message: str) -> str:
-    """Forward ``message`` to the junior agent and await the response."""
-
+async def spawn_agent(name: str, details: str = "", context: str = "") -> str:
     if _TEAM is None:
         return "No active team"
+    return await _TEAM.spawn_agent(name, details, context)
 
-    return await _TEAM.queue_message_to_junior(message, enqueue=False)
+
+async def send_to_agent(name: str, message: str) -> str:
+    if _TEAM is None:
+        return "No active team"
+    return await _TEAM.queue_message_to_agent(name, message, enqueue=False)
 
 
-# Backwards compatibility ---------------------------------------------------
+class _MiniAgent:
+    def __init__(self, parent: "TeamChatSession", name: str, details: str, context: str) -> None:
+        self.parent = parent
+        self.name = name
+        prompt = MINI_AGENT_PROMPT.format(name=name, details=details, context=context)
+        self.session = ChatSession(
+            user=parent._user,
+            session=f"{parent._session_name}-{name}",
+            host=parent._host,
+            model=parent._model,
+            system_prompt=prompt,
+            tools=[execute_terminal],
+            think=parent._think,
+            persist=False,
+        )
+        self.queue: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = asyncio.Queue()
+        self.task: asyncio.Task | None = None
 
-send_to_junior_async = send_to_junior
+    async def start(self) -> None:
+        await self.session.__aenter__()
+
+    async def stop(self) -> None:
+        if self.task and not self.task.done():
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+        await self.session.__aexit__(None, None, None)
+
+    async def queue_message(self, message: str, *, enqueue: bool = True) -> str:
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[str] = loop.create_future()
+        await self.queue.put((message, fut, enqueue))
+        if not self.task or self.task.done():
+            self.task = asyncio.create_task(self._process())
+        return await fut
+
+    async def _process(self) -> None:
+        try:
+            while not self.queue.empty():
+                msg, fut, enqueue = await self.queue.get()
+                self.session._messages.append({"role": "tool", "name": "senior", "content": msg})
+                parts: list[str] = []
+                async for part in self.session.continue_stream():
+                    if part:
+                        parts.append(part)
+                result = "\n".join(parts)
+                if enqueue and result.strip():
+                    await self.parent._to_master.put((self.name, result))
+                if not fut.done():
+                    fut.set_result(result)
+            if self.parent.master._state == "idle":
+                await self.parent._deliver_agent_messages()
+        finally:
+            self.task = None
 
 
 class TeamChatSession:
@@ -47,96 +107,72 @@ class TeamChatSession:
         *,
         think: bool = True,
     ) -> None:
-        self._to_junior: asyncio.Queue[tuple[str, asyncio.Future[str], bool]] = (
-            asyncio.Queue()
-        )
-        self._to_senior: asyncio.Queue[str] = asyncio.Queue()
-        self._junior_task: asyncio.Task | None = None
-        self.senior = ChatSession(
+        self._user = user
+        self._session_name = session
+        self._host = host
+        self._model = model
+        self._think = think
+        self._agents: dict[str, _MiniAgent] = {}
+        self._to_master: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        self.master = ChatSession(
             user=user,
             session=session,
             host=host,
             model=model,
             system_prompt=SYSTEM_PROMPT,
-            tools=[execute_terminal, send_to_junior],
-            think=think,
-        )
-        self.junior = ChatSession(
-            user=user,
-            session=f"{session}-junior",
-            host=host,
-            model=model,
-            system_prompt=JUNIOR_PROMPT,
-            tools=[execute_terminal],
+            tools=[execute_terminal, spawn_agent, send_to_agent],
             think=think,
         )
 
     async def __aenter__(self) -> "TeamChatSession":
-        await self.senior.__aenter__()
-        await self.junior.__aenter__()
+        await self.master.__aenter__()
         set_team(self)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         set_team(None)
-        await self.senior.__aexit__(exc_type, exc, tb)
-        await self.junior.__aexit__(exc_type, exc, tb)
+        await self._destroy_agents()
+        await self.master.__aexit__(exc_type, exc, tb)
 
     def upload_document(self, file_path: str) -> str:
-        return self.senior.upload_document(file_path)
+        return self.master.upload_document(file_path)
 
-    async def queue_message_to_junior(
-        self, message: str, *, enqueue: bool = True
-    ) -> str:
-        """Send ``message`` to the junior agent and wait for the reply."""
+    async def spawn_agent(self, name: str, details: str = "", context: str = "") -> str:
+        if name in self._agents:
+            return f"Agent {name} already exists"
+        if len(self._agents) >= MAX_MINI_AGENTS:
+            return "Agent limit reached"
+        agent = _MiniAgent(self, name, details, context)
+        await agent.start()
+        self._agents[name] = agent
+        return f"Spawned {name}"
 
-        loop = asyncio.get_running_loop()
-        fut: asyncio.Future[str] = loop.create_future()
-        await self._to_junior.put((message, fut, enqueue))
-        if not self._junior_task or self._junior_task.done():
-            self._junior_task = asyncio.create_task(self._process_junior())
-        return await fut
+    async def queue_message_to_agent(self, name: str, message: str, *, enqueue: bool = True) -> str:
+        agent = self._agents.get(name)
+        if not agent:
+            return f"Agent {name} not found"
+        return await agent.queue_message(message, enqueue=enqueue)
 
-    async def _process_junior(self) -> None:
-        try:
-            while not self._to_junior.empty():
-                msg, fut, enqueue = await self._to_junior.get()
-                self.junior._messages.append(
-                    {"role": "tool", "name": "senior", "content": msg}
-                )
-                db.create_message(self.junior._conversation, "tool", msg)
-                parts: list[str] = []
-                async for part in self.junior.continue_stream():
-                    if part:
-                        parts.append(part)
-                result = "\n".join(parts)
-                if enqueue and result.strip():
-                    await self._to_senior.put(result)
-                if not fut.done():
-                    fut.set_result(result)
+    async def _process_agents(self) -> None:
+        for agent in list(self._agents.values()):
+            if agent.task and not agent.task.done():
+                await agent.task
 
-            if self.senior._state == "idle":
-                await self._deliver_junior_messages()
-        finally:
-            self._junior_task = None
+    async def _deliver_agent_messages(self) -> None:
+        while not self._to_master.empty():
+            name, msg = await self._to_master.get()
+            self.master._messages.append({"role": "tool", "name": name, "content": msg})
+            store_tool_message(self.master._conversation, name, msg)
 
-    async def _deliver_junior_messages(self) -> None:
-        while not self._to_senior.empty():
-            msg = await self._to_senior.get()
-            self.senior._messages.append(
-                {"role": "tool", "name": "junior", "content": msg}
-            )
-            db.create_message(self.senior._conversation, "tool", msg)
+    async def _destroy_agents(self) -> None:
+        for name, agent in list(self._agents.items()):
+            await agent.stop()
+            self._agents.pop(name, None)
 
-    async def chat_stream(
-        self, prompt: str, *, extra: dict[str, str] | None = None
-    ) -> AsyncIterator[str]:
-        await self._deliver_junior_messages()
-        async for part in self.senior.chat_stream(prompt, extra=extra):
+    async def chat_stream(self, prompt: str, *, extra: dict[str, str] | None = None) -> AsyncIterator[str]:
+        await self._deliver_agent_messages()
+        async for part in self.master.chat_stream(prompt, extra=extra):
             yield part
-        await self._deliver_junior_messages()
+        await self._deliver_agent_messages()
+        await self._destroy_agents()
 
-
-from ..utils.debug import debug_all
-
-debug_all(globals())

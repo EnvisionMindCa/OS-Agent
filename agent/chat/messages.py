@@ -13,6 +13,7 @@ __all__ = [
     "format_output",
     "remove_tool_placeholder",
     "store_assistant_message",
+    "store_tool_message",
 ]
 
 
@@ -50,6 +51,13 @@ def store_assistant_message(conversation: Conversation, message: Message) -> Non
         "assistant",
         json.dumps(data),
     )
+
+
+def store_tool_message(conversation: Conversation, name: str, content: str) -> None:
+    """Persist tool messages with structured data."""
+
+    data = {"name": name, "content": content}
+    db.create_message(conversation, "tool", json.dumps(data))
 
 
 from ..utils.debug import debug_all

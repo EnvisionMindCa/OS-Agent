@@ -36,6 +36,7 @@ from .messages import (
     format_output,
     remove_tool_placeholder,
     store_assistant_message,
+    store_tool_message,
 )
 
 _LOG = get_logger(__name__)
@@ -54,12 +55,16 @@ class ChatSession:
         system_prompt: str = SYSTEM_PROMPT,
         tools: list[callable] | None = None,
         think: bool = True,
+        persist: bool = True,
     ) -> None:
         db.init_db()
         self._client = AsyncClient(host=host)
         self._model = model
         self._user = db.get_or_create_user(user)
-        self._conversation = db.get_or_create_conversation(self._user, session)
+        self._persist = persist
+        self._conversation = (
+            db.get_or_create_conversation(self._user, session) if persist else None
+        )
         self._vm = None
         self._base_system_prompt = system_prompt
         self._system_prompt = self._apply_memory(system_prompt)
@@ -71,7 +76,9 @@ class ChatSession:
         self._think = think
         self._current_tool_name: str | None = None
         self._messages: List[Msg] = self._load_history()
-        self._state_data: SessionState = get_state(self._conversation.id)
+        self._state_data: SessionState = (
+            get_state(self._conversation.id) if self._conversation else SessionState()
+        )
         self._lock = self._state_data.lock
         self._prompt_queue: asyncio.Queue[
             tuple[str, dict[str, str] | None, asyncio.Queue[str | None]]
@@ -160,6 +167,8 @@ class ChatSession:
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
+        if not self._persist or not self._conversation:
+            return messages
         for msg in db.list_messages(self._conversation):
             if msg.role == "system":
                 continue
@@ -190,7 +199,19 @@ class ChatSession:
             elif msg.role == "user":
                 messages.append({"role": "user", "content": msg.content})
             else:
-                messages.append({"role": "tool", "content": msg.content})
+                try:
+                    data = json.loads(msg.content)
+                except json.JSONDecodeError:
+                    messages.append({"role": "tool", "content": msg.content})
+                else:
+                    if isinstance(data, dict):
+                        msg_data: Msg = {"role": "tool"}
+                        if name := data.get("name"):
+                            msg_data["name"] = name
+                        msg_data["content"] = data.get("content", "")
+                        messages.append(msg_data)
+                    else:
+                        messages.append({"role": "tool", "content": str(data)})
         return messages
 
     # ------------------------------------------------------------------
@@ -231,7 +252,8 @@ class ChatSession:
         content: str,
     ) -> None:
         messages.append({"role": "tool", "name": name, "content": content})
-        db.create_message(conversation, "tool", content)
+        if self._persist and conversation:
+            store_tool_message(conversation, name, content)
 
     def _add_assistant_message(
         self,
@@ -239,7 +261,8 @@ class ChatSession:
         messages: list[Msg],
         message: Message,
     ) -> None:
-        store_assistant_message(conversation, message)
+        if self._persist and conversation:
+            store_assistant_message(conversation, message)
         messages.append(message.model_dump())
 
     async def _await_tool_and_followup(
@@ -248,13 +271,13 @@ class ChatSession:
         follow_task: asyncio.Task,
         messages: list[Msg],
         conversation: Conversation,
-        tool_name: str,
+        display_name: str,
     ) -> AsyncIterator[ChatResponse]:
         done, _ = await asyncio.wait(
             {exec_task, follow_task}, return_when=asyncio.FIRST_COMPLETED
         )
 
-        name = "junior" if tool_name == "send_to_junior" else tool_name
+        name = display_name
 
         if exec_task in done:
             follow_task.cancel()
@@ -298,26 +321,23 @@ class ChatSession:
         if not func:
             _LOG.warning("Unsupported tool call: %s", call.function.name)
             result = f"Unsupported tool: {call.function.name}"
-            name = (
-                "junior"
-                if call.function.name == "send_to_junior"
-                else call.function.name
-            )
+            name = call.function.name
             self._add_tool_message(conversation, messages, name, result)
             return
 
         exec_task = asyncio.create_task(
             self._run_tool_async(func, **call.function.arguments)
         )
-        self._current_tool_name = call.function.name
+
+        if call.function.name == "send_to_agent":
+            display_name = str(call.function.arguments.get("name", "agent"))
+        else:
+            display_name = call.function.name
+        self._current_tool_name = display_name
 
         placeholder = {
             "role": "tool",
-            "name": (
-                "junior"
-                if call.function.name == "send_to_junior"
-                else call.function.name
-            ),
+            "name": display_name,
             "content": TOOL_PLACEHOLDER_CONTENT,
         }
         messages.append(placeholder)
@@ -329,7 +349,7 @@ class ChatSession:
             self._tool_task = exec_task
 
         async for resp in self._await_tool_and_followup(
-            exec_task, follow_task, messages, conversation, call.function.name
+            exec_task, follow_task, messages, conversation, display_name
         ):
             yield resp
 
@@ -372,12 +392,14 @@ class ChatSession:
             self._state = "generating"
 
         prompt_with_extra = self._append_extra(prompt, extra)
-        db.create_message(self._conversation, "user", prompt_with_extra)
+        if self._persist and self._conversation:
+            db.create_message(self._conversation, "user", prompt_with_extra)
         self._messages.append({"role": "user", "content": prompt_with_extra})
 
         response = await self.ask(self._messages)
         self._messages.append(response.message.model_dump())
-        store_assistant_message(self._conversation, response.message)
+        if self._persist and self._conversation:
+            store_assistant_message(self._conversation, response.message)
 
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
@@ -423,7 +445,8 @@ class ChatSession:
 
         response = await self.ask(self._messages)
         self._messages.append(response.message.model_dump())
-        store_assistant_message(self._conversation, response.message)
+        if self._persist and self._conversation:
+            store_assistant_message(self._conversation, response.message)
 
         async for resp in self._handle_tool_calls_stream(
             self._messages, response, self._conversation
@@ -436,7 +459,8 @@ class ChatSession:
         self, prompt: str, extra: dict[str, str] | None = None
     ) -> AsyncIterator[str]:
         prompt_with_extra = self._append_extra(prompt, extra)
-        db.create_message(self._conversation, "user", prompt_with_extra)
+        if self._persist and self._conversation:
+            db.create_message(self._conversation, "user", prompt_with_extra)
         self._messages.append({"role": "user", "content": prompt_with_extra})
 
         user_task = asyncio.create_task(self.ask(self._messages))
@@ -462,11 +486,12 @@ class ChatSession:
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:
         if not self._placeholder_saved:
-            db.create_message(
-                self._conversation,
-                "tool",
-                TOOL_PLACEHOLDER_CONTENT,
-            )
+            if self._persist and self._conversation:
+                store_tool_message(
+                    self._conversation,
+                    self._current_tool_name or "tool",
+                    TOOL_PLACEHOLDER_CONTENT,
+                )
             self._placeholder_saved = True
 
 
