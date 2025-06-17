@@ -1,141 +1,104 @@
 # llmOS-Agent
 
-`llmOS-Agent` provides an asynchronous chat interface built around Ollama models. It supports running shell commands in an isolated Linux VM and persists conversations in SQLite.
+`llmOS-Agent` is a modular toolkit for building autonomous AI assistants powered by [Ollama](https://ollama.com) models. It wraps model interactions with persistent memory, a Linux VM for tool execution and convenient session management. A Discord bot implementation is included.
 
-## This repo requires Python >= 3.10 and Docker installed on your system!
+## Requirements
 
-## Features
+- Python 3.10+
+- Docker installed and accessible to the current user
 
-- **Persistent chat history** – conversations are stored in `chat.db` per user and session so they can be resumed later.
-- **Tool execution** – a built-in `execute_terminal` tool runs commands inside a Docker-based VM using `docker exec -i`. Network access is enabled and both stdout and stderr are captured (up to 10,000 characters). The VM is reused across chats when `PERSIST_VMS=1` so installed packages remain available.
-- **System prompts** – every request includes a system prompt that guides the assistant to plan tool usage, verify results and avoid unnecessary jargon.
-- **Voice messages** – audio attachments are transcribed with Whisper and sent to the agent prefixed with `[speech]`.
-
-## Recommended Models
-
-Any model supported by [Ollama](https://ollama.com) with `tool` tags are compatible with this repository. I personally recommend `qwen2.5`, I found it to work the best with this repository.
-
-## Environment Variables
-
-Several settings can be customised via environment variables:
-
-- `DB_PATH` – location of the SQLite database (default `chat.db` in the project directory).
-- `LOG_LEVEL` – logging verbosity (`DEBUG`, `INFO`, etc.).
-- `VM_IMAGE` and `VM_STATE_DIR` control the Docker-based VM.
-- `VM_DOCKER_HOST` – Docker host to run the VM on (e.g. `ssh://user@host`).
-
-## Quick Start
+## Installation
 
 ```bash
-python run.py
+pip install -r requirements.txt
 ```
 
-The script issues a sample command to the model and prints the streamed response. Uploaded files go to `uploads` and are mounted in the VM at `/data`.
+Some Python packages may require system dependencies which should be installed in your Docker image or host system.
 
-## Persistent Memory
+## Usage
 
-User information is stored persistently and appended to the system prompt inside
-`<memory>` tags. Edit this memory at runtime using the `manage_memory` tool. By
-default each user starts with:
-
-```json
-{
-  "name": "",
-  "age": "",
-  "gender": "",
-  "protected_memory": {}
-}
-```
-
-Fields can be updated or removed with the tool and the assistant will recall
-them across sessions. ``protected_memory`` is reserved for user-managed data.
-Use ``edit_protected_memory`` from the Python API to add or delete entries in
-this section. The assistant cannot modify it.
-
-### Simple API
-
-Convenience helpers allow chatting without managing sessions directly:
+### Basic Example
 
 ```python
 import asyncio
 import agent
 
-# Extra fields can be appended to each prompt
-response = asyncio.run(
-    agent.solo_chat("Hello", extra={"time": "2025-06-01T10:00"})
-)
-print(response)
+async def main():
+    async with agent.TeamChatSession(user="demo", session="test") as chat:
+        async for part in chat.chat_stream("Hello there!"):
+            print(part)
+
+asyncio.run(main())
 ```
 
-Use `agent.team_chat` the same way to utilise the senior and junior agents.
-Both chat helpers accept an optional ``extra`` dictionary that is
-appended to the prompt as XML tags.
+`TeamChatSession` manages a conversation, stores history in SQLite and executes commands in a per-user Linux container. Mini-agents can be spawned during the chat using the `spawn_agent` tool.
 
-### Uploading Documents
+### Command Line Demo
 
-```python
-async with ChatSession(think=False) as chat:
-    path = chat.upload_document("path/to/file.pdf")
-    async for part in chat.chat_stream(f"Summarize {path}"):
-        print(part)
-
-# The same can be done without managing sessions directly
-path = asyncio.run(agent.upload_document("path/to/file.pdf"))
-listing = asyncio.run(agent.list_dir("/data"))
-print(listing)
-content = asyncio.run(agent.read_file(path))
-asyncio.run(agent.write_file("/data/new.txt", "Hello"))
-asyncio.run(agent.delete_path("/data/new.txt"))
-```
-
-## Discord Bot
-
-1. Create a `.env` file with your bot token:
-
-   ```bash
-   DISCORD_TOKEN="your-token"
-   ```
-2. Start the bot:
-
-   ```bash
-   python -m bot
-   ```
-
-Attachments sent to the bot are uploaded automatically and the VM path is returned so they can be referenced in later messages.
-
-Run shell commands manually with `!exec <command>`. For example:
-
-```text
-!exec ls /data
-```
-
-Administrators can shut down the bot with `!shutdown`.
-
-## VM Configuration
-
-The shell commands run inside a Docker container. By default the image defined by `VM_IMAGE` is used (falling back to `python:3.11-slim`). When `PERSIST_VMS=1` (default) each user keeps the same container across sessions. Set `VM_STATE_DIR` to choose where per-user data is stored on the host.
-If Docker runs on another machine, set `VM_DOCKER_HOST` to the remote connection URL.
-
-To build a more complete environment you can create your own image, for example using `docker/Dockerfile.vm`:
-
-```Dockerfile
-FROM ubuntu:22.04
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3 \
-        python3-pip \
-        sudo \
-        curl \
-        git \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
-CMD ["sleep", "infinity"]
-```
-
-Build and run with:
+Run the sample script which starts a short conversation:
 
 ```bash
-docker build -t llm-vm -f docker/Dockerfile.vm .
-export VM_IMAGE=llm-vm
 python run.py
 ```
+
+### Discord Bot
+
+Create a `.env` file containing your bot token:
+
+```bash
+DISCORD_TOKEN="your-token"
+```
+
+Start the bot with:
+
+```bash
+python -m bot
+```
+
+Uploads sent to the bot are stored in `/data` inside the user's VM. Use `!exec <command>` to run shell commands manually. Administrators can stop the bot with `!shutdown`.
+
+## API Overview
+
+The :mod:`agent` package exposes a simple async API:
+
+- `TeamChatSession`, `SoloChatSession` – manage conversations
+- `agent.team_chat(prompt, user, session)` – convenience wrapper returning a text stream
+- `agent.upload_document(path, user, session)` – place a file in the VM
+- `agent.vm_execute(command, user)` – run a command directly
+
+Utility helpers exist for listing, reading and writing files as well as editing persistent memory.
+
+### Persistent Memory
+
+User data is stored as JSON and automatically appended to the system prompt.
+Memory fields can be modified from a chat using the `manage_memory` tool or programmatically:
+
+```python
+import agent
+agent.edit_protected_memory("demo", "api_key", "secret")
+```
+
+## Configuration
+
+Behaviour can be tuned through environment variables:
+
+| Variable | Description |
+| --- | --- |
+| `OLLAMA_MODEL` | Model name used by Ollama (default `qwen2.5`) |
+| `OLLAMA_HOST` | URL of the Ollama server |
+| `UPLOAD_DIR` | Directory where uploaded files are stored |
+| `DB_PATH` | SQLite database file |
+| `VM_IMAGE` | Docker image for the user VM |
+| `VM_STATE_DIR` | Host directory for persistent VM state |
+| `PERSIST_VMS` | Keep VMs running between sessions (`1` by default) |
+| `LOG_LEVEL` | Logging verbosity |
+
+Adjust these variables in your environment or `.env` file.
+
+## Docker VM
+
+Each user receives a dedicated Docker container. Files uploaded through the API are mounted at `/data` in the container and persist according to `VM_STATE_DIR`. Commands are executed with `execute_terminal` which streams output back to the model.
+
+## License
+
+This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
