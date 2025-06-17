@@ -20,7 +20,7 @@ async def _main() -> None:
     # ):
     #     print("\nSOLO >>", resp)
 
-    async with agent.TeamChatSession(user="test_user", session="test_session", think=True, config=DEFAULT_CONFIG) as chat:
+    async with agent.TeamChatSession(user="test_user", session="test_session", think=False) as chat:
         async for part in chat.chat_stream(
             "how many r's are in the word strawberry?",
         ):
