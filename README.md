@@ -84,7 +84,7 @@ Behaviour can be tuned through environment variables:
 
 | Variable | Description |
 | --- | --- |
-| `OLLAMA_MODEL` | Model name used by Ollama (default `magistral`) |
+| `OLLAMA_MODEL` | Model name used by Ollama (default `qwen2.5`) |
 | `OLLAMA_HOST` | URL of the Ollama server |
 | `UPLOAD_DIR` | Directory where uploaded files are stored |
 | `DB_PATH` | SQLite database file |
