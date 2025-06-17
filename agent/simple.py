@@ -7,6 +7,7 @@ import shlex
 
 from .sessions.solo import SoloChatSession
 from .sessions.team import TeamChatSession
+from .config import Config
 from .vm import VMRegistry
 
 __all__ = [
@@ -27,9 +28,15 @@ async def solo_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
+    config: Config | None = None,
     extra: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
-    async with SoloChatSession(user=user, session=session, think=think) as chat:
+    async with SoloChatSession(
+        user=user,
+        session=session,
+        think=think,
+        config=config,
+    ) as chat:
         async for part in chat.chat_stream(prompt, extra=extra):
             yield part
 
@@ -40,9 +47,15 @@ async def team_chat(
     user: str = "default",
     session: str = "default",
     think: bool = True,
+    config: Config | None = None,
     extra: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
-    async with TeamChatSession(user=user, session=session, think=think) as chat:
+    async with TeamChatSession(
+        user=user,
+        session=session,
+        think=think,
+        config=config,
+    ) as chat:
         async for part in chat.chat_stream(prompt, extra=extra):
             yield part
 
@@ -52,12 +65,18 @@ async def upload_document(
     *,
     user: str = "default",
     session: str = "default",
+    config: Config | None = None,
 ) -> str:
     """Upload ``file_path`` for access inside the VM.
 
     The file becomes available under ``/data`` in the VM.
     """
-    async with SoloChatSession(user=user, session=session, think=False) as chat:
+    async with SoloChatSession(
+        user=user,
+        session=session,
+        think=False,
+        config=config,
+    ) as chat:
         return chat.upload_document(file_path)
 
 

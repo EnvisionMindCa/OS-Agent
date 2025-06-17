@@ -20,6 +20,20 @@ _DB_PATH = Path(DB_PATH)
 _db = SqliteDatabase(_DB_PATH)
 
 
+def configure_db(path: str) -> None:
+    """Update the database location used by the manager."""
+
+    global _db, _DB_PATH, db
+    new_path = Path(path)
+    if new_path == _DB_PATH:
+        return
+    if not _db.is_closed():
+        _db.close()
+    _DB_PATH = new_path
+    _db = SqliteDatabase(_DB_PATH)
+    db = DatabaseManager(_db)
+
+
 class BaseModel(Model):
     class Meta:
         database = _db
@@ -168,6 +182,7 @@ __all__ = [
     "Message",
     "Document",
     "db",
+    "configure_db",
     "reset_history",
     "list_sessions",
     "list_sessions_info",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..chat import ChatSession
-from ..config import OLLAMA_HOST, MODEL_NAME, SOLO_SYSTEM_PROMPT
+from ..config import Config, DEFAULT_CONFIG
 from ..tools import execute_terminal
 
 __all__ = ["SoloChatSession"]
@@ -14,19 +14,22 @@ class SoloChatSession(ChatSession):
         self,
         user: str = "default",
         session: str = "default",
-        host: str = OLLAMA_HOST,
-        model: str = MODEL_NAME,
+        host: str | None = None,
+        model: str | None = None,
         *,
         think: bool = True,
+        config: Config | None = None,
     ) -> None:
+        config = config or DEFAULT_CONFIG
         super().__init__(
             user=user,
             session=session,
-            host=host,
-            model=model,
-            system_prompt=SOLO_SYSTEM_PROMPT,
+            host=host or config.ollama_host,
+            model=model or config.model_name,
+            system_prompt=config.solo_system_prompt,
             tools=[execute_terminal],
             think=think,
+            config=config,
         )
 
 from ..utils.debug import debug_all

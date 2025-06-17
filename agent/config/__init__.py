@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Final
+from dataclasses import dataclass
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -107,3 +108,58 @@ DEFAULT_MEMORY_TEMPLATE: Final[str] = (
     "  \"protected_memory\": {}\n"
     "}"
 )
+
+
+@dataclass(slots=True)
+class Config:
+    """Container for all configuration options."""
+
+    model_name: str = MODEL_NAME
+    ollama_host: str = OLLAMA_HOST
+    max_tool_call_depth: int = MAX_TOOL_CALL_DEPTH
+    num_ctx: int = NUM_CTX
+    upload_dir: str = UPLOAD_DIR
+    vm_image: str = VM_IMAGE
+    persist_vms: bool = PERSIST_VMS
+    vm_state_dir: str = VM_STATE_DIR
+    vm_docker_host: str | None = VM_DOCKER_HOST
+    db_path: str = DB_PATH
+    hard_timeout: int = HARD_TIMEOUT
+    log_level: str = LOG_LEVEL
+    tool_placeholder_content: str = TOOL_PLACEHOLDER_CONTENT
+    system_prompt: str = SYSTEM_PROMPT
+    solo_system_prompt: str = SOLO_SYSTEM_PROMPT
+    junior_prompt: str = JUNIOR_PROMPT
+    mini_agent_prompt: str = MINI_AGENT_PROMPT
+    memory_limit: int = MEMORY_LIMIT
+    max_mini_agents: int = MAX_MINI_AGENTS
+    default_memory_template: str = DEFAULT_MEMORY_TEMPLATE
+
+
+DEFAULT_CONFIG = Config()
+
+
+__all__ = [
+    "Config",
+    "DEFAULT_CONFIG",
+    "MODEL_NAME",
+    "OLLAMA_HOST",
+    "MAX_TOOL_CALL_DEPTH",
+    "NUM_CTX",
+    "UPLOAD_DIR",
+    "VM_IMAGE",
+    "PERSIST_VMS",
+    "VM_STATE_DIR",
+    "VM_DOCKER_HOST",
+    "DB_PATH",
+    "HARD_TIMEOUT",
+    "LOG_LEVEL",
+    "TOOL_PLACEHOLDER_CONTENT",
+    "SYSTEM_PROMPT",
+    "SOLO_SYSTEM_PROMPT",
+    "JUNIOR_PROMPT",
+    "MINI_AGENT_PROMPT",
+    "MEMORY_LIMIT",
+    "MAX_MINI_AGENTS",
+    "DEFAULT_MEMORY_TEMPLATE",
+]
