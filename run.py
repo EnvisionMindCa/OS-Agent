@@ -48,10 +48,13 @@ async def _main(username: str, session: str) -> None:
     # ensure_user(username, password)
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
+        await chat.notify("VM started")
+        if chat.vm:
+            chat.vm.post_notification("calendar: meeting at 3pm")
         async for part in chat.chat_stream(
             "how many r's are in the word 'raspbery'?",
         ):
-            print("\nTEAM >>", part) # echo -n raspberry | grep -o -i r | wc -l
+            print("\nTEAM >>", part)  # echo -n raspberry | grep -o -i r | wc -l
         
     # or using speech:
     # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
