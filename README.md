@@ -56,6 +56,15 @@ python -m bot
 ```
 
 Uploads sent to the bot are stored in `/data` inside the user's VM. Use `!exec <command>` to run shell commands manually. Administrators can stop the bot with `!shutdown`.
+### HTTP API
+
+Run the REST API server:
+```bash
+python -m api
+```
+
+The server exposes endpoints for chatting, file management and memory operations.
+
 
 ## API Overview
 
