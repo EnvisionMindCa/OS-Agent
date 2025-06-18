@@ -113,6 +113,7 @@ Guidelines for {name}:
 
 MEMORY_LIMIT: Final[int] = int(os.getenv("MEMORY_LIMIT", "8000"))
 MAX_MINI_AGENTS: Final[int] = int(os.getenv("MAX_MINI_AGENTS", "4"))
+NOTIFICATION_POLL_INTERVAL: Final[int] = int(os.getenv("NOTIFICATION_POLL_INTERVAL", "5"))
 
 DEFAULT_MEMORY_TEMPLATE: Final[str] = (
     "{\n"
@@ -151,6 +152,7 @@ class Config:
     memory_limit: int = MEMORY_LIMIT
     max_mini_agents: int = MAX_MINI_AGENTS
     default_memory_template: str = DEFAULT_MEMORY_TEMPLATE
+    notification_poll_interval: int = NOTIFICATION_POLL_INTERVAL
 
 
 DEFAULT_CONFIG = Config()
@@ -182,4 +184,5 @@ __all__ = [
     "MEMORY_LIMIT",
     "MAX_MINI_AGENTS",
     "DEFAULT_MEMORY_TEMPLATE",
+    "NOTIFICATION_POLL_INTERVAL",
 ]

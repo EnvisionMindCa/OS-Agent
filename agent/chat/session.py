@@ -91,6 +91,8 @@ class ChatSession:
             tuple[str, dict[str, str] | None, asyncio.Queue[str | None]]
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
+        self._notification_queue: asyncio.Queue[str] = asyncio.Queue()
+        self._notification_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     def _apply_memory(self, prompt: str) -> str:
@@ -148,12 +150,17 @@ class ChatSession:
     async def __aenter__(self) -> "ChatSession":
         self._vm = VMRegistry.acquire(self._user.username)
         set_vm(self._vm)
+        self._notification_task = asyncio.create_task(self._monitor_notifications())
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         set_vm(None)
         if self._vm:
             VMRegistry.release(self._user.username)
+        if self._notification_task and not self._notification_task.done():
+            self._notification_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._notification_task
         db.close()
 
     # ------------------------------------------------------------------
@@ -304,6 +311,37 @@ class ChatSession:
         if self._persist and conversation:
             store_assistant_message(conversation, message)
         messages.append(message.model_dump())
+
+    async def _deliver_notifications(self) -> None:
+        while not self._notification_queue.empty():
+            note = await self._notification_queue.get()
+            self._add_tool_message(
+                self._conversation,
+                self._messages,
+                "notification",
+                note,
+            )
+
+    async def _monitor_notifications(self) -> None:
+        try:
+            while True:
+                await asyncio.sleep(self._config.notification_poll_interval)
+                if self._vm is None:
+                    continue
+                notes = self._vm.fetch_notifications()
+                for n in notes:
+                    await self._notification_queue.put(n)
+                if (
+                    notes
+                    and self._state == "idle"
+                    and self._prompt_queue.empty()
+                    and (not self._worker or self._worker.done())
+                ):
+                    await self._deliver_notifications()
+                    async for _ in self.continue_stream():
+                        pass
+        except asyncio.CancelledError:  # pragma: no cover - lifecycle
+            pass
 
     async def _await_tool_and_followup(
         self,
@@ -465,6 +503,7 @@ class ChatSession:
             text = format_output(resp.message)
             if text:
                 yield text
+        await self._deliver_notifications()
 
     async def _process_prompt_queue(self) -> None:
         try:
@@ -484,6 +523,7 @@ class ChatSession:
     async def chat_stream(
         self, prompt: str, *, extra: dict[str, str] | None = None
     ) -> AsyncIterator[str]:
+        await self._deliver_notifications()
         result_q: asyncio.Queue[str | None] = asyncio.Queue()
         await self._prompt_queue.put((prompt, extra, result_q))
         if not self._worker or self._worker.done():
@@ -494,6 +534,7 @@ class ChatSession:
             if part is None:
                 break
             yield part
+        await self._deliver_notifications()
 
     async def continue_stream(self) -> AsyncIterator[str]:
         async with self._lock:
@@ -540,6 +581,7 @@ class ChatSession:
                 part_text = format_output(part.message)
                 if part_text:
                     yield part_text
+        await self._deliver_notifications()
 
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:
