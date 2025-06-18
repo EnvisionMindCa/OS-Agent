@@ -88,7 +88,7 @@ agent.edit_protected_memory("demo", "api_key", "secret")
 
 # or modify memory directly on a session
 async with agent.SoloChatSession(user="demo") as chat:
-    chat.edit_memory("api_key", "secret", protected=True)
+    await chat.edit_memory("api_key", "secret", protected=True)
 ```
 
 ### Notifications

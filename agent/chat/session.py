@@ -179,14 +179,17 @@ class ChatSession:
         return f"/data/{src.name}"
 
     # ------------------------------------------------------------------
-    def edit_memory(
+    async def edit_memory(
         self,
         field: str,
         value: str | None = None,
         *,
         protected: bool = False,
     ) -> str:
-        """Edit the persistent memory dictionary for this session's user.
+        """Asynchronously edit the persistent memory for this session's user.
+
+        The update runs in an executor so that blocking disk I/O does not
+        stall the event loop.
 
         Parameters
         ----------
@@ -204,10 +207,14 @@ class ChatSession:
             The updated memory as a JSON string.
         """
 
+        loop = asyncio.get_running_loop()
         if protected:
-            memory = _edit_protected_memory(self._user.username, field, value)
+            func = _edit_protected_memory
         else:
-            memory = _edit_memory(self._user.username, field, value)
+            func = _edit_memory
+        memory = await loop.run_in_executor(
+            None, lambda: func(self._user.username, field, value)
+        )
         self._refresh_system_prompt()
         return memory
 
