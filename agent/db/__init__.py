@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from ..config import DB_PATH
+from ..config import DB_PATH, DEFAULT_MEMORY_TEMPLATE
 
 from peewee import (
     AutoField,
@@ -114,7 +114,14 @@ class DatabaseManager:
         user = self.get_or_create_user(username)
         return Document.create(user=user, file_path=file_path, original_name=original_name)
 
-    def reset_history(self, username: str, session_name: str) -> int:
+    def delete_history(self, username: str, session_name: str) -> int:
+        """Remove all messages for ``username`` in ``session_name``.
+
+        The conversation record itself is deleted as well. If no other
+        conversations remain for the user, the user entry is removed.
+        The number of deleted messages is returned.
+        """
+
         self.init_db()
         try:
             user = User.get(User.username == username)
@@ -130,6 +137,15 @@ class DatabaseManager:
         if not Conversation.select().where(Conversation.user == user).exists():
             user.delete_instance()
         return deleted
+
+    def reset_memory(self, username: str, template: str = DEFAULT_MEMORY_TEMPLATE) -> str:
+        """Reset ``username``'s memory to ``template`` and return the new value."""
+
+        self.init_db()
+        user = self.get_or_create_user(username)
+        user.memory = template
+        user.save()
+        return user.memory
 
     def list_sessions(self, username: str) -> list[str]:
         self.init_db()
@@ -183,7 +199,9 @@ __all__ = [
     "Document",
     "db",
     "configure_db",
+    "delete_history",
     "reset_history",
+    "reset_memory",
     "list_sessions",
     "list_sessions_info",
     "add_document",
@@ -197,10 +215,22 @@ def init_db() -> None:
     db.init_db()
 
 
-def reset_history(username: str, session_name: str) -> int:
+def delete_history(username: str, session_name: str) -> int:
     """Delete all messages for the given user and session."""
 
-    return db.reset_history(username, session_name)
+    return db.delete_history(username, session_name)
+
+
+def reset_history(username: str, session_name: str) -> int:
+    """Backward-compatible alias for :func:`delete_history`."""
+
+    return delete_history(username, session_name)
+
+
+def reset_memory(username: str) -> str:
+    """Reset persistent memory for ``username`` to the default template."""
+
+    return db.reset_memory(username)
 
 
 def add_document(username: str, file_path: str, original_name: str) -> Document:

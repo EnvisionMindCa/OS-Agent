@@ -15,7 +15,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 import agent
-from agent.db import reset_history
+from agent.db import delete_history
 from agent.utils.logging import get_logger
 from agent.utils.speech import transcribe_audio
 from agent.sessions.team import TeamChatSession
@@ -88,7 +88,7 @@ class DiscordTeamBot(commands.Bot):
     def _register_commands(self) -> None:
         @self.command(name="reset")
         async def reset(ctx: commands.Context) -> None:
-            deleted = reset_history(str(ctx.author.id), str(ctx.channel.id))
+            deleted = delete_history(str(ctx.author.id), str(ctx.channel.id))
             await ctx.reply(
                 f"Chat history cleared ({deleted} messages deleted).",
             )

@@ -7,7 +7,7 @@ from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 
 import agent
-from agent.db import reset_history, list_sessions_info
+from agent.db import delete_history, reset_memory, list_sessions_info
 from agent.utils.logging import get_logger
 
 app = FastAPI(title="llmOS Agent API")
@@ -138,9 +138,15 @@ async def memory_get(user: str) -> dict[str, str]:
     return {"memory": agent.get_memory(user)}
 
 
-@app.post("/sessions/{user}/{session}/reset")
-async def session_reset(user: str, session: str) -> dict[str, int]:
-    deleted = reset_history(user, session)
+@app.post("/memory/{user}/reset")
+async def memory_reset_endpoint(user: str) -> dict[str, str]:
+    memory = reset_memory(user)
+    return {"memory": memory}
+
+
+@app.post("/sessions/{user}/{session}/delete")
+async def session_delete(user: str, session: str) -> dict[str, int]:
+    deleted = delete_history(user, session)
     return {"deleted": deleted}
 
 
