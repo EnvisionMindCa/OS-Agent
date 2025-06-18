@@ -4,3 +4,5 @@ discord.py
 colorama
 python-dotenv
 openai-whisper
+fastapi
+uvicorn[standard]
