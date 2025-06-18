@@ -31,7 +31,7 @@ def ensure_user(username: str, password: str | None = None) -> None:
     register_user(username, hashed)
 
 
-async def _main(username: str, session: str, password: str) -> None:
+async def _main(username: str, session: str) -> None:
     import datetime
     # document = await agent.upload_document("test.py", user="test_user", session="test_session")
     # print("Document uploaded:", document)
@@ -45,7 +45,7 @@ async def _main(username: str, session: str, password: str) -> None:
     # ):
     #     print("\nSOLO >>", resp)
 
-    ensure_user(username, password)
+    # ensure_user(username, password)
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
         async for part in chat.chat_stream(
@@ -61,11 +61,10 @@ async def _main(username: str, session: str, password: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sample chat with authentication")
     parser.add_argument("--user", default="test_user", help="Username")
-    parser.add_argument("--password", help="Password for the user")
     parser.add_argument("--session", default="test_session", help="Session name")
     args = parser.parse_args()
 
-    asyncio.run(_main(args.user, args.session, args.password))
+    asyncio.run(_main(args.user, args.session))
 
 
 if __name__ == "__main__":
