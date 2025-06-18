@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import asyncio
 import os
+import datetime
 from functools import partial
 from pathlib import Path
 
@@ -46,6 +47,8 @@ class LinuxVM:
         self._host_dir.mkdir(parents=True, exist_ok=True)
         self._state_dir = Path(config.vm_state_dir) / _sanitize(username)
         self._state_dir.mkdir(parents=True, exist_ok=True)
+        self._notifications_dir = self._state_dir / "notifications"
+        self._notifications_dir.mkdir(parents=True, exist_ok=True)
         self._env = {}
         if config.vm_docker_host:
             _LOG.debug("Using custom Docker host: %s", config.vm_docker_host)
@@ -192,6 +195,30 @@ class LinuxVM:
             stdin_data=stdin_data,
         )
         return await loop.run_in_executor(None, func)
+
+    def post_notification(self, message: str) -> None:
+        """Store ``message`` in the VM's notification queue."""
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+        path = self._notifications_dir / f"{ts}.txt"
+        try:
+            path.write_text(message)
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.error("Failed to write notification: %s", exc)
+
+    def fetch_notifications(self) -> list[str]:
+        """Retrieve and clear queued notifications."""
+        notes: list[str] = []
+        for p in sorted(self._notifications_dir.glob("*.txt")):
+            try:
+                notes.append(p.read_text())
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.error("Failed to read notification %s: %s", p, exc)
+                continue
+            try:
+                p.unlink()
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.warning("Failed to delete notification %s: %s", p, exc)
+        return notes
 
     def stop(self) -> None:
         """Terminate the VM if running."""
