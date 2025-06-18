@@ -212,6 +212,20 @@ class ChatSession:
         return memory
 
     # ------------------------------------------------------------------
+    async def send_notification(self, message: str) -> None:
+        """Queue a notification for this session's agent.
+
+        The notification will be delivered as a ``notification`` tool output
+        the next time the agent is idle.
+        """
+
+        if self._vm is None:
+            raise RuntimeError("Session is not active")
+
+        self._vm.post_notification(str(message))
+        await self._notification_queue.put(str(message))
+
+    # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
         if not self._persist or not self._conversation:

@@ -91,6 +91,23 @@ async with agent.SoloChatSession(user="demo") as chat:
     chat.edit_memory("api_key", "secret", protected=True)
 ```
 
+### Notifications
+
+Queue background notifications for an agent using ``send_notification`` or via
+an active session:
+
+```python
+import agent
+
+# Send a notification without opening a chat session
+agent.send_notification("Report ready", user="demo")
+
+async with agent.TeamChatSession(user="demo") as chat:
+    await chat.send_notification("Session starting")
+    async for part in chat.chat_stream("hello"):
+        print(part)
+```
+
 ## Configuration
 
 Behaviour can be tuned through environment variables:
