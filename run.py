@@ -49,9 +49,9 @@ async def _main(username: str, session: str) -> None:
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
         async for part in chat.chat_stream(
-            "Let p be a prime number greater than 3. Prove that the central binomial coefficient (2p p) is congruent to 2 modulo p^3.",
+            "solve cancer. do not come back until you have a solution.",
         ):
-            print("\nTEAM >>", part) # echo -n raspberry | grep -o -i r | wc -l
+            print("\nTEAM >>", part)
         
     # or using speech:
     # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
