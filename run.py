@@ -49,7 +49,7 @@ async def _main(username: str, session: str) -> None:
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
         async for part in chat.chat_stream(
-            "how many r's are in the word 'raspbery'?",
+            "Let p be a prime number greater than 3. Prove that the central binomial coefficient (2p p) is congruent to 2 modulo p^3.",
         ):
             print("\nTEAM >>", part) # echo -n raspberry | grep -o -i r | wc -l
         
