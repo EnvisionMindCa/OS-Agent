@@ -19,6 +19,7 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "send_notification",
 ]
 
 
@@ -134,6 +135,16 @@ async def delete_path(path: str, *, user: str = "default") -> str:
         f"else echo File not found; fi'"
     )
     return await vm_execute(cmd, user=user)
+
+
+def send_notification(message: str, *, user: str = "default") -> None:
+    """Post ``message`` to ``user``'s notification queue."""
+
+    vm = VMRegistry.acquire(user)
+    try:
+        vm.post_notification(str(message))
+    finally:
+        VMRegistry.release(user)
 
 
 from .utils.debug import debug_all

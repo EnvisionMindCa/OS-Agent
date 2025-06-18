@@ -10,6 +10,7 @@ from .simple import (
     write_file,
     delete_path,
     vm_execute,
+    send_notification,
 )
 from .tools import (
     execute_terminal,
@@ -44,6 +45,7 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "send_notification",
     "transcribe_audio",
     "get_memory",
     "set_memory",
