@@ -22,7 +22,7 @@ async def _main() -> None:
 
     async with agent.TeamChatSession(user="test_user", session="test_session", think=False) as chat:
         async for part in chat.chat_stream(
-            "how many r's are in the word iuurneoinweonroienfvv",
+            "how many r's are in the word strawberry?",
         ):
             print("\nTEAM >>", part)
         
