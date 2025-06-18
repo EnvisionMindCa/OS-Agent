@@ -1,6 +1,6 @@
-# llmOS-Agent
+# OS-Agent
 
-`llmOS-Agent` is a modular toolkit for building autonomous AI assistants powered by [Ollama](https://ollama.com) models. It wraps model interactions with persistent memory, a Linux VM for tool execution and convenient session management. A Discord bot implementation is included.
+`OS-Agent` is a modular toolkit for building autonomous AI assistants powered by [Ollama](https://ollama.com) models. It wraps model interactions with persistent memory, a Linux VM for tool execution and convenient session management. A Discord bot implementation is included.
 
 ## Requirements
 
