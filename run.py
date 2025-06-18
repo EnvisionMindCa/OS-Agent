@@ -51,7 +51,7 @@ async def _main(username: str, session: str) -> None:
         async for part in chat.chat_stream(
             "how many r's are in the word 'raspbery'?",
         ):
-            print("\nTEAM >>", part)
+            print("\nTEAM >>", part) # echo -n raspberry | grep -o -i r | wc -l
         
     # or using speech:
     # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
