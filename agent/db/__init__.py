@@ -42,6 +42,7 @@ class BaseModel(Model):
 class User(BaseModel):
     id = AutoField()
     username = CharField(unique=True)
+    password_hash = CharField()
     memory = TextField(default="")
 
 
@@ -91,6 +92,17 @@ class DatabaseManager:
         self.init_db()
         user, _ = User.get_or_create(username=username)
         return user
+
+    def register_user(self, username: str, password_hash: str) -> User:
+        self.init_db()
+        return User.create(username=username, password_hash=password_hash)
+
+    def authenticate_user(self, username: str) -> User | None:
+        self.init_db()
+        try:
+            return User.get(User.username == username)
+        except User.DoesNotExist:
+            return None
 
     def get_or_create_conversation(self, user: User, session_name: str) -> Conversation:
         self.init_db()
@@ -207,6 +219,8 @@ __all__ = [
     "add_document",
     "get_memory",
     "set_memory",
+    "register_user",
+    "authenticate_user",
 ]
 
 
@@ -249,6 +263,18 @@ def set_memory(username: str, memory: str) -> str:
     """Persist ``memory`` for ``username``."""
 
     return db.set_memory(username, memory)
+
+
+def register_user(username: str, password_hash: str) -> User:
+    """Create a new user with ``password_hash``."""
+
+    return db.register_user(username, password_hash)
+
+
+def authenticate_user(username: str) -> User | None:
+    """Return user record if ``username`` exists."""
+
+    return db.authenticate_user(username)
 
 
 def list_sessions(username: str) -> list[str]:

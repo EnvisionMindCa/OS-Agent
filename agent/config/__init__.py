@@ -21,6 +21,11 @@ VM_DOCKER_HOST: Final[str | None] = os.getenv("VM_DOCKER_HOST")
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 HARD_TIMEOUT: Final[int] = int(os.getenv("HARD_TIMEOUT", "5"))
 LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL", "INFO").upper()
+SECRET_KEY: Final[str] = os.getenv("SECRET_KEY", "CHANGE_ME")
+ACCESS_TOKEN_EXPIRE_MINUTES: Final[int] = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+)
+REQUIRE_AUTH: Final[bool] = os.getenv("REQUIRE_AUTH", "0") == "1"
 
 TOOL_PLACEHOLDER_CONTENT: Final[str] = "Awaiting tool response..."
 
@@ -131,6 +136,9 @@ class Config:
     db_path: str = DB_PATH
     hard_timeout: int = HARD_TIMEOUT
     log_level: str = LOG_LEVEL
+    secret_key: str = SECRET_KEY
+    access_token_expire_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
+    require_auth: bool = REQUIRE_AUTH
     tool_placeholder_content: str = TOOL_PLACEHOLDER_CONTENT
     system_prompt: str = SYSTEM_PROMPT
     solo_system_prompt: str = SOLO_SYSTEM_PROMPT
@@ -159,6 +167,9 @@ __all__ = [
     "DB_PATH",
     "HARD_TIMEOUT",
     "LOG_LEVEL",
+    "SECRET_KEY",
+    "ACCESS_TOKEN_EXPIRE_MINUTES",
+    "REQUIRE_AUTH",
     "TOOL_PLACEHOLDER_CONTENT",
     "SYSTEM_PROMPT",
     "SOLO_SYSTEM_PROMPT",
