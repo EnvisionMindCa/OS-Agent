@@ -112,6 +112,24 @@ Adjust these variables in your environment or `.env` file.
 
 Each user receives a dedicated Docker container. Files uploaded through the API are mounted at `/data` in the container and persist according to `VM_STATE_DIR`. Commands are executed with `execute_terminal` which streams output back to the model.
 
+## Docker Image
+
+The repository includes a `Dockerfile` for running the API on Google Cloud Run.
+Build and test the image locally with:
+
+```bash
+docker build -t llmos-agent-api .
+docker run -p 8080:8080 llmos-agent-api
+```
+
+Deploy the image to Cloud Run after pushing it to your registry:
+
+```bash
+gcloud run deploy llmos-agent-api \
+    --image gcr.io/PROJECT_ID/llmos-agent-api \
+    --region REGION --platform managed --allow-unauthenticated
+```
+
 ## License
 
 This project is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
