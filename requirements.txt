@@ -6,3 +6,4 @@ python-dotenv
 openai-whisper
 fastapi
 uvicorn[standard]
+python-multipart
