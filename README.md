@@ -74,9 +74,9 @@ Launch a persistent WebSocket service to stream responses and VM notifications:
 python -m agent.server --host 0.0.0.0 --port 8765
 ```
 
-Clients should connect via the WebSocket protocol and can specify the user and
-session identifiers using query parameters:
-`ws://HOST:PORT/?user=<name>&session=<id>`.
+Clients should connect via the WebSocket protocol and can specify the user,
+session and optional think parameters using query parameters:
+`ws://HOST:PORT/?user=<name>&session=<id>&think=<true|false>`.
 
 Here is a minimal client that keeps the connection open, sends user input and
 prints all output from the agent including asynchronous notifications:
@@ -88,7 +88,7 @@ import websockets
 
 
 async def chat():
-    uri = "ws://localhost:8765/?user=demo&session=ws"
+    uri = "ws://localhost:8765/?user=demo&session=ws&think=false"
     async with websockets.connect(uri) as ws:
         print("Connected. Press Ctrl+C to exit.")
 
