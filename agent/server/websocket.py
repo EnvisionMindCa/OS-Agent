@@ -7,9 +7,9 @@ from urllib.parse import parse_qs, urlparse
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
 
-from .sessions.team import TeamChatSession
-from .config import Config, DEFAULT_CONFIG
-from .utils.logging import get_logger
+from ..sessions.team import TeamChatSession
+from ..config import Config, DEFAULT_CONFIG
+from ..utils.logging import get_logger
 
 
 class StreamingTeamChatSession(TeamChatSession):
