@@ -11,7 +11,6 @@ from ..db import Conversation, db
 __all__ = [
     "serialize_tool_calls",
     "format_output",
-    "remove_tool_placeholder",
     "store_assistant_message",
     "store_tool_message",
 ]
@@ -28,15 +27,6 @@ def format_output(message: Message) -> str:
 
     return message.content or ""
 
-
-def remove_tool_placeholder(messages: List[Msg], placeholder: str) -> None:
-    """Remove the pending placeholder message if present."""
-
-    for i in range(len(messages) - 1, -1, -1):
-        msg = messages[i]
-        if msg.get("role") == "tool" and msg.get("content") == placeholder:
-            messages.pop(i)
-            break
 
 
 def store_assistant_message(conversation: Conversation, message: Message) -> None:
