@@ -1,6 +1,0 @@
-.git
-__pycache__/
-*.py[cod]
-*.db
-uploads/
-vm_state/
