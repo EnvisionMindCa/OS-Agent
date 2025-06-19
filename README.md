@@ -63,7 +63,59 @@ Run the REST API server:
 python -m api
 ```
 
+
 The server exposes endpoints for chatting, file management and memory operations.
+
+### WebSocket Server
+
+Launch a persistent WebSocket service to stream responses and VM notifications:
+
+```bash
+python run_ws.py --host 0.0.0.0 --port 8765
+```
+
+Clients should connect via the WebSocket protocol and can specify the user and
+session identifiers using query parameters:
+`ws://HOST:PORT/?user=<name>&session=<id>`.
+
+Here is a minimal client that keeps the connection open, sends user input and
+prints all output from the agent including asynchronous notifications:
+
+```python
+import asyncio
+from contextlib import suppress
+import websockets
+
+
+async def chat():
+    uri = "ws://localhost:8765/?user=demo&session=ws"
+    async with websockets.connect(uri) as ws:
+        print("Connected. Press Ctrl+C to exit.")
+
+        async def receiver():
+            try:
+                async for msg in ws:
+                    print(msg, end="", flush=True)
+            except websockets.ConnectionClosed:
+                pass
+
+        recv_task = asyncio.create_task(receiver())
+        try:
+            loop = asyncio.get_running_loop()
+            while True:
+                prompt = await loop.run_in_executor(None, input, "> ")
+                await ws.send(prompt)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            recv_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await recv_task
+
+
+asyncio.run(chat())
+```
+
 
 
 ## API Overview

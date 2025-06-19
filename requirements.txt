@@ -9,3 +9,4 @@ uvicorn[standard]
 python-multipart
 passlib[bcrypt]
 python-jose[cryptography]
+websockets
