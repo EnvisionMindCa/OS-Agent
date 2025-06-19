@@ -52,8 +52,9 @@ async def chat(uri: str, message: str) -> None:
                 await recv_task
 
 
-def _build_uri(host: str, port: int, user: str, session: str) -> str:
-    return f"ws://{host}:{port}/?user={user}&session={session}"
+def _build_uri(host: str, port: int, user: str, session: str, think: bool) -> str:
+    think_val = "true" if think else "false"
+    return f"ws://{host}:{port}/?user={user}&session={session}&think={think_val}"
 
 
 def main() -> None:
@@ -62,6 +63,20 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8765, help="Server port")
     parser.add_argument("--user", default="demo", help="Username")
     parser.add_argument("--session", default="ws", help="Session identifier")
+    think_group = parser.add_mutually_exclusive_group()
+    think_group.add_argument(
+        "--think",
+        dest="think",
+        action="store_true",
+        help="Enable model thinking (default)",
+    )
+    think_group.add_argument(
+        "--no-think",
+        dest="think",
+        action="store_false",
+        help="Disable model thinking",
+    )
+    parser.set_defaults(think=True)
     parser.add_argument(
         "--message",
         default="Hello from the client!",
@@ -69,7 +84,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    uri = _build_uri(args.host, args.port, args.user, args.session)
+    uri = _build_uri(args.host, args.port, args.user, args.session, args.think)
     asyncio.run(chat(uri, args.message))
 
 

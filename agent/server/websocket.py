@@ -74,9 +74,17 @@ class AgentWebSocketServer:
         params = parse_qs(urlparse(ws.path).query)
         user = params.get("user", ["default"])[0]
         session = params.get("session", ["default"])[0]
+        think_param = params.get("think", ["true"])[0]
+        think = think_param.lower() not in ("false", "0", "no")
 
         out_q: asyncio.Queue[str] = asyncio.Queue()
-        chat = StreamingTeamChatSession(user=user, session=session, output_queue=out_q, config=self._config)
+        chat = StreamingTeamChatSession(
+            user=user,
+            session=session,
+            think=think,
+            output_queue=out_q,
+            config=self._config,
+        )
         async with chat:
             sender = asyncio.create_task(self._sender(ws, out_q))
             try:
