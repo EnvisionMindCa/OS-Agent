@@ -69,6 +69,7 @@ class DiscordTeamBot(commands.Bot):
                     user=user,
                     session=session_id,
                     think=False,
+                    timeout=30.0,
                     extra={
                         "user_name": str(message.author.name),
                         "channel_name": str(message.channel.name),
@@ -86,6 +87,7 @@ class DiscordTeamBot(commands.Bot):
                     user=user,
                     session=session_id,
                     think=False,
+                    timeout=30.0,
                 ):
                     await message.reply(part, mention_author=False)
             except Exception as exc:  # pragma: no cover - runtime errors

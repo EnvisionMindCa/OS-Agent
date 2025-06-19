@@ -29,9 +29,17 @@ class WSApiClient:
         session: str,
         think: bool = True,
         extra: dict[str, str] | None = None,
-        timeout: float = 1.0,
+        timeout: float = 30.0,
     ) -> AsyncIterator[str]:
-        """Yield chat responses for ``prompt`` sent to the server."""
+        """Yield chat responses for ``prompt`` sent to the server.
+
+        Parameters
+        ----------
+        timeout:
+            Seconds to wait for the next message before concluding the
+            stream. Increase this if the model takes a long time to
+            produce a reply.
+        """
 
         uri = self._build_uri(user, session, think)
         payload: dict[str, object] = {"command": "team_chat", "args": {"prompt": prompt}}
