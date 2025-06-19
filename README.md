@@ -71,7 +71,7 @@ The server exposes endpoints for chatting, file management and memory operations
 Launch a persistent WebSocket service to stream responses and VM notifications:
 
 ```bash
-python run_ws.py --host 0.0.0.0 --port 8765
+python -m agent.server --host 0.0.0.0 --port 8765
 ```
 
 Clients should connect via the WebSocket protocol and can specify the user and
