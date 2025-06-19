@@ -232,6 +232,13 @@ class ChatSession:
         self._vm.post_notification(str(message))
         await self._notification_queue.put(str(message))
 
+        if (
+            self._state == "idle"
+            and self._prompt_queue.empty()
+            and (not self._worker or self._worker.done())
+        ):
+            await self._deliver_notifications()
+
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
         messages: List[Msg] = []
@@ -333,7 +340,10 @@ class ChatSession:
             store_assistant_message(conversation, message)
         messages.append(message.model_dump())
 
-    async def _deliver_notifications(self) -> None:
+    async def _flush_notifications(self) -> bool:
+        """Return ``True`` if any queued notifications were written."""
+
+        delivered = False
         while not self._notification_queue.empty():
             note = await self._notification_queue.get()
             self._add_tool_message(
@@ -342,6 +352,13 @@ class ChatSession:
                 "notification",
                 note,
             )
+            delivered = True
+        return delivered
+
+    async def _deliver_notifications(self) -> None:
+        if await self._flush_notifications():
+            async for _ in self.continue_stream():
+                pass
 
     async def _monitor_notifications(self) -> None:
         try:
@@ -359,8 +376,6 @@ class ChatSession:
                     and (not self._worker or self._worker.done())
                 ):
                     await self._deliver_notifications()
-                    async for _ in self.continue_stream():
-                        pass
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
