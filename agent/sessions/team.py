@@ -159,10 +159,15 @@ class TeamChatSession(ChatSession):
             await agent.stop()
             self._agents.pop(name, None)
 
-    async def chat_stream(self, prompt: str, *, extra: dict[str, str] | None = None) -> AsyncIterator[str]:
+    async def chat_stream(
+        self, prompt: str, *, extra: dict[str, str] | None = None
+    ) -> AsyncIterator[str]:
+        """Handle a chat prompt while keeping helper agents alive."""
+
         await self._deliver_agent_messages()
         async for part in super().chat_stream(prompt, extra=extra):
             yield part
         await self._deliver_agent_messages()
-        await self._destroy_agents()
+        # Helper agents remain active for subsequent turns; they are only
+        # destroyed when the entire session ends in ``__aexit__``.
 
