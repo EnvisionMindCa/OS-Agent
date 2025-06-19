@@ -4,7 +4,6 @@ import asyncio
 import argparse
 
 from . import AgentWebSocketServer
-from ..vm import VMRegistry
 
 
 async def _main(host: str, port: int) -> None:
@@ -30,5 +29,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-    finally:
-        VMRegistry.shutdown_all()

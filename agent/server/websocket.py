@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urlparse
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
 
+from ..vm import VMRegistry
+
 from ..sessions.team import TeamChatSession
 from ..config import Config, DEFAULT_CONFIG
 from ..utils.logging import get_logger
@@ -61,11 +63,12 @@ class AgentWebSocketServer:
         self._log.info("Server listening on %s:%d", self._host, self._port)
 
     async def stop(self) -> None:
-        """Stop the server and close all connections."""
+        """Stop the server, close connections, and cleanup VMs."""
         if self._server is None:
             return
         self._server.close()
         await self._server.wait_closed()
+        VMRegistry.shutdown_all()
 
     async def _handler(self, ws: WebSocketServerProtocol) -> None:
         params = parse_qs(urlparse(ws.path).query)
