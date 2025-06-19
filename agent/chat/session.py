@@ -34,7 +34,6 @@ from ..vm import VMRegistry
 from .state import SessionState, get_state
 from .messages import (
     format_output,
-    remove_tool_placeholder,
     store_assistant_message,
     store_tool_message,
 )
@@ -129,13 +128,6 @@ class ChatSession:
     def _tool_task(self, task: asyncio.Task | None) -> None:
         self._state_data.tool_task = task
 
-    @property
-    def _placeholder_saved(self) -> bool:
-        return self._state_data.placeholder_saved
-
-    @_placeholder_saved.setter
-    def _placeholder_saved(self, value: bool) -> None:
-        self._state_data.placeholder_saved = value
 
     @property
     def think(self) -> bool:
@@ -447,8 +439,6 @@ class ChatSession:
             follow_task.cancel()
             with suppress(asyncio.CancelledError):
                 await follow_task
-            remove_tool_placeholder(messages, self._config.tool_placeholder_content)
-            self._placeholder_saved = False
             result = await exec_task
             self._current_tool_name = None
             self._add_tool_message(conversation, messages, name, result)
@@ -460,12 +450,9 @@ class ChatSession:
             yield nxt
         else:
             followup = await follow_task
-            self._save_tool_placeholder()
             self._add_assistant_message(conversation, messages, followup.message)
             yield followup
             result = await exec_task
-            remove_tool_placeholder(messages, self._config.tool_placeholder_content)
-            self._placeholder_saved = False
             self._current_tool_name = None
             self._add_tool_message(conversation, messages, name, result)
             async with self._lock:
@@ -515,14 +502,6 @@ class ChatSession:
         else:
             display_name = call.function.name
         self._current_tool_name = display_name
-
-        placeholder = {
-            "role": "tool",
-            "name": display_name,
-            "content": self._config.tool_placeholder_content,
-        }
-        messages.append(placeholder)
-        self._placeholder_saved = False
 
         follow_task = asyncio.create_task(self.ask(messages))
         async with self._lock:
@@ -672,18 +651,6 @@ class ChatSession:
                     yield part_text
         async for note in self._deliver_notifications():
             yield note
-
-    # ------------------------------------------------------------------
-    def _save_tool_placeholder(self) -> None:
-        if not self._placeholder_saved:
-            if self._persist and self._conversation:
-                store_tool_message(
-                    self._conversation,
-                    self._current_tool_name or "tool",
-                    self._config.tool_placeholder_content,
-                )
-            self._placeholder_saved = True
-
 
 from ..utils.debug import debug_all
 

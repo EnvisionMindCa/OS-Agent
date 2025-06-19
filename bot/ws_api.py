@@ -84,3 +84,41 @@ class WSApiClient:
             self._log.error("Invalid JSON response: %s", raw)
             raise RuntimeError("Invalid server response")
 
+
+class WSConnection:
+    """Persistent connection wrapper for :mod:`agent.server`."""
+
+    def __init__(
+        self,
+        client: WSApiClient,
+        *,
+        user: str,
+        session: str,
+        think: bool = True,
+    ) -> None:
+        self._client = client
+        self._user = user
+        self._session = session
+        self._think = think
+        self._ws: websockets.WebSocketClientProtocol | None = None
+
+    async def connect(self) -> None:
+        uri = self._client._build_uri(self._user, self._session, self._think)
+        self._ws = await websockets.connect(uri)
+
+    async def close(self) -> None:
+        if self._ws is not None:
+            await self._ws.close()
+            self._ws = None
+
+    async def send(self, command: str, **params: object) -> None:
+        if self._ws is None:
+            raise RuntimeError("Connection not established")
+        await self._ws.send(json.dumps({"command": command, "args": params}))
+
+    async def __aiter__(self) -> AsyncIterator[str]:
+        if self._ws is None:
+            raise RuntimeError("Connection not established")
+        async for msg in self._ws:
+            yield msg
+

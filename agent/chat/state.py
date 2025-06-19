@@ -11,7 +11,6 @@ class SessionState:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     status: str = "idle"
     tool_task: asyncio.Task | None = None
-    placeholder_saved: bool = False
 
 
 _session_states: dict[int, SessionState] = {}

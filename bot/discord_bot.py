@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import shutil
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from agent.db import delete_history
 from agent.utils.logging import get_logger
 from agent.utils.speech import transcribe_audio
-from .ws_api import WSApiClient
+from .ws_api import WSApiClient, WSConnection
 
 
 class DiscordTeamBot(commands.Bot):
@@ -30,7 +31,13 @@ class DiscordTeamBot(commands.Bot):
         host = os.getenv("WS_API_HOST", "localhost")
         port = int(os.getenv("WS_API_PORT", 8765))
         self._client = WSApiClient(host=host, port=port)
+        self._connections: dict[tuple[str, str], WSConnection] = {}
         self._register_commands()
+
+    async def close(self) -> None:  # noqa: D401 - callback signature
+        for conn in self._connections.values():
+            await conn.close()
+        await super().close()
 
     # ------------------------------------------------------------------
     # Lifecycle events
@@ -61,35 +68,23 @@ class DiscordTeamBot(commands.Bot):
         if docs:
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
+        conn = await self._get_connection(user, session_id, message.channel)
         for text in transcripts:
             try:
                 speech_prompt = f"[speech] {text}"
-                async for part in self._client.team_chat_stream(
-                    speech_prompt,
-                    user=user,
-                    session=session_id,
-                    think=False,
-                    timeout=30.0,
-                    extra={
-                        "user_name": str(message.author.name),
-                        "channel_name": str(message.channel.name),
-                    },
-                ):
-                    await message.reply(part, mention_author=False)
+                await conn.send(
+                    "team_chat",
+                    prompt=speech_prompt,
+                    user_name=str(message.author.name),
+                    channel_name=str(message.channel.name),
+                )
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process speech: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)
 
         if message.content.strip():
             try:
-                async for part in self._client.team_chat_stream(
-                    message.content,
-                    user=user,
-                    session=session_id,
-                    think=False,
-                    timeout=30.0,
-                ):
-                    await message.reply(part, mention_author=False)
+                await conn.send("team_chat", prompt=message.content)
             except Exception as exc:  # pragma: no cover - runtime errors
                 self._log.error("Failed to process message: %s", exc)
                 await message.reply(f"Error: {exc}", mention_author=False)
@@ -204,6 +199,26 @@ class DiscordTeamBot(commands.Bot):
             shutil.rmtree(tmpdir, ignore_errors=True)
 
         return uploaded, transcripts
+
+    # ------------------------------------------------------------------
+    async def _relay_messages(self, conn: WSConnection, channel: discord.abc.Messageable) -> None:
+        try:
+            async for msg in conn:
+                await channel.send(msg)
+        except Exception as exc:  # pragma: no cover - runtime errors
+            self._log.error("WebSocket error: %s", exc)
+
+    async def _get_connection(
+        self, user: str, session: str, channel: discord.abc.Messageable
+    ) -> WSConnection:
+        key = (user, session)
+        conn = self._connections.get(key)
+        if conn is None:
+            conn = WSConnection(self._client, user=user, session=session, think=False)
+            await conn.connect()
+            self._connections[key] = conn
+            asyncio.create_task(self._relay_messages(conn, channel))
+        return conn
 
 
 def run_bot(token: str) -> None:

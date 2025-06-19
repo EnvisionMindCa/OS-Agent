@@ -27,7 +27,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES: Final[int] = int(
 )
 REQUIRE_AUTH: Final[bool] = os.getenv("REQUIRE_AUTH", "0") == "1"
 
-TOOL_PLACEHOLDER_CONTENT: Final[str] = "Awaiting tool response..."
 
 SYSTEM_PROMPT: Final[str] = """
 You are **Starlette**, an elite autonomous assistant with unrestricted access to a hidden Linux VM.
@@ -144,7 +143,6 @@ class Config:
     secret_key: str = SECRET_KEY
     access_token_expire_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
     require_auth: bool = REQUIRE_AUTH
-    tool_placeholder_content: str = TOOL_PLACEHOLDER_CONTENT
     system_prompt: str = SYSTEM_PROMPT
     solo_system_prompt: str = SOLO_SYSTEM_PROMPT
     junior_prompt: str = JUNIOR_PROMPT
@@ -176,7 +174,6 @@ __all__ = [
     "SECRET_KEY",
     "ACCESS_TOKEN_EXPIRE_MINUTES",
     "REQUIRE_AUTH",
-    "TOOL_PLACEHOLDER_CONTENT",
     "SYSTEM_PROMPT",
     "SOLO_SYSTEM_PROMPT",
     "JUNIOR_PROMPT",
