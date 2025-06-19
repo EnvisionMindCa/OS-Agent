@@ -219,12 +219,8 @@ class ChatSession:
         return memory
 
     # ------------------------------------------------------------------
-    async def send_notification(self, message: str) -> None:
-        """Queue a notification for this session's agent.
-
-        The notification will be delivered as a ``notification`` tool output
-        the next time the agent is idle.
-        """
+    async def _queue_notification(self, message: str) -> None:
+        """Queue ``message`` for delivery to the agent."""
 
         if self._vm is None:
             raise RuntimeError("Session is not active")
@@ -232,12 +228,57 @@ class ChatSession:
         self._vm.post_notification(str(message))
         await self._notification_queue.put(str(message))
 
+    async def _send_notification(self, message: str) -> list[str]:
+        """Queue ``message`` and return any immediate reply."""
+
+        await self._queue_notification(message)
+        replies: list[str] = []
         if (
             self._state == "idle"
             and self._prompt_queue.empty()
             and (not self._worker or self._worker.done())
         ):
-            await self._deliver_notifications()
+            async for part in self._deliver_notifications():
+                replies.append(part)
+        return replies
+
+    async def send_notification(self, message: str) -> None:
+        """Queue a notification for this session's agent."""
+
+        await self._queue_notification(message)
+        if (
+            self._state == "idle"
+            and self._prompt_queue.empty()
+            and (not self._worker or self._worker.done())
+        ):
+            async for _ in self._deliver_notifications():
+                pass
+
+    async def send_notification_with_reply(self, message: str) -> list[str]:
+        """Queue ``message`` and return any immediate reply from the agent."""
+
+        await self._queue_notification(message)
+        replies: list[str] = []
+        if (
+            self._state == "idle"
+            and self._prompt_queue.empty()
+            and (not self._worker or self._worker.done())
+        ):
+            async for part in self._deliver_notifications():
+                replies.append(part)
+        return replies
+
+    async def send_notification_stream(self, message: str) -> AsyncIterator[str]:
+        """Queue ``message`` and yield any immediate reply from the agent."""
+
+        await self._queue_notification(message)
+        if (
+            self._state == "idle"
+            and self._prompt_queue.empty()
+            and (not self._worker or self._worker.done())
+        ):
+            async for part in self._deliver_notifications():
+                yield part
 
     # ------------------------------------------------------------------
     def _load_history(self) -> List[Msg]:
@@ -355,10 +396,18 @@ class ChatSession:
             delivered = True
         return delivered
 
-    async def _deliver_notifications(self) -> None:
+    async def _deliver_notifications(self) -> AsyncIterator[str]:
+        """Yield assistant replies for any queued notifications."""
+
+        async for part in self._deliver_notifications_stream():
+            yield part
+
+    async def _deliver_notifications_stream(self) -> AsyncIterator[str]:
+        """Yield assistant replies generated from queued notifications."""
+
         if await self._flush_notifications():
-            async for _ in self.continue_stream():
-                pass
+            async for part in self.continue_stream():
+                yield part
 
     async def _monitor_notifications(self) -> None:
         try:
@@ -375,7 +424,8 @@ class ChatSession:
                     and self._prompt_queue.empty()
                     and (not self._worker or self._worker.done())
                 ):
-                    await self._deliver_notifications()
+                    async for _ in self._deliver_notifications():
+                        pass
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
@@ -539,7 +589,8 @@ class ChatSession:
             text = format_output(resp.message)
             if text:
                 yield text
-        await self._deliver_notifications()
+        async for note in self._deliver_notifications():
+            yield note
 
     async def _process_prompt_queue(self) -> None:
         try:
@@ -559,7 +610,8 @@ class ChatSession:
     async def chat_stream(
         self, prompt: str, *, extra: dict[str, str] | None = None
     ) -> AsyncIterator[str]:
-        await self._deliver_notifications()
+        async for note in self._deliver_notifications():
+            yield note
         result_q: asyncio.Queue[str | None] = asyncio.Queue()
         await self._prompt_queue.put((prompt, extra, result_q))
         if not self._worker or self._worker.done():
@@ -570,7 +622,8 @@ class ChatSession:
             if part is None:
                 break
             yield part
-        await self._deliver_notifications()
+        async for note in self._deliver_notifications():
+            yield note
 
     async def continue_stream(self) -> AsyncIterator[str]:
         async with self._lock:
@@ -617,7 +670,8 @@ class ChatSession:
                 part_text = format_output(part.message)
                 if part_text:
                     yield part_text
-        await self._deliver_notifications()
+        async for note in self._deliver_notifications():
+            yield note
 
     # ------------------------------------------------------------------
     def _save_tool_placeholder(self) -> None:

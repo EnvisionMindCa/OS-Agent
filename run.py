@@ -48,7 +48,8 @@ async def _main(username: str, session: str) -> None:
     # ensure_user(username, password)
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
-        await chat.send_notification("Session started")
+        async for resp in chat.send_notification_stream("Session started"):
+            print("TEAM >>", resp)
         # async for part in chat.chat_stream(
         #     "solve cancer. do not come back until you have a solution.",
         # ):
