@@ -49,14 +49,14 @@ async def _main(username: str, session: str) -> None:
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
         await chat.send_notification("Session started")
-        async for part in chat.chat_stream(
-            "solve cancer. do not come back until you have a solution.",
-        ):
-            print("\nTEAM >>", part)
-        await chat.send_notification("Session finished")
+        # async for part in chat.chat_stream(
+        #     "solve cancer. do not come back until you have a solution.",
+        # ):
+        #     print("\nTEAM >>", part)
+        # await chat.send_notification("Session finished")
 
     # This notification will be delivered the next time the user starts a session
-    agent.send_notification("Background job completed", user=username)
+    # agent.send_notification("Background job completed", user=username)
         
     # or using speech:
     # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
