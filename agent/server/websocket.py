@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import suppress
 from urllib.parse import parse_qs, urlparse
+import json
 
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
@@ -12,6 +13,7 @@ from ..vm import VMRegistry
 from ..sessions.team import TeamChatSession
 from ..config import Config, DEFAULT_CONFIG
 from ..utils.logging import get_logger
+from .endpoints import dispatch_command
 
 
 class StreamingTeamChatSession(TeamChatSession):
@@ -89,7 +91,14 @@ class AgentWebSocketServer:
             sender = asyncio.create_task(self._sender(ws, out_q))
             try:
                 async for message in ws:
-                    await self._process(chat, message, out_q)
+                    await self._process(
+                        chat,
+                        message,
+                        out_q,
+                        user,
+                        session,
+                        think,
+                    )
             except ConnectionClosed:  # pragma: no cover - client disconnect
                 pass
             finally:
@@ -97,9 +106,36 @@ class AgentWebSocketServer:
                 with suppress(asyncio.CancelledError):
                     await sender
 
-    async def _process(self, chat: TeamChatSession, prompt: str, out_q: asyncio.Queue[str]) -> None:
-        async for part in chat.chat_stream(prompt):
-            await out_q.put(part)
+    async def _process(
+        self,
+        chat: TeamChatSession,
+        message: str,
+        out_q: asyncio.Queue[str],
+        user: str,
+        session: str,
+        think: bool,
+    ) -> None:
+        try:
+            request = json.loads(message)
+        except json.JSONDecodeError:
+            request = {"command": "team_chat", "args": {"prompt": message}}
+
+        command = str(request.get("command", "team_chat"))
+        params = request.get("args", {})
+
+        try:
+            async for part in dispatch_command(
+                command,
+                params,
+                user=user,
+                session=session,
+                think=think,
+                config=self._config,
+                chat=chat,
+            ):
+                await out_q.put(part)
+        except Exception as exc:  # pragma: no cover - runtime errors
+            await out_q.put(json.dumps({"error": str(exc)}))
 
     async def _sender(self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]) -> None:
         try:

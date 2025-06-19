@@ -108,6 +108,17 @@ asyncio.run(chat())
 ```
 
 
+JSON payloads may also be sent to access other API functions. Each message must
+include a ``command`` field and optional ``args`` mapping:
+
+```json
+{"command": "list_dir", "args": {"path": "/data"}}
+```
+
+Responses for non-streaming commands are JSON encoded. Streaming commands such
+as ``solo_chat`` send text fragments incrementally.
+
+
 
 ## API Overview
 
