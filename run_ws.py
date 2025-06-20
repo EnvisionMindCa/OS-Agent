@@ -10,6 +10,8 @@ single JSON response.
 import argparse
 import asyncio
 from contextlib import suppress
+import base64
+from pathlib import Path
 
 import json
 import websockets
@@ -124,7 +126,14 @@ async def _main(args: argparse.Namespace) -> None:
         return
 
     if cmd == "upload":
-        await request(uri, "upload_document", file_path=args.path)
+        data = Path(args.path).read_bytes()
+        encoded = base64.b64encode(data).decode()
+        await request(
+            uri,
+            "upload_document",
+            file_name=Path(args.path).name,
+            file_data=encoded,
+        )
         return
 
     if cmd == "list":

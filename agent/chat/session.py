@@ -171,6 +171,16 @@ class ChatSession:
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
 
+    def upload_data(self, data: bytes, filename: str) -> str:
+        """Save ``data`` as ``filename`` for access inside the VM."""
+
+        dest = Path(self._config.upload_dir) / self._user.username
+        dest.mkdir(parents=True, exist_ok=True)
+        target = dest / filename
+        target.write_bytes(data)
+        add_document(self._user.username, str(target), filename)
+        return f"/data/{filename}"
+
     # ------------------------------------------------------------------
     async def edit_memory(
         self,

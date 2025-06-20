@@ -14,6 +14,7 @@ __all__ = [
     "solo_chat",
     "team_chat",
     "upload_document",
+    "upload_data",
     "list_dir",
     "read_file",
     "write_file",
@@ -80,6 +81,25 @@ async def upload_document(
         config=config,
     ) as chat:
         return chat.upload_document(file_path)
+
+
+async def upload_data(
+    data: bytes,
+    filename: str,
+    *,
+    user: str = "default",
+    session: str = "default",
+    config: Config | None = None,
+) -> str:
+    """Upload raw ``data`` as ``filename`` for access inside the VM."""
+
+    async with SoloChatSession(
+        user=user,
+        session=session,
+        think=False,
+        config=config,
+    ) as chat:
+        return chat.upload_data(data, filename)
 
 
 async def vm_execute(

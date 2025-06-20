@@ -9,11 +9,13 @@ based on JSON requests received from clients.
 
 from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 import json
+import base64
 
 from ..simple import (
     solo_chat,
     team_chat,
     upload_document,
+    upload_data,
     list_dir,
     read_file,
     write_file,
@@ -81,8 +83,16 @@ async def _upload_document_handler(
     config: Config,
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
-    file_path = str(params["file_path"])
-    result = await upload_document(file_path, user=user, session=session, config=config)
+    file_data = params.get("file_data")
+    file_name = params.get("file_name")
+    if file_data is not None:
+        if not file_name:
+            raise ValueError("file_name required when file_data provided")
+        data = base64.b64decode(file_data)
+        result = await upload_data(data, file_name, user=user, session=session, config=config)
+    else:
+        file_path = str(params["file_path"])
+        result = await upload_document(file_path, user=user, session=session, config=config)
     yield json.dumps({"result": result})
 
 
