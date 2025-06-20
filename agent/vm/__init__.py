@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import subprocess
 import asyncio
+from typing import AsyncIterator
 import os
 import datetime
 from functools import partial
 from pathlib import Path
 
 from threading import Lock
+from .shell import PersistentShell
 
 from ..config import (
     DEFAULT_CONFIG,
@@ -53,6 +55,7 @@ class LinuxVM:
         if config.vm_docker_host:
             _LOG.debug("Using custom Docker host: %s", config.vm_docker_host)
             self._env["DOCKER_HOST"] = config.vm_docker_host
+        self._shell: PersistentShell | None = None
 
     @property
     def persist_vms(self) -> bool:
@@ -119,11 +122,28 @@ class LinuxVM:
             _LOG.error("Failed to start VM: %s", exc)
             raise RuntimeError(f"Failed to start VM: {exc}") from exc
 
+    # ------------------------------------------------------------------
+    def _ensure_shell(self) -> PersistentShell:
+        if self._shell is None:
+            self._shell = PersistentShell(self._name, self._env or None)
+        return self._shell
+
+    async def shell_execute(self, command: str) -> str:
+        """Run ``command`` in a persistent shell session."""
+        shell = self._ensure_shell()
+        return await shell.execute(command)
+
+    async def shell_execute_stream(self, command: str) -> AsyncIterator[str]:
+        """Yield output from running ``command`` in the persistent shell."""
+        shell = self._ensure_shell()
+        async for part in shell.execute_stream(command):
+            yield part
+
     def execute(
         self,
         command: str,
         *,
-        timeout: int | None = 3,
+        timeout: int | None = None,
         detach: bool = False,
         stdin_data: str | bytes | None = None,
     ) -> str:
@@ -134,8 +154,10 @@ class LinuxVM:
         command:
             The shell command to run inside the container.
         timeout:
-            Maximum time in seconds to wait for completion. Set to ``None``
-            to wait indefinitely. Ignored when ``detach`` is ``True``.
+            Maximum time in seconds to wait for completion. If ``None``,
+            the VM's ``hard_timeout`` configuration is used. Set the
+            configuration value to ``None`` for no timeout. Ignored when
+            ``detach`` is ``True``.
         detach:
             Run the command in the background without waiting for it to finish.
         """
@@ -164,11 +186,12 @@ class LinuxVM:
                 input=stdin_data,
                 capture_output=True,
                 text=isinstance(stdin_data, str),
-                timeout=self.config.hard_timeout,
+                timeout=timeout if timeout is not None else self.config.hard_timeout,
                 env=self._env if self._env else None,
             )
         except subprocess.TimeoutExpired as exc:
-            return f"Command timed out after {timeout}s: {exc.cmd}"
+            limit = timeout if timeout is not None else self.config.hard_timeout
+            return f"Command timed out after {limit}s: {exc.cmd}"
         except Exception as exc:  # pragma: no cover - unforeseen errors
             return f"Failed to execute command: {exc}"
 
@@ -181,7 +204,7 @@ class LinuxVM:
         self,
         command: str,
         *,
-        timeout: int | None = 3,
+        timeout: int | None = None,
         detach: bool = False,
         stdin_data: str | bytes | None = None,
     ) -> str:
@@ -190,7 +213,7 @@ class LinuxVM:
         func = partial(
             self.execute,
             command,
-            timeout=self.config.hard_timeout,
+            timeout=timeout,
             detach=detach,
             stdin_data=stdin_data,
         )
@@ -224,6 +247,15 @@ class LinuxVM:
         """Terminate the VM if running."""
         if not self._running:
             return
+
+        if self._shell is not None:
+            try:
+                asyncio.run(self._shell.stop())
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self._shell.stop())
+                loop.close()
+            self._shell = None
 
         if self.config.persist_vms:
             subprocess.run(

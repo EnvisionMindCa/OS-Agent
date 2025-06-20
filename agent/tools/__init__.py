@@ -3,6 +3,7 @@ from __future__ import annotations
 __all__ = [
     "execute_terminal",
     "execute_terminal_async",
+    "execute_terminal_stream",
     "execute_with_secret",
     "execute_with_secret_async",
     "set_vm",
@@ -11,7 +12,7 @@ __all__ = [
 
 import subprocess
 import os
-from typing import Optional
+from typing import Optional, AsyncIterator
 import asyncio
 from functools import partial
 
@@ -93,9 +94,23 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
 
 async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """Asynchronously execute a shell command."""
+    if _VM:
+        try:
+            return await _VM.shell_execute(command)
+        except Exception as exc:  # pragma: no cover - unforeseen errors
+            return f"Failed to execute command in VM: {exc}"
+
     loop = asyncio.get_running_loop()
     func = partial(execute_terminal, command, stdin_data=stdin_data)
     return await loop.run_in_executor(None, func)
+
+
+async def execute_terminal_stream(command: str) -> AsyncIterator[str]:
+    """Stream output from ``command`` executed in the persistent VM shell."""
+    if not _VM:
+        raise RuntimeError("No active VM")
+    async for part in _VM.shell_execute_stream(command):
+        yield part
 
 
 def execute_with_secret(

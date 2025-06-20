@@ -15,6 +15,7 @@ from .simple import (
 from .tools import (
     execute_terminal,
     execute_terminal_async,
+    execute_terminal_stream,
     execute_with_secret,
     execute_with_secret_async,
     set_vm,
@@ -31,6 +32,7 @@ __all__ = [
     "TeamChatSession",
     "execute_terminal",
     "execute_terminal_async",
+    "execute_terminal_stream",
     "set_team",
     "set_vm",
     "execute_with_secret",

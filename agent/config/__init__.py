@@ -19,7 +19,8 @@ VM_STATE_DIR: Final[str] = os.getenv(
 )
 VM_DOCKER_HOST: Final[str | None] = os.getenv("VM_DOCKER_HOST")
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
-HARD_TIMEOUT: Final[int] = int(os.getenv("HARD_TIMEOUT", "5"))
+_timeout_env = os.getenv("HARD_TIMEOUT")
+HARD_TIMEOUT: Final[int | None] = int(_timeout_env) if _timeout_env else None
 LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL", "INFO").upper()
 SECRET_KEY: Final[str] = os.getenv("SECRET_KEY", "CHANGE_ME")
 ACCESS_TOKEN_EXPIRE_MINUTES: Final[int] = int(
@@ -163,7 +164,7 @@ class Config:
     vm_state_dir: str = VM_STATE_DIR
     vm_docker_host: str | None = VM_DOCKER_HOST
     db_path: str = DB_PATH
-    hard_timeout: int = HARD_TIMEOUT
+    hard_timeout: int | None = HARD_TIMEOUT
     log_level: str = LOG_LEVEL
     secret_key: str = SECRET_KEY
     access_token_expire_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
