@@ -55,7 +55,10 @@ Start the bot with:
 python -m bot
 ```
 
-Uploads sent to the bot are stored in `/data` inside the user's VM. Use `!exec <command>` to run shell commands manually. Administrators can stop the bot with `!shutdown`.
+Uploads sent to the bot are stored in `/data` inside the user's VM. Audio files
+are transcribed locally, the transcript is uploaded alongside the original file
+and the LLM receives a notification for each upload. Use `!exec <command>` to
+run shell commands manually. Administrators can stop the bot with `!shutdown`.
 
 ### WebSocket Server
 

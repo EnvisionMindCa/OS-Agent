@@ -104,6 +104,126 @@ class WSApiClient:
             async for msg in ws:
                 yield msg
 
+    async def vm_execute(
+        self,
+        command: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+        timeout: int | None = None,
+    ) -> str:
+        """Return final output from ``command`` executed in the VM."""
+
+        params: dict[str, object] = {"command": command}
+        if timeout is not None:
+            params["timeout"] = timeout
+        resp = await self.request(
+            "vm_execute",
+            user=user,
+            session=session,
+            think=think,
+            **params,
+        )
+        return str(resp.get("result", ""))
+
+    async def list_dir(
+        self,
+        path: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> list[tuple[str, bool]]:
+        """Return directory listing for ``path`` inside the VM."""
+
+        resp = await self.request(
+            "list_dir",
+            user=user,
+            session=session,
+            think=think,
+            path=path,
+        )
+        result = resp.get("result", [])
+        return [(name, bool(is_dir)) for name, is_dir in result]
+
+    async def read_file(
+        self,
+        path: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Return the contents of ``path`` from the VM."""
+
+        resp = await self.request(
+            "read_file",
+            user=user,
+            session=session,
+            think=think,
+            path=path,
+        )
+        return str(resp.get("result", ""))
+
+    async def write_file(
+        self,
+        path: str,
+        content: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Write ``content`` to ``path`` in the VM and return server message."""
+
+        resp = await self.request(
+            "write_file",
+            user=user,
+            session=session,
+            think=think,
+            path=path,
+            content=content,
+        )
+        return str(resp.get("result", ""))
+
+    async def delete_path(
+        self,
+        path: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Remove ``path`` from the VM and return server message."""
+
+        resp = await self.request(
+            "delete_path",
+            user=user,
+            session=session,
+            think=think,
+            path=path,
+        )
+        return str(resp.get("result", ""))
+
+    async def send_notification(
+        self,
+        message: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> None:
+        """Send a notification to the VM."""
+
+        await self.request(
+            "send_notification",
+            user=user,
+            session=session,
+            think=think,
+            message=message,
+        )
+
 
 class WSConnection:
     """Persistent connection wrapper for :mod:`agent.server`."""

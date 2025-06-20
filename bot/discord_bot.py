@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from agent.db import delete_history
 from agent.utils.logging import get_logger
-from agent.utils.speech import transcribe_audio
+from agent import transcribe_audio
 from .ws_api import WSApiClient, WSConnection
 
 
@@ -62,7 +62,7 @@ class DiscordTeamBot(commands.Bot):
         user = str(message.author.id)
         session_id = str(message.channel.id)
 
-        docs, transcripts = await self._handle_attachments(
+        docs = await self._handle_attachments(
             message.attachments,
             user=user,
             session=session_id,
@@ -71,18 +71,6 @@ class DiscordTeamBot(commands.Bot):
             info = "\n".join(f"{name} -> {path}" for name, path in docs)
             await message.reply(f"Uploaded:\n{info}", mention_author=False)
         conn = await self._get_connection(user, session_id, message.channel)
-        for text in transcripts:
-            try:
-                speech_prompt = f"[speech] {text}"
-                await conn.send(
-                    "team_chat",
-                    prompt=speech_prompt,
-                    user_name=str(message.author.name),
-                    channel_name=str(message.channel.name),
-                )
-            except Exception as exc:  # pragma: no cover - runtime errors
-                self._log.error("Failed to process speech: %s", exc)
-                await message.reply(f"Error: {exc}", mention_author=False)
 
         if message.content.strip():
             try:
@@ -126,6 +114,125 @@ class DiscordTeamBot(commands.Bot):
                 output = output[:1900] + "..."
             await ctx.reply(f"```\n{output}\n```", mention_author=False)
 
+        @self.command(name="run")
+        async def run_cmd(ctx: commands.Context, *, command: str) -> None:
+            """Execute ``command`` in the VM and return the final output."""
+
+            try:
+                output = await ctx.bot._client.vm_execute(
+                    command,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            if not output:
+                output = "(no output)"
+            if len(output) > 1900:
+                output = output[:1900] + "..."
+            await ctx.reply(f"```\n{output}\n```", mention_author=False)
+
+        @self.command(name="ls")
+        async def ls_cmd(ctx: commands.Context, path: str) -> None:
+            """List directory contents in the VM."""
+
+            try:
+                rows = await ctx.bot._client.list_dir(
+                    path,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            if not rows:
+                await ctx.reply("(empty)", mention_author=False)
+                return
+
+            lines = [f"{name}/" if is_dir else name for name, is_dir in rows]
+            output = "\n".join(lines)
+            if len(output) > 1900:
+                output = output[:1900] + "..."
+            await ctx.reply(f"```\n{output}\n```", mention_author=False)
+
+        @self.command(name="read")
+        async def read_cmd(ctx: commands.Context, path: str) -> None:
+            """Read a file from the VM."""
+
+            try:
+                content = await ctx.bot._client.read_file(
+                    path,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            if not content:
+                content = "(empty)"
+            if len(content) > 1900:
+                content = content[:1900] + "..."
+            await ctx.reply(f"```\n{content}\n```", mention_author=False)
+
+        @self.command(name="write")
+        async def write_cmd(ctx: commands.Context, path: str, *, content: str) -> None:
+            """Write ``content`` to ``path`` inside the VM."""
+
+            try:
+                result = await ctx.bot._client.write_file(
+                    path,
+                    content,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            await ctx.reply(result, mention_author=False)
+
+        @self.command(name="delete")
+        async def delete_cmd(ctx: commands.Context, path: str) -> None:
+            """Delete ``path`` inside the VM."""
+
+            try:
+                result = await ctx.bot._client.delete_path(
+                    path,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            await ctx.reply(result, mention_author=False)
+
+        @self.command(name="notify")
+        async def notify_cmd(ctx: commands.Context, *, message: str) -> None:
+            """Send a notification to the user's VM."""
+
+            try:
+                await ctx.bot._client.send_notification(
+                    message,
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            await ctx.reply("Notification sent", mention_author=False)
+
         @self.command(name="shutdown")
         @commands.has_permissions(administrator=True)
         async def shutdown_cmd(ctx: commands.Context) -> None:
@@ -155,8 +262,12 @@ class DiscordTeamBot(commands.Bot):
         *,
         user: str,
         session: str,
-    ) -> Tuple[List[Tuple[str, str]], List[str]]:
-        """Download attachments and return their VM paths and audio transcripts.
+    ) -> List[Tuple[str, str]]:
+        """Download attachments and upload them to the VM.
+
+        Audio files are transcribed locally and the transcript is uploaded as
+        ``<name>_transcript.txt``. A notification is sent for every uploaded
+        file so the agent can react to new documents.
 
         Parameters
         ----------
@@ -167,44 +278,67 @@ class DiscordTeamBot(commands.Bot):
         """
 
         if not attachments:
-            return [], []
+            return []
 
         uploaded: List[Tuple[str, str]] = []
-        transcripts: List[str] = []
         tmpdir = Path(tempfile.mkdtemp(prefix="discord_upload_"))
         try:
             for attachment in attachments:
                 dest = tmpdir / attachment.filename
                 await attachment.save(dest)
+
+                try:
+                    resp = await self._client.request(
+                        "upload_document",
+                        user=user,
+                        session=session,
+                        think=False,
+                        file_path=str(dest),
+                    )
+                    vm_path = str(resp.get("result", ""))
+                    uploaded.append((attachment.filename, vm_path))
+                    await self._client.send_notification(
+                        f"File uploaded: {attachment.filename}",
+                        user=user,
+                        session=session,
+                        think=False,
+                    )
+                except Exception as exc:  # pragma: no cover - runtime errors
+                    self._log.error(
+                        "Upload failed for %s: %s", attachment.filename, exc
+                    )
+                    continue
+
                 mime, _ = mimetypes.guess_type(attachment.filename)
                 if mime and mime.startswith("audio"):
                     try:
                         text = await transcribe_audio(str(dest))
                         if text:
-                            transcripts.append(text)
+                            t_dest = tmpdir / f"{dest.stem}_transcript.txt"
+                            t_dest.write_text(text)
+                            resp = await self._client.request(
+                                "upload_document",
+                                user=user,
+                                session=session,
+                                think=False,
+                                file_path=str(t_dest),
+                            )
+                            t_vm_path = str(resp.get("result", ""))
+                            uploaded.append((t_dest.name, t_vm_path))
+                            await self._client.send_notification(
+                                f"File uploaded: {t_dest.name}",
+                                user=user,
+                                session=session,
+                                think=False,
+                            )
                     except Exception as exc:  # pragma: no cover - runtime errors
                         self._log.error(
                             "Transcription failed for %s: %s", attachment.filename, exc
                         )
-                else:
-                    try:
-                        resp = await self._client.request(
-                            "upload_document",
-                            user=user,
-                            session=session,
-                            think=False,
-                            file_path=str(dest),
-                        )
-                        vm_path = str(resp.get("result", ""))
-                        uploaded.append((attachment.filename, vm_path))
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.error(
-                            "Upload failed for %s: %s", attachment.filename, exc
-                        )
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
-        return uploaded, transcripts
+        return uploaded
 
     # ------------------------------------------------------------------
     async def _relay_messages(
@@ -248,7 +382,3 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - manual execution
     main()
-
-from agent.utils.debug import debug_all
-
-debug_all(globals())
