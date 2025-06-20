@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import tempfile
+import base64
 from pathlib import Path
 from typing import Iterable, Tuple, List
 import mimetypes
@@ -288,12 +289,14 @@ class DiscordTeamBot(commands.Bot):
                 await attachment.save(dest)
 
                 try:
+                    encoded = base64.b64encode(dest.read_bytes()).decode()
                     resp = await self._client.request(
                         "upload_document",
                         user=user,
                         session=session,
                         think=False,
-                        file_path=str(dest),
+                        file_name=attachment.filename,
+                        file_data=encoded,
                     )
                     vm_path = str(resp.get("result", ""))
                     uploaded.append((attachment.filename, vm_path))
@@ -310,12 +313,14 @@ class DiscordTeamBot(commands.Bot):
                         if text:
                             t_dest = tmpdir / f"{dest.stem}_transcript.txt"
                             t_dest.write_text(text)
+                            encoded_t = base64.b64encode(t_dest.read_bytes()).decode()
                             resp = await self._client.request(
                                 "upload_document",
                                 user=user,
                                 session=session,
                                 think=False,
-                                file_path=str(t_dest),
+                                file_name=t_dest.name,
+                                file_data=encoded_t,
                             )
                             t_vm_path = str(resp.get("result", ""))
                             uploaded.append((t_dest.name, t_vm_path))

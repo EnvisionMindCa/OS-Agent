@@ -131,7 +131,8 @@ The :mod:`agent` package exposes a simple async API:
 
 - `TeamChatSession`, `SoloChatSession` – manage conversations
 - `agent.team_chat(prompt, user, session)` – convenience wrapper returning a text stream
-- `agent.upload_document(path, user, session)` – place a file in the VM
+- `agent.upload_document(path, user, session)` – place a local file in the VM
+- `agent.upload_data(data, filename, user, session)` – upload raw bytes
 - `agent.vm_execute(command, user)` – run a command directly
 
 Utility helpers exist for listing, reading and writing files as well as editing persistent memory.
