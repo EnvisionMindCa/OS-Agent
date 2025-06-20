@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Command line WebSocket client for :mod:`agent.server` endpoints.
 
-The script exposes convenience subcommands matching the available WebSocket
-API. It supports interactive team chat as well as file and VM operations. The
-``solo_chat`` endpoint is intentionally omitted.
+Each subcommand demonstrates usage of a WebSocket API endpoint exposed by the
+server. Commands either stream data (chat and ``vm_execute_stream``) or return a
+single JSON response.
 """
 
 import argparse
@@ -88,6 +88,33 @@ async def exec_stream(uri: str, command: str) -> None:
             _LOG.info("Connection closed by server")
 
 
+async def solo(uri: str, message: str) -> None:
+    """Send ``message`` to the ``solo_chat`` endpoint and print the reply."""
+
+    async with websockets.connect(uri) as ws:
+        await ws.send(json.dumps({"command": "solo_chat", "args": {"prompt": message}}))
+        try:
+            async for part in ws:
+                print(part, end="", flush=True)
+        except websockets.ConnectionClosed:
+            _LOG.info("Connection closed by server")
+
+
+async def exec_once(uri: str, command: str, timeout: int | None) -> None:
+    """Execute ``command`` in the VM and print the final result."""
+
+    params = {"command": command}
+    if timeout is not None:
+        params["timeout"] = timeout
+    async with websockets.connect(uri) as ws:
+        await ws.send(json.dumps({"command": "vm_execute", "args": params}))
+        try:
+            message = await ws.recv()
+            print(message, end="", flush=True)
+        except websockets.ConnectionClosed:
+            _LOG.info("Connection closed by server")
+
+
 async def _main(args: argparse.Namespace) -> None:
     uri = _build_uri(args.host, args.port, args.user, args.session, args.think)
     cmd = args.command
@@ -120,8 +147,17 @@ async def _main(args: argparse.Namespace) -> None:
         await exec_stream(uri, args.command_str)
         return
 
+    if cmd == "run":
+        await exec_once(uri, args.command_str, args.timeout)
+        return
+
+    if cmd == "solo":
+        await solo(uri, args.message)
+        return
+
     if cmd == "notify":
         await request(uri, "send_notification", message=args.message)
+        return
 
 
 def main() -> None:
@@ -165,6 +201,13 @@ def main() -> None:
 
     exec_p = sub.add_parser("exec", help="Execute command in VM and stream output")
     exec_p.add_argument("command_str", help="Command to run")
+
+    run_p = sub.add_parser("run", help="Execute command in VM and return output")
+    run_p.add_argument("command_str", help="Command to run")
+    run_p.add_argument("--timeout", type=int, default=None, help="Execution timeout")
+
+    solo_p = sub.add_parser("solo", help="Send a prompt via solo_chat")
+    solo_p.add_argument("message", help="Prompt text")
 
     notify_p = sub.add_parser("notify", help="Send notification")
     notify_p.add_argument("message", help="Notification message")
