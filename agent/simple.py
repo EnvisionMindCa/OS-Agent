@@ -19,6 +19,7 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "vm_execute_stream",
     "send_notification",
 ]
 
@@ -85,12 +86,27 @@ async def vm_execute(
     command: str,
     *,
     user: str = "default",
-    timeout: int | None = 5,
+    timeout: int | None = None,
 ) -> str:
     """Execute ``command`` inside ``user``'s VM and return the output."""
     vm = VMRegistry.acquire(user)
     try:
         return await vm.execute_async(command, timeout=timeout)
+    finally:
+        VMRegistry.release(user)
+
+
+async def vm_execute_stream(
+    command: str,
+    *,
+    user: str = "default",
+) -> AsyncIterator[str]:
+    """Yield incremental output from ``command`` executed in ``user``'s VM."""
+
+    vm = VMRegistry.acquire(user)
+    try:
+        async for part in vm.shell_execute_stream(command):
+            yield part
     finally:
         VMRegistry.release(user)
 

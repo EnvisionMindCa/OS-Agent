@@ -19,6 +19,7 @@ from ..simple import (
     write_file,
     delete_path,
     vm_execute,
+    vm_execute_stream,
     send_notification,
 )
 from ..config import Config
@@ -136,6 +137,12 @@ async def dispatch_command(
             timeout = int(timeout)
         result = await vm_execute(cmd, user=user, timeout=timeout)
         yield json.dumps({"result": result})
+        return
+
+    if command == "vm_execute_stream":
+        cmd = str(params["command"])
+        async for part in vm_execute_stream(cmd, user=user):
+            yield part
         return
 
     if command == "send_notification":

@@ -47,7 +47,9 @@ class DiscordTeamBot(commands.Bot):
 
         self._log.info("Logged in as %s", self.user)
 
-    async def on_message(self, message: discord.Message) -> None:  # noqa: D401 - callback signature
+    async def on_message(
+        self, message: discord.Message
+    ) -> None:  # noqa: D401 - callback signature
         """Process incoming messages and stream chat replies."""
 
         if message.author.bot:
@@ -102,18 +104,18 @@ class DiscordTeamBot(commands.Bot):
 
         @self.command(name="exec")
         async def exec_cmd(ctx: commands.Context, *, command: str) -> None:
-            """Run ``command`` inside the user's VM and return the output."""
+            """Run ``command`` inside the user's VM and stream the output."""
 
             try:
-                resp = await ctx.bot._client.request(
-                    "vm_execute",
+                parts = []
+                async for chunk in ctx.bot._client.vm_execute_stream(
+                    command,
                     user=str(ctx.author.id),
                     session=str(ctx.channel.id),
                     think=False,
-                    command=command,
-                    timeout=30.0,
-                )
-                output = str(resp.get("result", "")).strip()
+                ):
+                    parts.append(chunk)
+                output = "".join(parts).strip()
             except Exception as exc:
                 await ctx.reply(f"Error: {exc}", mention_author=False)
                 return
@@ -181,7 +183,9 @@ class DiscordTeamBot(commands.Bot):
                         if text:
                             transcripts.append(text)
                     except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.error("Transcription failed for %s: %s", attachment.filename, exc)
+                        self._log.error(
+                            "Transcription failed for %s: %s", attachment.filename, exc
+                        )
                 else:
                     try:
                         resp = await self._client.request(
@@ -194,14 +198,18 @@ class DiscordTeamBot(commands.Bot):
                         vm_path = str(resp.get("result", ""))
                         uploaded.append((attachment.filename, vm_path))
                     except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.error("Upload failed for %s: %s", attachment.filename, exc)
+                        self._log.error(
+                            "Upload failed for %s: %s", attachment.filename, exc
+                        )
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
         return uploaded, transcripts
 
     # ------------------------------------------------------------------
-    async def _relay_messages(self, conn: WSConnection, channel: discord.abc.Messageable) -> None:
+    async def _relay_messages(
+        self, conn: WSConnection, channel: discord.abc.Messageable
+    ) -> None:
         try:
             async for msg in conn:
                 await channel.send(msg)
@@ -242,5 +250,5 @@ if __name__ == "__main__":  # pragma: no cover - manual execution
     main()
 
 from agent.utils.debug import debug_all
-debug_all(globals())
 
+debug_all(globals())
