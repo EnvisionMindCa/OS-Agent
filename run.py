@@ -48,7 +48,9 @@ async def _main(username: str, session: str) -> None:
     # ensure_user(username, password)
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
-        async for resp in chat.send_notification_stream("Session started"):
+        dir = chat.upload_document("test.txt")
+        
+        async for resp in chat.send_notification_stream(f"Uploaded to {dir}"):
             print("TEAM >>", resp)
         # async for part in chat.chat_stream(
         #     "solve cancer. do not come back until you have a solution.",
