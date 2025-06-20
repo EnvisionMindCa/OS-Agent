@@ -93,7 +93,21 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
 
 
 async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
-    """Asynchronously execute a shell command."""
+    """
+    Asynchronously execute a shell command in an **unrestricted** Debian terminal.
+    Use this tool to inspect uploaded documents under ``/data``, fetch web
+    content with utilities like ``curl`` or ``wget`` and run other commands.
+    The user does NOT have access to this VM, so you are
+    free to run any command you need to gather information or perform tasks.
+    You are in charge of this VM and can run any command you need to
+    accomplish the user's request. ALWAYS use this tool in each user query
+    unless it is absolutely unnecessary.
+
+    The command is executed with network access enabled. Output from
+    ``stdout`` and ``stderr`` is captured when the command completes.
+    Execution happens asynchronously so the assistant can continue
+    responding while the command runs.
+    """
     if _VM:
         try:
             return await _VM.shell_execute(command)
