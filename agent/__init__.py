@@ -26,6 +26,7 @@ from .utils.speech import transcribe_audio
 from .vm import LinuxVM
 from .utils.memory import get_memory, set_memory, edit_memory, edit_protected_memory
 from .config import Config, DEFAULT_CONFIG
+from .server import AgentWebSocketServer
 
 __all__ = [
     "ChatSession",
@@ -57,4 +58,5 @@ __all__ = [
     "edit_protected_memory",
     "Config",
     "DEFAULT_CONFIG",
+    "AgentWebSocketServer",
 ]
