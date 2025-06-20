@@ -56,8 +56,8 @@ python -m bot
 ```
 
 Uploads sent to the bot are stored in `/data` inside the user's VM. Audio files
-are transcribed locally, the transcript is uploaded alongside the original file
-and the LLM receives a notification for each upload. Use `!exec <command>` to
+are transcribed locally and the transcript is uploaded alongside the original
+file. No notification is sent to the LLM for these uploads. Use `!exec <command>` to
 run shell commands manually. Administrators can stop the bot with `!shutdown`.
 
 ### WebSocket Server
@@ -65,8 +65,10 @@ run shell commands manually. Administrators can stop the bot with `!shutdown`.
 Launch a persistent WebSocket service to stream responses and VM notifications:
 
 ```bash
-python -m agent.server --host 0.0.0.0 --port 8765
+python -m agent --host 0.0.0.0 --port 8765
 ```
+
+The old entry point `python -m agent.server` continues to work as well.
 
 Clients should connect via the WebSocket protocol and can specify the user,
 session and optional think parameters using query parameters:
