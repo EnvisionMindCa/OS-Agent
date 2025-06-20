@@ -531,11 +531,12 @@ class ChatSession:
 
         max_depth = self._config.max_tool_call_depth
         while depth < max_depth and response.message.tool_calls:
-            # Handle a single tool call then obtain a fresh response. This
-            # gives the model a chance to react to each tool's output before
-            # deciding on the next action.
-            call = response.message.tool_calls[0]
-            async for nxt in self._process_tool_call(call, messages, conversation):
+            # Handle each tool call sequentially so the model can react to
+            # every tool's output before moving on to the next one.
+            call = response.message.tool_calls.pop(0)
+            async for nxt in self._process_tool_call(
+                call, messages, conversation
+            ):
                 response = nxt
                 yield nxt
             depth += 1
