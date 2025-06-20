@@ -10,6 +10,7 @@ from .simple import (
     write_file,
     delete_path,
     vm_execute,
+    vm_execute_stream,
     send_notification,
 )
 from .tools import (
@@ -47,6 +48,7 @@ __all__ = [
     "write_file",
     "delete_path",
     "vm_execute",
+    "vm_execute_stream",
     "send_notification",
     "transcribe_audio",
     "get_memory",
@@ -56,4 +58,3 @@ __all__ = [
     "Config",
     "DEFAULT_CONFIG",
 ]
-

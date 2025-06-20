@@ -42,7 +42,10 @@ class WSApiClient:
         """
 
         uri = self._build_uri(user, session, think)
-        payload: dict[str, object] = {"command": "team_chat", "args": {"prompt": prompt}}
+        payload: dict[str, object] = {
+            "command": "team_chat",
+            "args": {"prompt": prompt},
+        }
         if extra:
             payload["args"].update(extra)
 
@@ -84,6 +87,23 @@ class WSApiClient:
             self._log.error("Invalid JSON response: %s", raw)
             raise RuntimeError("Invalid server response")
 
+    async def vm_execute_stream(
+        self,
+        command: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> AsyncIterator[str]:
+        """Yield output from ``command`` executed in the VM."""
+
+        uri = self._build_uri(user, session, think)
+        payload = {"command": "vm_execute_stream", "args": {"command": command}}
+        async with websockets.connect(uri) as ws:
+            await ws.send(json.dumps(payload))
+            async for msg in ws:
+                yield msg
+
 
 class WSConnection:
     """Persistent connection wrapper for :mod:`agent.server`."""
@@ -121,4 +141,3 @@ class WSConnection:
             raise RuntimeError("Connection not established")
         async for msg in self._ws:
             yield msg
-

@@ -35,14 +35,18 @@ async def chat(uri: str, message: str) -> None:
     async with websockets.connect(uri) as ws:
         _LOG.info("Connected to %s", uri)
         if message:
-            await ws.send(json.dumps({"command": "team_chat", "args": {"prompt": message}}))
+            await ws.send(
+                json.dumps({"command": "team_chat", "args": {"prompt": message}})
+            )
 
         recv_task = asyncio.create_task(_receiver(ws))
         try:
             loop = asyncio.get_running_loop()
             while True:
                 prompt = await loop.run_in_executor(None, input, "> ")
-                await ws.send(json.dumps({"command": "team_chat", "args": {"prompt": prompt}}))
+                await ws.send(
+                    json.dumps({"command": "team_chat", "args": {"prompt": prompt}})
+                )
         except KeyboardInterrupt:
             pass
         finally:
@@ -66,6 +70,20 @@ async def request(uri: str, command: str, **params: object) -> None:
                 message = await ws.recv()
                 print(message, end="", flush=True)
                 break
+        except websockets.ConnectionClosed:
+            _LOG.info("Connection closed by server")
+
+
+async def exec_stream(uri: str, command: str) -> None:
+    """Stream output from ``command`` executed in the VM."""
+
+    async with websockets.connect(uri) as ws:
+        await ws.send(
+            json.dumps({"command": "vm_execute_stream", "args": {"command": command}})
+        )
+        try:
+            async for message in ws:
+                print(message, end="", flush=True)
         except websockets.ConnectionClosed:
             _LOG.info("Connection closed by server")
 
@@ -99,7 +117,7 @@ async def _main(args: argparse.Namespace) -> None:
         return
 
     if cmd == "exec":
-        await request(uri, "vm_execute", command=args.command_str, timeout=args.timeout)
+        await exec_stream(uri, args.command_str)
         return
 
     if cmd == "notify":
@@ -113,8 +131,15 @@ def main() -> None:
     parser.add_argument("--user", default="demo", help="Username")
     parser.add_argument("--session", default="ws", help="Session identifier")
     think_group = parser.add_mutually_exclusive_group()
-    think_group.add_argument("--think", dest="think", action="store_true", help="Enable model thinking (default)")
-    think_group.add_argument("--no-think", dest="think", action="store_false", help="Disable model thinking")
+    think_group.add_argument(
+        "--think",
+        dest="think",
+        action="store_true",
+        help="Enable model thinking (default)",
+    )
+    think_group.add_argument(
+        "--no-think", dest="think", action="store_false", help="Disable model thinking"
+    )
     parser.set_defaults(think=True)
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -138,9 +163,8 @@ def main() -> None:
     del_p = sub.add_parser("delete", help="Delete path")
     del_p.add_argument("path", help="Path in VM")
 
-    exec_p = sub.add_parser("exec", help="Execute command in VM")
+    exec_p = sub.add_parser("exec", help="Execute command in VM and stream output")
     exec_p.add_argument("command_str", help="Command to run")
-    exec_p.add_argument("--timeout", type=int, default=None, help="Execution timeout")
 
     notify_p = sub.add_parser("notify", help="Send notification")
     notify_p.add_argument("message", help="Notification message")
@@ -154,4 +178,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-

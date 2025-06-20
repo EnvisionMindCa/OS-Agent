@@ -321,8 +321,8 @@ class VMRegistry:
                 cls._counts[username] = 0
                 if not vm.config.persist_vms:
                     vm.stop()
-                del cls._vms[username]
-                del cls._counts[username]
+                    del cls._vms[username]
+                    del cls._counts[username]
 
     @classmethod
     def shutdown_all(cls) -> None:
@@ -335,6 +335,7 @@ class VMRegistry:
             cls._vms.clear()
             cls._counts.clear()
 
-from ..utils.debug import debug_all
-debug_all(globals())
 
+from ..utils.debug import debug_all
+
+debug_all(globals())
