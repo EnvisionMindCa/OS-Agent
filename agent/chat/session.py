@@ -23,7 +23,7 @@ from ..utils.logging import get_logger
 from .schema import Msg
 from contextlib import suppress
 
-from ..tools import execute_terminal, set_vm, create_memory_tool
+from ..tools import execute_terminal_async, set_vm, create_memory_tool
 from ..utils.memory import (
     get_memory,
     edit_memory as _edit_memory,
@@ -77,7 +77,8 @@ class ChatSession:
         memory_tool = create_memory_tool(
             self._user.username, self._refresh_system_prompt
         )
-        self._tools = (tools or [execute_terminal]) + [memory_tool]
+        default_tool = execute_terminal_async
+        self._tools = (tools or [default_tool]) + [memory_tool]
         self._tool_funcs = {func.__name__: func for func in self._tools}
         self._think = think
         self._current_tool_name: str | None = None
