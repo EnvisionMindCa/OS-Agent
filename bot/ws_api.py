@@ -194,6 +194,27 @@ class WSApiClient:
         )
         return str(resp.get("result", ""))
 
+    async def download_file(
+        self,
+        path: str,
+        *,
+        user: str,
+        session: str,
+        dest: str | None = None,
+        think: bool = False,
+    ) -> str:
+        """Retrieve ``path`` from the VM and return the host destination path."""
+
+        resp = await self.request(
+            "download_file",
+            user=user,
+            session=session,
+            think=think,
+            path=path,
+            dest=dest,
+        )
+        return str(resp.get("result", ""))
+
     async def delete_path(
         self,
         path: str,
