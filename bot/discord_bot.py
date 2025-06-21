@@ -339,6 +339,8 @@ class DiscordTeamBot(commands.Bot):
     async def _relay_messages(
         self, conn: WSConnection, channel: discord.abc.Messageable
     ) -> None:
+        buffer: list[str] = []
+        last_send = asyncio.get_running_loop().time()
         try:
             async for msg in conn:
                 file_payload = self._parse_returned_file(msg)
@@ -348,10 +350,23 @@ class DiscordTeamBot(commands.Bot):
                         content=f"Returned file: {name}",
                         file=discord.File(BytesIO(data), filename=name),
                     )
-                else:
-                    await channel.send(msg)
+                    continue
+
+                buffer.append(msg)
+                now = asyncio.get_running_loop().time()
+                if now - last_send > 0.5:
+                    text = "".join(buffer).strip()
+                    if text:
+                        await channel.send(text)
+                    buffer.clear()
+                    last_send = now
         except Exception as exc:  # pragma: no cover - runtime errors
             self._log.error("WebSocket error: %s", exc)
+        finally:
+            if buffer:
+                text = "".join(buffer).strip()
+                if text:
+                    await channel.send(text)
 
     def _parse_returned_file(self, msg: str) -> tuple[str, bytes] | None:
         """Return file name and bytes if ``msg`` encodes a returned file."""

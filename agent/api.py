@@ -206,7 +206,7 @@ async def write_file(
     encoded = base64.b64encode(content.encode()).decode()
     cmd = (
         "python -c 'import base64,os; "
-        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))'"
+        f"open({json.dumps(path)}, \"wb\").write(base64.b64decode({json.dumps(encoded)}))'"
     )
     await vm_execute(cmd, user=user, config=config)
     return "Saved"
