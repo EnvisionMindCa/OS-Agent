@@ -76,16 +76,23 @@ class WSApiClient:
 
         async with websockets.connect(uri) as ws:
             await ws.send(json.dumps(payload))
-            try:
-                raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
-            except asyncio.TimeoutError as exc:
-                raise RuntimeError("Server did not respond in time") from exc
 
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            self._log.error("Invalid JSON response: %s", raw)
-            raise RuntimeError("Invalid server response")
+            while True:
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
+                except asyncio.TimeoutError as exc:
+                    raise RuntimeError("Server did not respond in time") from exc
+
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError:
+                    self._log.debug("Ignoring non-JSON response: %s", raw)
+                    continue
+
+                if "result" in data or "error" in data:
+                    return data
+
+        raise RuntimeError("Server closed connection without a result")
 
     async def vm_execute_stream(
         self,
