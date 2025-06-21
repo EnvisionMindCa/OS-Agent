@@ -179,6 +179,7 @@ Behaviour can be tuned through environment variables:
 | `UPLOAD_DIR` | Directory where uploaded files are stored |
 | `DB_PATH` | SQLite database file |
 | `VM_IMAGE` | Docker image for the user VM |
+| `VM_CONTAINER_TEMPLATE` | Format string for container names (`chat-vm-{user}`) |
 | `VM_STATE_DIR` | Host directory for persistent VM state |
 | `PERSIST_VMS` | Keep VMs running between sessions (`1` by default) |
 | `LOG_LEVEL` | Logging verbosity |

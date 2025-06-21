@@ -33,7 +33,8 @@ class LinuxVM:
     """Manage a lightweight Docker-based VM.
 
     The default image provides Python and pip so packages can be installed
-    immediately. A custom image can be supplied via ``VM_IMAGE``.
+    immediately. A custom image can be supplied via ``VM_IMAGE`` and the
+    container name is derived from ``VM_CONTAINER_TEMPLATE``.
     """
 
     def __init__(
@@ -44,7 +45,9 @@ class LinuxVM:
     ) -> None:
         self.config = config
         self._image = config.vm_image
-        self._name = f"chat-vm-{_sanitize(username)}"
+        self._name = config.vm_container_template.format(
+            user=_sanitize(username)
+        )
         self._running = False
         self._host_dir = (Path(config.upload_dir) / username).resolve()
         self._host_dir.mkdir(parents=True, exist_ok=True)

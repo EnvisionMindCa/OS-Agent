@@ -4,6 +4,7 @@ import asyncio
 import argparse
 
 import agent
+from dataclasses import replace
 from agent.vm import VMRegistry
 from agent.db import authenticate_user, register_user, db
 from agent.config import DEFAULT_CONFIG
@@ -31,7 +32,7 @@ def ensure_user(username: str, password: str | None = None) -> None:
     register_user(username, hashed)
 
 
-async def _main(username: str, session: str) -> None:
+async def _main(username: str, session: str, cfg) -> None:
     import datetime
     # document = await agent.upload_document("test.py", user="test_user", session="test_session")
     # print("Document uploaded:", document)
@@ -39,7 +40,7 @@ async def _main(username: str, session: str) -> None:
 
     # ensure_user(username, password)
 
-    async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
+    async with agent.TeamChatSession(user=username, session=session, think=False, config=cfg) as chat:
         # dir = chat.upload_document("test.txt")
         
         # async for resp in chat.send_notification_stream(f"Uploaded to {dir}"):
@@ -59,9 +60,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Sample chat with authentication")
     parser.add_argument("--user", default="test_user", help="Username")
     parser.add_argument("--session", default="test_session", help="Session name")
+    parser.add_argument("--vm-image", help="Docker image for the VM")
+    parser.add_argument(
+        "--vm-container-template",
+        help="Format string for container names",
+    )
     args = parser.parse_args()
 
-    asyncio.run(_main(args.user, args.session))
+    cfg = DEFAULT_CONFIG
+    if args.vm_image:
+        cfg = replace(cfg, vm_image=args.vm_image)
+    if args.vm_container_template:
+        cfg = replace(cfg, vm_container_template=args.vm_container_template)
+
+    asyncio.run(_main(args.user, args.session, cfg))
 
 
 if __name__ == "__main__":
