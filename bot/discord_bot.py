@@ -359,37 +359,6 @@ class DiscordTeamBot(commands.Bot):
                     )
                     continue
 
-                remote_path = self._extract_result_path(msg)
-                if remote_path and not Path(remote_path).is_file():
-                    try:
-                        dl_path = await self._client.download_file(
-                            remote_path,
-                            user=conn._user,
-                            session=conn._session,
-                            think=False,
-                        )
-                        f_path = Path(dl_path)
-                        data = f_path.read_bytes()
-                        try:
-                            f_path.unlink()
-                        except Exception:
-                            pass
-
-                        if buffer:
-                            text = "".join(buffer).strip()
-                            if text:
-                                await channel.send(text)
-                            buffer.clear()
-                            last_send = asyncio.get_running_loop().time()
-
-                        await channel.send(
-                            content=f"Returned file: {f_path.name}",
-                            file=discord.File(BytesIO(data), filename=f_path.name),
-                        )
-                        continue
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.error("Failed to download %s: %s", remote_path, exc)
-
                 buffer.append(msg)
                 now = asyncio.get_running_loop().time()
                 if now - last_send > 0.5:
@@ -441,16 +410,6 @@ class DiscordTeamBot(commands.Bot):
                 return path.name, data
         return None
 
-    def _extract_result_path(self, msg: str) -> str | None:
-        """Return ``result`` path from ``msg`` if present."""
-
-        try:
-            payload = json.loads(msg)
-        except json.JSONDecodeError:
-            return None
-        if isinstance(payload, dict) and "result" in payload:
-            return str(payload["result"])
-        return None
 
     async def _get_connection(
         self, user: str, session: str, channel: discord.abc.Messageable

@@ -31,6 +31,7 @@ from ..utils.memory import (
     edit_protected_memory as _edit_protected_memory,
 )
 from ..vm import VMRegistry
+from ..vm.return_watcher import ReturnWatcher
 from ..api import _copy_to_vm_and_verify
 
 from .state import SessionState, get_state
@@ -96,7 +97,7 @@ class ChatSession:
         self._notification_queue: asyncio.Queue[str] = asyncio.Queue()
         self._user_notification_queue: asyncio.Queue[str] = asyncio.Queue()
         self._notification_task: asyncio.Task | None = None
-        self._return_watcher_task: asyncio.Task | None = None
+        self._return_watcher: ReturnWatcher | None = None
 
     # ------------------------------------------------------------------
     def _apply_memory(self, prompt: str) -> str:
@@ -148,7 +149,13 @@ class ChatSession:
         self._vm = VMRegistry.acquire(self._user.username, config=self._config)
         set_vm(self._vm)
         self._notification_task = asyncio.create_task(self._monitor_notifications())
-        self._return_watcher_task = asyncio.create_task(self._watch_return_dir())
+        self._return_watcher = ReturnWatcher(
+            self._vm.return_queue_dir,
+            self._vm.return_dir,
+            self._handle_return_file,
+            interval=self._config.notification_poll_interval,
+        )
+        await self._return_watcher.start()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -160,10 +167,9 @@ class ChatSession:
             self._notification_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._notification_task
-        if self._return_watcher_task and not self._return_watcher_task.done():
-            self._return_watcher_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await self._return_watcher_task
+        if self._return_watcher is not None:
+            await self._return_watcher.stop()
+            self._return_watcher = None
         db.close()
 
     # ------------------------------------------------------------------
@@ -444,7 +450,6 @@ class ChatSession:
             return []
 
         notes = self._vm.fetch_notifications()
-        returned = self._vm.fetch_returned_files()
         parts: list[str] = []
 
         for n in notes:
@@ -453,16 +458,8 @@ class ChatSession:
                 await self._user_notification_queue.put(n)
             parts.append(n)
 
-        for name, data in returned:
-            encoded = base64.b64encode(data).decode()
-            payload = json.dumps({"returned_file": name, "data": encoded})
-            await self._notification_queue.put(payload)
-            if for_user:
-                await self._user_notification_queue.put(payload)
-            parts.append(payload)
-
         if (
-            (notes or returned)
+            notes
             and self._state == "idle"
             and self._prompt_queue.empty()
             and (not self._worker or self._worker.done())
@@ -484,28 +481,12 @@ class ChatSession:
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
-    async def _watch_return_dir(self) -> None:
-        """Monitor the VM return queue and forward new files."""
-        if self._vm is None:
-            return
+    async def _handle_return_file(self, name: str, data: bytes) -> None:
+        encoded = base64.b64encode(data).decode()
+        payload = json.dumps({"returned_file": name, "data": encoded})
+        await self._notification_queue.put(payload)
+        await self._user_notification_queue.put(payload)
 
-        try:
-            from watchfiles import awatch  # type: ignore
-        except Exception:  # pragma: no cover - missing dependency
-            _LOG.warning("watchfiles not available, falling back to polling")
-            try:
-                while True:
-                    await asyncio.sleep(self._config.notification_poll_interval)
-                    await self.poll_notifications(for_user=True)
-            except asyncio.CancelledError:  # pragma: no cover - lifecycle
-                pass
-            return
-
-        try:
-            async for _ in awatch(self._vm.return_queue_dir):
-                await self.poll_notifications(for_user=True)
-        except asyncio.CancelledError:  # pragma: no cover - lifecycle
-            pass
 
     async def _await_tool_and_followup(
         self,
