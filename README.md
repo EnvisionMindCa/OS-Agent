@@ -188,7 +188,7 @@ Adjust these variables in your environment or `.env` file.
 
 ## Docker VM
 
-Each user receives a dedicated Docker container. Files uploaded through the API are mounted at `/data` in the container and persist according to `VM_STATE_DIR`. Commands are executed with `execute_terminal` which streams output back to the model.
+Each user receives a dedicated Docker container. Files uploaded through the API are mounted at `/data` in the container and persist according to `VM_STATE_DIR`. Commands are executed exclusively inside this container using `execute_terminal` which streams output back to the model. Local command execution is not supported, so a running VM must be active whenever tools are used.
 
 
 ## TODO

@@ -10,8 +10,6 @@ __all__ = [
     "create_memory_tool",
 ]
 
-import subprocess
-import os
 from typing import Optional, AsyncIterator
 import asyncio
 from functools import partial
@@ -63,34 +61,20 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
     The command is executed with network access enabled. Output from
     ``stdout`` and ``stderr`` is captured when the command completes.
     Execution happens asynchronously so the assistant can continue
-    responding while the command runs.
+    responding while the command runs. A running :class:`~agent.vm.LinuxVM`
+    must be registered via :func:`set_vm` before calling this function.
     """
     if not command:
         return "No command provided."
 
-    if _VM:
-        try:
-            output = _VM.execute(command, timeout=None, stdin_data=stdin_data)
-            return limit_chars(output)
-        except Exception as exc:  # pragma: no cover - unforeseen errors
-            return f"Failed to execute command in VM: {exc}"
+    if not _VM:
+        raise RuntimeError("No active VM for command execution")
 
     try:
-        completed = subprocess.run(
-            command,
-            shell=True,
-            input=stdin_data,
-            capture_output=True,
-            text=isinstance(stdin_data, str),
-            env=os.environ.copy(),
-            timeout=None,
-        )
-        output = completed.stdout
-        if completed.stderr:
-            output = f"{output}\n{completed.stderr}" if output else completed.stderr
+        output = _VM.execute(command, timeout=None, stdin_data=stdin_data)
         return limit_chars(output)
     except Exception as exc:  # pragma: no cover - unforeseen errors
-        return f"Failed to execute command: {exc}"
+        return f"Failed to execute command in VM: {exc}"
 
 
 async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
@@ -107,23 +91,26 @@ async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None
     The command is executed with network access enabled. Output from
     ``stdout`` and ``stderr`` is captured when the command completes.
     Execution happens asynchronously so the assistant can continue
-    responding while the command runs.
+    responding while the command runs. A running :class:`~agent.vm.LinuxVM`
+    must be registered via :func:`set_vm` before calling this function.
     """
-    if _VM:
-        try:
-            return await _VM.shell_execute(command)
-        except Exception as exc:  # pragma: no cover - unforeseen errors
-            return f"Failed to execute command in VM: {exc}"
+    if not _VM:
+        raise RuntimeError("No active VM for command execution")
 
-    loop = asyncio.get_running_loop()
-    func = partial(execute_terminal, command, stdin_data=stdin_data)
-    return await loop.run_in_executor(None, func)
+    try:
+        return await _VM.shell_execute(command)
+    except Exception as exc:  # pragma: no cover - unforeseen errors
+        return f"Failed to execute command in VM: {exc}"
 
 
 async def execute_terminal_stream(command: str) -> AsyncIterator[str]:
-    """Stream output from ``command`` executed in the persistent VM shell."""
+    """Stream output from ``command`` executed in the persistent VM shell.
+
+    A running :class:`~agent.vm.LinuxVM` must be registered via
+    :func:`set_vm` before calling this function.
+    """
     if not _VM:
-        raise RuntimeError("No active VM")
+        raise RuntimeError("No active VM for command execution")
     async for part in _VM.shell_execute_stream(command):
         yield part
 
