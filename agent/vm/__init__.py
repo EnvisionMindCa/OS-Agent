@@ -158,6 +158,12 @@ class LinuxVM:
         async for part in shell.execute_stream(command):
             yield part
 
+    async def shell_send_input(self, data: str | bytes) -> None:
+        """Forward ``data`` to the persistent shell's stdin."""
+
+        shell = self._ensure_shell()
+        await shell.send_input(data)
+
     def execute(
         self,
         command: str,

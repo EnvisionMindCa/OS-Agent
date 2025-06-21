@@ -11,7 +11,7 @@ import base64
 import json
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable, Tuple, List
+from typing import Iterable, Tuple, List, Set
 import mimetypes
 
 import discord
@@ -35,6 +35,7 @@ class DiscordTeamBot(commands.Bot):
         port = int(os.getenv("WS_API_PORT", 8765))
         self._client = WSApiClient(host=host, port=port)
         self._connections: dict[tuple[str, str], WSConnection] = {}
+        self._awaiting_input: set[tuple[str, str]] = set()
         self._register_commands()
 
     async def close(self) -> None:  # noqa: D401 - callback signature
@@ -64,6 +65,18 @@ class DiscordTeamBot(commands.Bot):
 
         user = str(message.author.id)
         session_id = str(message.channel.id)
+
+        key = (user, session_id)
+        if key in self._awaiting_input:
+            conn = await self._get_connection(user, session_id, message.channel)
+            try:
+                await conn.send_input(message.content + "\n")
+            except Exception as exc:
+                self._log.error("Failed to send VM input: %s", exc)
+                await message.reply(f"Error: {exc}", mention_author=False)
+            finally:
+                self._awaiting_input.discard(key)
+            return
 
         docs = await self._handle_attachments(
             message.attachments,
@@ -341,6 +354,7 @@ class DiscordTeamBot(commands.Bot):
     ) -> None:
         buffer: list[str] = []
         last_send = asyncio.get_running_loop().time()
+        key = (conn.user, conn.session)
         try:
             async for msg in conn:
                 file_payload = self._parse_returned_file(msg)
@@ -357,6 +371,18 @@ class DiscordTeamBot(commands.Bot):
                         content=f"Returned file: {name}",
                         file=discord.File(BytesIO(data), filename=name),
                     )
+                    continue
+
+                prompt = self._parse_stdin_request(msg)
+                if prompt is not None:
+                    if buffer:
+                        text = "".join(buffer).strip()
+                        if text:
+                            await channel.send(text)
+                        buffer.clear()
+                        last_send = asyncio.get_running_loop().time()
+                    await channel.send(prompt)
+                    self._awaiting_input.add(key)
                     continue
 
                 buffer.append(msg)
@@ -408,6 +434,17 @@ class DiscordTeamBot(commands.Bot):
                 except Exception as exc:  # pragma: no cover - runtime errors
                     self._log.warning("Failed to delete returned file %s: %s", path, exc)
                 return path.name, data
+        return None
+
+    def _parse_stdin_request(self, msg: str) -> str | None:
+        """Return prompt text if ``msg`` requests additional input."""
+
+        try:
+            payload = json.loads(msg)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, dict) and "stdin_request" in payload:
+            return str(payload["stdin_request"])
         return None
 
 

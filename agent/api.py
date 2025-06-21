@@ -23,6 +23,7 @@ __all__ = [
     "download_file",
     "vm_execute",
     "vm_execute_stream",
+    "vm_send_input",
     "send_notification",
 ]
 
@@ -161,6 +162,22 @@ async def vm_execute_stream(
         VMRegistry.release(user)
 
 
+async def vm_send_input(
+    data: str | bytes,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> None:
+    """Forward ``data`` to the user's running VM shell."""
+
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        await vm.shell_send_input(data)
+    finally:
+        VMRegistry.release(user)
+
+
 async def list_dir(
     path: str,
     *,
@@ -206,7 +223,7 @@ async def write_file(
     encoded = base64.b64encode(content.encode()).decode()
     cmd = (
         "python -c 'import base64,os; "
-        f"open({json.dumps(path)}, \"wb\").write(base64.b64decode({json.dumps(encoded)}))'"
+        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
     )
     await vm_execute(cmd, user=user, config=config)
     return "Saved"
@@ -263,4 +280,3 @@ def send_notification(
         vm.post_notification(str(message))
     finally:
         VMRegistry.release(user)
-
