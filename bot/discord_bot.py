@@ -8,6 +8,8 @@ import os
 import shutil
 import tempfile
 import base64
+import json
+from io import BytesIO
 from pathlib import Path
 from typing import Iterable, Tuple, List
 import mimetypes
@@ -339,9 +341,38 @@ class DiscordTeamBot(commands.Bot):
     ) -> None:
         try:
             async for msg in conn:
-                await channel.send(msg)
+                file_payload = self._parse_returned_file(msg)
+                if file_payload:
+                    name, data = file_payload
+                    await channel.send(
+                        content=f"Returned file: {name}",
+                        file=discord.File(BytesIO(data), filename=name),
+                    )
+                else:
+                    await channel.send(msg)
         except Exception as exc:  # pragma: no cover - runtime errors
             self._log.error("WebSocket error: %s", exc)
+
+    def _parse_returned_file(self, msg: str) -> tuple[str, bytes] | None:
+        """Return file name and bytes if ``msg`` encodes a returned file."""
+
+        try:
+            payload = json.loads(msg)
+        except json.JSONDecodeError:
+            return None
+        if (
+            isinstance(payload, dict)
+            and "returned_file" in payload
+            and "data" in payload
+        ):
+            name = str(payload["returned_file"])
+            try:
+                data = base64.b64decode(payload["data"])
+            except Exception as exc:  # pragma: no cover - runtime errors
+                self._log.error("Failed to decode returned file %s: %s", name, exc)
+                return None
+            return name, data
+        return None
 
     async def _get_connection(
         self, user: str, session: str, channel: discord.abc.Messageable
