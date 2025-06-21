@@ -86,6 +86,10 @@ class PersistentShell:
             return True
         if s.endswith(":") and "password" in s:
             return True
+        if s.endswith(":") and "://" not in s:
+            return True
+        if s.endswith(">"):
+            return True
         return False
 
     async def execute_stream(self, command: str) -> AsyncIterator[str]:
