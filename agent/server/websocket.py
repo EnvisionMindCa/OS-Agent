@@ -4,6 +4,7 @@ import asyncio
 from contextlib import suppress
 from urllib.parse import parse_qs, urlparse
 import json
+from pathlib import Path
 
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
@@ -36,8 +37,18 @@ class StreamingTeamChatSession(TeamChatSession):
                 if self._vm is None:
                     continue
                 notes = self._vm.fetch_notifications()
-                for note in notes:
-                    async for part in self.send_notification_stream(note):
+                returned = self._vm.fetch_returned_files()
+                for n in notes:
+                    await self._notification_queue.put(n)
+                for r in returned:
+                    await self._notification_queue.put(f"File returned: {Path(r).name}")
+                if (
+                    (notes or returned)
+                    and self._state == "idle"
+                    and self._prompt_queue.empty()
+                    and (not self._worker or self._worker.done())
+                ):
+                    async for part in self._deliver_notifications_stream():
                         await self._out_q.put(part)
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
