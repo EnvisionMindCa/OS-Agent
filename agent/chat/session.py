@@ -95,6 +95,7 @@ class ChatSession:
         self._worker: asyncio.Task | None = None
         self._notification_queue: asyncio.Queue[str] = asyncio.Queue()
         self._notification_task: asyncio.Task | None = None
+        self._return_watcher_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------------
     def _apply_memory(self, prompt: str) -> str:
@@ -146,6 +147,7 @@ class ChatSession:
         self._vm = VMRegistry.acquire(self._user.username, config=self._config)
         set_vm(self._vm)
         self._notification_task = asyncio.create_task(self._monitor_notifications())
+        self._return_watcher_task = asyncio.create_task(self._watch_return_dir())
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -157,6 +159,10 @@ class ChatSession:
             self._notification_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._notification_task
+        if self._return_watcher_task and not self._return_watcher_task.done():
+            self._return_watcher_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._return_watcher_task
         db.close()
 
     # ------------------------------------------------------------------
@@ -467,6 +473,18 @@ class ChatSession:
         try:
             while True:
                 await asyncio.sleep(self._config.notification_poll_interval)
+                await self.poll_notifications()
+        except asyncio.CancelledError:  # pragma: no cover - lifecycle
+            pass
+
+    async def _watch_return_dir(self) -> None:
+        """Watch the VM return queue and relay new files immediately."""
+        if self._vm is None:
+            return
+
+        try:
+            from watchfiles import awatch
+            async for _ in awatch(self._vm.return_queue_dir):
                 await self.poll_notifications()
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
