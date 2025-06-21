@@ -387,6 +387,20 @@ class DiscordTeamBot(commands.Bot):
                 self._log.error("Failed to decode returned file %s: %s", name, exc)
                 return None
             return name, data
+
+        if isinstance(payload, dict) and "result" in payload:
+            path = Path(str(payload["result"]))
+            if path.is_file():
+                try:
+                    data = path.read_bytes()
+                except Exception as exc:  # pragma: no cover - runtime errors
+                    self._log.error("Failed to read returned file %s: %s", path, exc)
+                    return None
+                try:
+                    path.unlink()
+                except Exception as exc:  # pragma: no cover - runtime errors
+                    self._log.warning("Failed to delete returned file %s: %s", path, exc)
+                return path.name, data
         return None
 
     async def _get_connection(
