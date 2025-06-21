@@ -19,6 +19,7 @@ VM_STATE_DIR: Final[str] = os.getenv(
 )
 VM_DOCKER_HOST: Final[str | None] = os.getenv("VM_DOCKER_HOST")
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
+RETURN_DIR: Final[str] = os.getenv("RETURN_DIR", str(Path.cwd() / "returns"))
 _timeout_env = os.getenv("HARD_TIMEOUT")
 HARD_TIMEOUT: Final[int | None] = int(_timeout_env) if _timeout_env else None
 LOG_LEVEL: Final[str] = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -48,6 +49,7 @@ Your mission is to fulfil the user's request completely while sounding like a fr
 4. **Verify each result** - rerun checks or commands to ensure the outcome is correct before moving on.
 5. **Persist knowledge** with `manage_memory` whenever you discover new, durable facts about the user or environment.
 6. **Recycle agents** - discard helper agents once they've completed their task to keep your team lean and efficient.
+7. **Return files** - move any file you want to share with the user into `/return`. It will be transferred automatically and removed from that directory. Use `download_file` to copy files on demand.
 
 🚦 Hard-stop Rules
 * Do **not** stop calling tools or present an answer until every subtask has been executed **and** verified as successful.  
@@ -159,6 +161,7 @@ class Config:
     max_tool_call_depth: int = MAX_TOOL_CALL_DEPTH
     num_ctx: int = NUM_CTX
     upload_dir: str = UPLOAD_DIR
+    return_dir: str = RETURN_DIR
     vm_image: str = VM_IMAGE
     persist_vms: bool = PERSIST_VMS
     vm_state_dir: str = VM_STATE_DIR
@@ -195,6 +198,7 @@ __all__ = [
     "VM_STATE_DIR",
     "VM_DOCKER_HOST",
     "DB_PATH",
+    "RETURN_DIR",
     "HARD_TIMEOUT",
     "LOG_LEVEL",
     "SECRET_KEY",

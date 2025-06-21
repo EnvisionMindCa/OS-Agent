@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import asyncio
 from typing import AsyncIterator
+import shutil
 import os
 import datetime
 from functools import partial
@@ -51,6 +52,10 @@ class LinuxVM:
         self._state_dir.mkdir(parents=True, exist_ok=True)
         self._notifications_dir = self._state_dir / "notifications"
         self._notifications_dir.mkdir(parents=True, exist_ok=True)
+        self._return_queue_dir = self._state_dir / "return"
+        self._return_queue_dir.mkdir(parents=True, exist_ok=True)
+        self._return_dir = (Path(config.return_dir) / _sanitize(username)).resolve()
+        self._return_dir.mkdir(parents=True, exist_ok=True)
         self._env = {}
         if config.vm_docker_host:
             _LOG.debug("Using custom Docker host: %s", config.vm_docker_host)
@@ -60,6 +65,10 @@ class LinuxVM:
     @property
     def persist_vms(self) -> bool:
         return self.config.persist_vms
+
+    @property
+    def return_dir(self) -> Path:
+        return self._return_dir
 
     def start(self) -> None:
         """Start the VM if it is not already running."""
@@ -107,6 +116,8 @@ class LinuxVM:
                     f"{self._host_dir}:/data",
                     "-v",
                     f"{self._state_dir}:/state",
+                    "-v",
+                    f"{self._return_queue_dir}:/return",
                     self._image,
                     "sleep",
                     "infinity",
@@ -236,6 +247,38 @@ class LinuxVM:
         except Exception as exc:  # pragma: no cover - runtime errors
             _LOG.error("Failed to copy %s to VM: %s", local_path, exc)
             raise RuntimeError(f"Failed to copy {local_path} to VM: {exc}") from exc
+
+    def copy_from_vm(self, src_path: str, dest_path: Path) -> None:
+        """Copy ``src_path`` from the container to ``dest_path`` on the host."""
+
+        self.start()
+        try:
+            subprocess.run(
+                ["docker", "cp", f"{self._name}:{src_path}", str(dest_path)],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=self._env if self._env else None,
+            )
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.error("Failed to copy %s from VM: %s", src_path, exc)
+            raise RuntimeError(f"Failed to copy {src_path} from VM: {exc}") from exc
+
+    def fetch_returned_files(self) -> list[Path]:
+        """Move queued return files to the final directory and return paths."""
+
+        files: list[Path] = []
+        for p in sorted(self._return_queue_dir.glob("*")):
+            if not p.is_file():
+                continue
+            dest = self._return_dir / p.name
+            try:
+                shutil.move(str(p), dest)
+                files.append(dest)
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.error("Failed to move returned file %s: %s", p, exc)
+        return files
 
     def post_notification(self, message: str) -> None:
         """Store ``message`` in the VM's notification queue."""

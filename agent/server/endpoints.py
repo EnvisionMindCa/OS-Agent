@@ -20,6 +20,7 @@ from ..simple import (
     read_file,
     write_file,
     delete_path,
+    download_file,
     vm_execute,
     vm_execute_stream,
     send_notification,
@@ -149,6 +150,20 @@ async def _delete_path_handler(
     yield json.dumps({"result": result})
 
 
+async def _download_file_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    path = str(params["path"])
+    dest = params.get("dest")
+    result = await download_file(path, user=user, dest=dest, config=config)
+    yield json.dumps({"result": result})
+
+
 async def _vm_execute_handler(
     params: dict[str, Any],
     user: str,
@@ -200,6 +215,7 @@ _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "read_file": _read_file_handler,
     "write_file": _write_file_handler,
     "delete_path": _delete_path_handler,
+    "download_file": _download_file_handler,
     "vm_execute": _vm_execute_handler,
     "vm_execute_stream": _vm_execute_stream_handler,
     "send_notification": _send_notification_handler,

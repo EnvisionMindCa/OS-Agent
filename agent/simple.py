@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import AsyncIterator, Iterable
+from pathlib import Path
 import base64
 import json
 import shlex
@@ -19,6 +20,7 @@ __all__ = [
     "read_file",
     "write_file",
     "delete_path",
+    "download_file",
     "vm_execute",
     "vm_execute_stream",
     "send_notification",
@@ -196,6 +198,27 @@ async def delete_path(
         f"else echo File not found; fi'"
     )
     return await vm_execute(cmd, user=user, config=config)
+
+
+async def download_file(
+    path: str,
+    *,
+    user: str = "default",
+    dest: str | None = None,
+    config: Config | None = None,
+) -> str:
+    """Copy ``path`` from the VM to ``dest`` and return the destination."""
+
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        target_dir = Path(dest or cfg.return_dir) / user
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / Path(path).name
+        vm.copy_from_vm(path, target)
+        return str(target)
+    finally:
+        VMRegistry.release(user)
 
 
 def send_notification(
