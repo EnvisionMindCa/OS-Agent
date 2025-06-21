@@ -7,7 +7,7 @@ import shlex
 
 from .sessions.solo import SoloChatSession
 from .sessions.team import TeamChatSession
-from .config import Config
+from .config import Config, DEFAULT_CONFIG
 from .vm import VMRegistry
 
 __all__ = [
@@ -107,9 +107,11 @@ async def vm_execute(
     *,
     user: str = "default",
     timeout: int | None = None,
+    config: Config | None = None,
 ) -> str:
     """Execute ``command`` inside ``user``'s VM and return the output."""
-    vm = VMRegistry.acquire(user)
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
     try:
         return await vm.execute_async(command, timeout=timeout)
     finally:
@@ -120,10 +122,12 @@ async def vm_execute_stream(
     command: str,
     *,
     user: str = "default",
+    config: Config | None = None,
 ) -> AsyncIterator[str]:
     """Yield incremental output from ``command`` executed in ``user``'s VM."""
 
-    vm = VMRegistry.acquire(user)
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
     try:
         async for part in vm.shell_execute_stream(command):
             yield part
@@ -131,9 +135,14 @@ async def vm_execute_stream(
         VMRegistry.release(user)
 
 
-async def list_dir(path: str, *, user: str = "default") -> Iterable[tuple[str, bool]]:
+async def list_dir(
+    path: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> Iterable[tuple[str, bool]]:
     """Return an iterable of ``(name, is_dir)`` for ``path`` inside the VM."""
-    output = await vm_execute(f"ls -1ap {shlex.quote(path)}", user=user)
+    output = await vm_execute(f"ls -1ap {shlex.quote(path)}", user=user, config=config)
     if output.startswith("ls:"):
         return []
     rows = []
@@ -147,36 +156,58 @@ async def list_dir(path: str, *, user: str = "default") -> Iterable[tuple[str, b
     return rows
 
 
-async def read_file(path: str, *, user: str = "default") -> str:
+async def read_file(
+    path: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> str:
     """Return the contents of ``path`` from the VM."""
-    return await vm_execute(f"cat {shlex.quote(path)}", user=user)
+    return await vm_execute(f"cat {shlex.quote(path)}", user=user, config=config)
 
 
-async def write_file(path: str, content: str, *, user: str = "default") -> str:
+async def write_file(
+    path: str,
+    content: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> str:
     """Write ``content`` to ``path`` inside the VM."""
     encoded = base64.b64encode(content.encode()).decode()
     cmd = (
         "python -c 'import base64,os; "
         f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
     )
-    await vm_execute(cmd, user=user)
+    await vm_execute(cmd, user=user, config=config)
     return "Saved"
 
 
-async def delete_path(path: str, *, user: str = "default") -> str:
+async def delete_path(
+    path: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> str:
     """Delete a file or directory at ``path`` inside the VM."""
     cmd = (
         f"bash -c 'if [ -d {shlex.quote(path)} ]; then rm -rf {shlex.quote(path)} && echo Deleted; "
         f"elif [ -e {shlex.quote(path)} ]; then rm -f {shlex.quote(path)} && echo Deleted; "
         f"else echo File not found; fi'"
     )
-    return await vm_execute(cmd, user=user)
+    return await vm_execute(cmd, user=user, config=config)
 
 
-def send_notification(message: str, *, user: str = "default") -> None:
+def send_notification(
+    message: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+) -> None:
     """Post ``message`` to ``user``'s notification queue."""
 
-    vm = VMRegistry.acquire(user)
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
     try:
         vm.post_notification(str(message))
     finally:

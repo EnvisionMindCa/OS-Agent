@@ -141,7 +141,7 @@ class ChatSession:
         self._think = value
 
     async def __aenter__(self) -> "ChatSession":
-        self._vm = VMRegistry.acquire(self._user.username)
+        self._vm = VMRegistry.acquire(self._user.username, config=self._config)
         set_vm(self._vm)
         self._notification_task = asyncio.create_task(self._monitor_notifications())
         return self

@@ -105,7 +105,7 @@ async def _list_dir_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     path = str(params["path"])
-    listing = await list_dir(path, user=user)
+    listing = await list_dir(path, user=user, config=config)
     yield json.dumps({"result": list(listing)})
 
 
@@ -118,7 +118,7 @@ async def _read_file_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     path = str(params["path"])
-    content = await read_file(path, user=user)
+    content = await read_file(path, user=user, config=config)
     yield json.dumps({"result": content})
 
 
@@ -132,7 +132,7 @@ async def _write_file_handler(
 ) -> AsyncIterator[str]:
     path = str(params["path"])
     content = str(params.get("content", ""))
-    result = await write_file(path, content, user=user)
+    result = await write_file(path, content, user=user, config=config)
     yield json.dumps({"result": result})
 
 
@@ -145,7 +145,7 @@ async def _delete_path_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     path = str(params["path"])
-    result = await delete_path(path, user=user)
+    result = await delete_path(path, user=user, config=config)
     yield json.dumps({"result": result})
 
 
@@ -161,7 +161,7 @@ async def _vm_execute_handler(
     timeout = params.get("timeout")
     if timeout is not None:
         timeout = int(timeout)
-    result = await vm_execute(cmd, user=user, timeout=timeout)
+    result = await vm_execute(cmd, user=user, timeout=timeout, config=config)
     yield json.dumps({"result": result})
 
 
@@ -174,7 +174,7 @@ async def _vm_execute_stream_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     cmd = str(params["command"])
-    async for part in vm_execute_stream(cmd, user=user):
+    async for part in vm_execute_stream(cmd, user=user, config=config):
         yield part
 
 
@@ -187,7 +187,7 @@ async def _send_notification_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     message = str(params["message"])
-    send_notification(message, user=user)
+    send_notification(message, user=user, config=config)
     yield json.dumps({"result": "ok"})
 
 
