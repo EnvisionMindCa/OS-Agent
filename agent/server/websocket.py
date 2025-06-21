@@ -4,6 +4,7 @@ import asyncio
 from contextlib import suppress
 from urllib.parse import parse_qs, urlparse
 import json
+import base64
 from pathlib import Path
 
 from websockets.exceptions import ConnectionClosed
@@ -41,7 +42,18 @@ class StreamingTeamChatSession(TeamChatSession):
                 for n in notes:
                     await self._notification_queue.put(n)
                 for r in returned:
-                    await self._notification_queue.put(f"File returned: {Path(r).name}")
+                    try:
+                        data = r.read_bytes()
+                        encoded = base64.b64encode(data).decode()
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        self._log.error("Failed to read returned file %s: %s", r, exc)
+                        continue
+                    try:
+                        r.unlink()
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        self._log.warning("Failed to delete returned file %s: %s", r, exc)
+                    payload = json.dumps({"returned_file": r.name, "data": encoded})
+                    await self._notification_queue.put(payload)
                 if (
                     (notes or returned)
                     and self._state == "idle"
