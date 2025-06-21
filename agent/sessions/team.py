@@ -147,12 +147,32 @@ class TeamChatSession(ChatSession):
             return f"Agent {name} not found"
         return await agent.queue_message(message, enqueue=enqueue)
 
-    async def _deliver_agent_messages(self) -> None:
+    async def _flush_agent_messages(self) -> bool:
+        """Return ``True`` if any queued mini-agent messages were written."""
+
+        delivered = False
         while not self._to_master.empty():
             name, msg = await self._to_master.get()
             self._add_tool_message(
-                self._conversation, self._messages, name, msg
+                self._conversation,
+                self._messages,
+                name,
+                msg,
             )
+            delivered = True
+        return delivered
+
+    async def _deliver_agent_messages(self) -> None:
+        await self._flush_agent_messages()
+
+    async def poll_agent_messages(self) -> list[str]:
+        """Check for mini-agent replies and return assistant output."""
+
+        parts: list[str] = []
+        if await self._flush_agent_messages():
+            async for part in self.continue_stream():
+                parts.append(part)
+        return parts
 
     async def _destroy_agents(self) -> None:
         for name, agent in list(self._agents.items()):

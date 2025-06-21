@@ -116,6 +116,8 @@ class AgentWebSocketServer:
     async def _send_notifications(self, chat: TeamChatSession, out_q: asyncio.Queue[str]) -> None:
         for part in await chat.poll_notifications():
             await out_q.put(part)
+        for part in await chat.poll_agent_messages():
+            await out_q.put(part)
 
 
 __all__ = ["AgentWebSocketServer"]
