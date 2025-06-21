@@ -485,12 +485,23 @@ class ChatSession:
             pass
 
     async def _watch_return_dir(self) -> None:
-        """Watch the VM return queue and relay new files immediately."""
+        """Monitor the VM return queue and forward new files."""
         if self._vm is None:
             return
 
         try:
-            from watchfiles import awatch
+            from watchfiles import awatch  # type: ignore
+        except Exception:  # pragma: no cover - missing dependency
+            _LOG.warning("watchfiles not available, falling back to polling")
+            try:
+                while True:
+                    await asyncio.sleep(self._config.notification_poll_interval)
+                    await self.poll_notifications(for_user=True)
+            except asyncio.CancelledError:  # pragma: no cover - lifecycle
+                pass
+            return
+
+        try:
             async for _ in awatch(self._vm.return_queue_dir):
                 await self.poll_notifications(for_user=True)
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
