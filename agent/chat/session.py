@@ -94,6 +94,7 @@ class ChatSession:
         ] = asyncio.Queue()
         self._worker: asyncio.Task | None = None
         self._notification_queue: asyncio.Queue[str] = asyncio.Queue()
+        self._user_notification_queue: asyncio.Queue[str] = asyncio.Queue()
         self._notification_task: asyncio.Task | None = None
         self._return_watcher_task: asyncio.Task | None = None
 
@@ -429,8 +430,15 @@ class ChatSession:
             async for part in self.continue_stream():
                 yield part
 
-    async def poll_notifications(self) -> list[str]:
-        """Check for VM notifications and returned files."""
+    async def poll_notifications(self, *, for_user: bool = False) -> list[str]:
+        """Check for VM notifications and returned files.
+
+        Parameters
+        ----------
+        for_user:
+            When ``True``, queue notifications for delivery to the client in
+            addition to the agent.
+        """
 
         if self._vm is None:
             return []
@@ -441,6 +449,8 @@ class ChatSession:
 
         for n in notes:
             await self._notification_queue.put(n)
+            if for_user:
+                await self._user_notification_queue.put(n)
             parts.append(n)
 
         for r in returned:
@@ -456,6 +466,8 @@ class ChatSession:
                 _LOG.warning("Failed to delete returned file %s: %s", r, exc)
             payload = json.dumps({"returned_file": r.name, "data": encoded})
             await self._notification_queue.put(payload)
+            if for_user:
+                await self._user_notification_queue.put(payload)
             parts.append(payload)
 
         if (
@@ -467,13 +479,17 @@ class ChatSession:
             async for part in self._deliver_notifications():
                 parts.append(part)
 
+        if for_user:
+            while not self._user_notification_queue.empty():
+                parts.append(await self._user_notification_queue.get())
+
         return parts
 
     async def _monitor_notifications(self) -> None:
         try:
             while True:
                 await asyncio.sleep(self._config.notification_poll_interval)
-                await self.poll_notifications()
+                await self.poll_notifications(for_user=False)
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
@@ -485,7 +501,7 @@ class ChatSession:
         try:
             from watchfiles import awatch
             async for _ in awatch(self._vm.return_queue_dir):
-                await self.poll_notifications()
+                await self.poll_notifications(for_user=True)
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
