@@ -368,7 +368,7 @@ class ChatSession:
             think=think,
             tools=self._tools,
             keep_alive=-1,
-            options={"num_ctx": self._config.num_ctx, "temperature": 0.01},
+            options={"num_ctx": self._config.num_ctx, "temperature": 0},
         )
 
     async def _run_tool_async(self, func, **kwargs) -> str:
