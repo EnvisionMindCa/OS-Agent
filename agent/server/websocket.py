@@ -5,7 +5,6 @@ from contextlib import suppress
 from urllib.parse import parse_qs, urlparse
 import json
 import base64
-from pathlib import Path
 
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
@@ -45,15 +44,22 @@ class StreamingTeamChatSession(TeamChatSession):
                     try:
                         data = r.read_bytes()
                         encoded = base64.b64encode(data).decode()
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.error("Failed to read returned file %s: %s", r, exc)
+                    except Exception as exc:  # pragma: no cover
+                        self._log.error(
+                            "Failed to read returned file %s: %s", r, exc
+                        )
                         continue
                     try:
                         r.unlink()
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        self._log.warning("Failed to delete returned file %s: %s", r, exc)
-                    payload = json.dumps({"returned_file": r.name, "data": encoded})
+                    except Exception as exc:  # pragma: no cover
+                        self._log.warning(
+                            "Failed to delete returned file %s: %s", r, exc
+                        )
+                    payload = json.dumps(
+                        {"returned_file": r.name, "data": encoded}
+                    )
                     await self._notification_queue.put(payload)
+                    await self._out_q.put(payload)
                 if (
                     (notes or returned)
                     and self._state == "idle"
@@ -160,7 +166,9 @@ class AgentWebSocketServer:
         except Exception as exc:  # pragma: no cover - runtime errors
             await out_q.put(json.dumps({"error": str(exc)}))
 
-    async def _sender(self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]) -> None:
+    async def _sender(
+        self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]
+    ) -> None:
         try:
             while True:
                 part = await out_q.get()
@@ -170,4 +178,3 @@ class AgentWebSocketServer:
 
 
 __all__ = ["AgentWebSocketServer"]
-
