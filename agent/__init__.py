@@ -1,6 +1,6 @@
 from .chat import ChatSession
 from .sessions.team import TeamChatSession, set_team
-from .simple import (
+from .api import (
     team_chat,
     upload_document,
     upload_data,

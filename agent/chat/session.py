@@ -24,14 +24,14 @@ from ..utils.logging import get_logger
 from .schema import Msg
 from contextlib import suppress
 
-from ..tools import execute_terminal_async, set_vm, create_memory_tool
+from ..tools import execute_terminal_async, set_vm, create_memory_tool, _VM
 from ..utils.memory import (
     get_memory,
     edit_memory as _edit_memory,
     edit_protected_memory as _edit_protected_memory,
 )
 from ..vm import VMRegistry
-from ..simple import _copy_to_vm_and_verify
+from ..api import _copy_to_vm_and_verify
 
 from .state import SessionState, get_state
 from .messages import (
@@ -149,7 +149,8 @@ class ChatSession:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        set_vm(None)
+        if _VM is self._vm:
+            set_vm(None)
         if self._vm:
             VMRegistry.release(self._user.username)
         if self._notification_task and not self._notification_task.done():
