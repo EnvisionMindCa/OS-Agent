@@ -11,7 +11,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
 import json
 import base64
 
-from ..simple import (
+from ..api import (
     team_chat,
     upload_document,
     upload_data,

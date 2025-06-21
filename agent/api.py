@@ -5,11 +5,10 @@ from pathlib import Path
 import base64
 import json
 import shlex
-
 import shutil
 
 from .config import Config, DEFAULT_CONFIG
-from .vm import VMRegistry
+from .vm import VMRegistry, LinuxVM
 from .db import add_document
 from .utils.logging import get_logger
 
@@ -27,7 +26,6 @@ __all__ = [
     "send_notification",
 ]
 
-
 _LOG = get_logger(__name__)
 
 
@@ -43,9 +41,7 @@ async def _copy_to_vm_and_verify_async(
         raise RuntimeError(f"Failed to verify {dest_path} in VM")
 
 
-def _copy_to_vm_and_verify(
-    vm: LinuxVM, local_path: Path, dest_path: str
-) -> None:
+def _copy_to_vm_and_verify(vm: LinuxVM, local_path: Path, dest_path: str) -> None:
     """Synchronous helper for :func:`_copy_to_vm_and_verify_async`."""
 
     vm.copy_to_vm(local_path, dest_path)
@@ -83,10 +79,8 @@ async def upload_document(
     session: str = "default",
     config: Config | None = None,
 ) -> str:
-    """Upload ``file_path`` for access inside the VM.
+    """Upload ``file_path`` for access inside the VM."""
 
-    The file becomes available under ``/data`` in the VM.
-    """
     cfg = config or DEFAULT_CONFIG
     src = Path(file_path)
     if not src.exists():
@@ -141,6 +135,7 @@ async def vm_execute(
     config: Config | None = None,
 ) -> str:
     """Execute ``command`` inside ``user``'s VM and return the output."""
+
     cfg = config or DEFAULT_CONFIG
     vm = VMRegistry.acquire(user, config=cfg)
     try:
@@ -172,7 +167,8 @@ async def list_dir(
     user: str = "default",
     config: Config | None = None,
 ) -> Iterable[tuple[str, bool]]:
-    """Return an iterable of ``(name, is_dir)`` for ``path`` inside the VM."""
+    """Return ``(name, is_dir)`` tuples for ``path`` inside the VM."""
+
     output = await vm_execute(f"ls -1ap {shlex.quote(path)}", user=user, config=config)
     if output.startswith("ls:"):
         return []
@@ -194,6 +190,7 @@ async def read_file(
     config: Config | None = None,
 ) -> str:
     """Return the contents of ``path`` from the VM."""
+
     return await vm_execute(f"cat {shlex.quote(path)}", user=user, config=config)
 
 
@@ -205,10 +202,11 @@ async def write_file(
     config: Config | None = None,
 ) -> str:
     """Write ``content`` to ``path`` inside the VM."""
+
     encoded = base64.b64encode(content.encode()).decode()
     cmd = (
         "python -c 'import base64,os; "
-        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
+        f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))'"
     )
     await vm_execute(cmd, user=user, config=config)
     return "Saved"
@@ -221,6 +219,7 @@ async def delete_path(
     config: Config | None = None,
 ) -> str:
     """Delete a file or directory at ``path`` inside the VM."""
+
     cmd = (
         f"bash -c 'if [ -d {shlex.quote(path)} ]; then rm -rf {shlex.quote(path)} && echo Deleted; "
         f"elif [ -e {shlex.quote(path)} ]; then rm -f {shlex.quote(path)} && echo Deleted; "
@@ -265,7 +264,3 @@ def send_notification(
     finally:
         VMRegistry.release(user)
 
-
-from .utils.debug import debug_all
-
-debug_all(globals())

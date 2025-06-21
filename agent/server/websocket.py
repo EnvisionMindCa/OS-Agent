@@ -1,115 +1,71 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from contextlib import suppress
 from urllib.parse import parse_qs, urlparse
-import json
-import base64
 
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServer, WebSocketServerProtocol, serve
 
-from ..vm import VMRegistry
-
-from ..sessions.team import TeamChatSession
 from ..config import Config, DEFAULT_CONFIG
+from ..sessions.team import TeamChatSession
+from ..vm import VMRegistry
 from ..utils.logging import get_logger
 from .endpoints import dispatch_command
 
 
-class StreamingTeamChatSession(TeamChatSession):
-    """Team chat session that pushes responses to an output queue."""
-
-    def __init__(
-        self,
-        *,
-        output_queue: asyncio.Queue[str],
-        config: Config | None = None,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(config=config, **kwargs)
-        self._out_q = output_queue
-
-    async def poll_notifications(self) -> list[str]:
-        parts = await super().poll_notifications()
-        for part in parts:
-            await self._out_q.put(part)
-        return parts
-
-    async def _monitor_notifications(self) -> None:
-        try:
-            while True:
-                await asyncio.sleep(self._config.notification_poll_interval)
-                await self.poll_notifications()
-        except asyncio.CancelledError:  # pragma: no cover - lifecycle
-            pass
-
-
 class AgentWebSocketServer:
-    """WebSocket server streaming chat responses and notifications."""
+    """WebSocket server that streams agent responses and VM output."""
 
-    def __init__(
-        self,
-        host: str = "0.0.0.0",
-        port: int = 8765,
-        *,
-        config: Config | None = None,
-    ) -> None:
+    def __init__(self, host: str = "0.0.0.0", port: int = 8765, *, config: Config | None = None) -> None:
         self._host = host
         self._port = port
         self._config = config or DEFAULT_CONFIG
-        self._log = get_logger(__name__)
         self._server: WebSocketServer | None = None
+        self._log = get_logger(__name__)
 
     async def start(self) -> None:
-        """Start accepting websocket connections."""
+        """Start accepting WebSocket connections."""
         self._server = await serve(self._handler, self._host, self._port)
         self._log.info("Server listening on %s:%d", self._host, self._port)
 
     async def stop(self) -> None:
-        """Stop the server, close connections, and cleanup VMs."""
+        """Stop the server and clean up running VMs."""
         if self._server is None:
             return
         self._server.close()
         await self._server.wait_closed()
         VMRegistry.shutdown_all()
 
+    # ---------------------------------------------------------------
     async def _handler(self, ws: WebSocketServerProtocol) -> None:
         params = parse_qs(urlparse(ws.path).query)
         user = params.get("user", ["default"])[0]
         session = params.get("session", ["default"])[0]
-        think_param = params.get("think", ["true"])[0]
-        think = think_param.lower() not in ("false", "0", "no")
+        think_val = params.get("think", ["true"])[0]
+        think = think_val.lower() not in {"false", "0", "no"}
 
         out_q: asyncio.Queue[str] = asyncio.Queue()
-        chat = StreamingTeamChatSession(
-            user=user,
-            session=session,
-            think=think,
-            output_queue=out_q,
-            config=self._config,
-        )
+        chat = TeamChatSession(user=user, session=session, think=think, config=self._config)
         async with chat:
-            await chat.poll_notifications()
-            sender = asyncio.create_task(self._sender(ws, out_q))
+            await self._send_notifications(chat, out_q)
+            tasks = [
+                asyncio.create_task(self._sender(ws, out_q)),
+                asyncio.create_task(self._notification_poller(chat, out_q)),
+            ]
             try:
                 async for message in ws:
-                    await self._process(
-                        chat,
-                        message,
-                        out_q,
-                        user,
-                        session,
-                        think,
-                    )
-                    await chat.poll_notifications()
-            except ConnectionClosed:  # pragma: no cover - client disconnect
+                    await self._process(chat, message, out_q, user, session, think)
+            except ConnectionClosed:
                 pass
             finally:
-                sender.cancel()
+                for t in tasks:
+                    t.cancel()
                 with suppress(asyncio.CancelledError):
-                    await sender
+                    await asyncio.gather(*tasks)
 
+    # ---------------------------------------------------------------
     async def _process(
         self,
         chat: TeamChatSession,
@@ -140,18 +96,26 @@ class AgentWebSocketServer:
                 await out_q.put(part)
         except Exception as exc:  # pragma: no cover - runtime errors
             await out_q.put(json.dumps({"error": str(exc)}))
-        finally:
-            await chat.poll_notifications()
 
-    async def _sender(
-        self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]
-    ) -> None:
+    async def _sender(self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]) -> None:
         try:
             while True:
-                part = await out_q.get()
-                await ws.send(part)
-        except ConnectionClosed:  # pragma: no cover - client disconnect
+                msg = await out_q.get()
+                await ws.send(msg)
+        except ConnectionClosed:
             pass
+
+    async def _notification_poller(self, chat: TeamChatSession, out_q: asyncio.Queue[str]) -> None:
+        try:
+            while True:
+                await asyncio.sleep(self._config.notification_poll_interval)
+                await self._send_notifications(chat, out_q)
+        except asyncio.CancelledError:
+            pass
+
+    async def _send_notifications(self, chat: TeamChatSession, out_q: asyncio.Queue[str]) -> None:
+        for part in await chat.poll_notifications():
+            await out_q.put(part)
 
 
 __all__ = ["AgentWebSocketServer"]
