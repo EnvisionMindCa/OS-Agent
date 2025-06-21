@@ -8,7 +8,6 @@ import shlex
 
 import shutil
 
-from .sessions.team import TeamChatSession
 from .config import Config, DEFAULT_CONFIG
 from .vm import VMRegistry
 from .db import add_document
@@ -65,6 +64,8 @@ async def team_chat(
     config: Config | None = None,
     extra: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
+    from .sessions.team import TeamChatSession
+
     async with TeamChatSession(
         user=user,
         session=session,
