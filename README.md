@@ -121,7 +121,7 @@ include a ``command`` field and optional ``args`` mapping:
 ```
 
 Responses for non-streaming commands are JSON encoded. Streaming commands such
-as ``solo_chat`` send text fragments incrementally.
+as ``team_chat`` send text fragments incrementally.
 
 
 
@@ -129,7 +129,7 @@ as ``solo_chat`` send text fragments incrementally.
 
 The :mod:`agent` package exposes a simple async API:
 
-- `TeamChatSession`, `SoloChatSession` – manage conversations
+- `TeamChatSession` – manage conversations
 - `agent.team_chat(prompt, user, session)` – convenience wrapper returning a text stream
 - `agent.upload_document(path, user, session)` – place a local file in the VM
 - `agent.upload_data(data, filename, user, session)` – upload raw bytes
@@ -147,7 +147,7 @@ import agent
 agent.edit_protected_memory("demo", "api_key", "secret")
 
 # or modify memory directly on a session
-async with agent.SoloChatSession(user="demo") as chat:
+async with agent.TeamChatSession(user="demo") as chat:
     await chat.edit_memory("api_key", "secret", protected=True)
 ```
 

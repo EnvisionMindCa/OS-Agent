@@ -12,7 +12,6 @@ import json
 import base64
 
 from ..simple import (
-    solo_chat,
     team_chat,
     upload_document,
     upload_data,
@@ -61,19 +60,6 @@ async def _team_chat_handler(
         yield part
 
 
-async def _solo_chat_handler(
-    params: dict[str, Any],
-    user: str,
-    session: str,
-    think: bool,
-    config: Config,
-    chat: TeamChatSession | None,
-) -> AsyncIterator[str]:
-    prompt = str(params.get("prompt", ""))
-    async for part in _yield_stream(
-        solo_chat(prompt, user=user, session=session, think=think, config=config)
-    ):
-        yield part
 
 
 async def _upload_document_handler(
@@ -209,7 +195,6 @@ async def _send_notification_handler(
 _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "team_chat": _team_chat_handler,
     "chat": _team_chat_handler,
-    "solo_chat": _solo_chat_handler,
     "upload_document": _upload_document_handler,
     "list_dir": _list_dir_handler,
     "read_file": _read_file_handler,
