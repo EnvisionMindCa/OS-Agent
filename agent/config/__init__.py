@@ -18,6 +18,9 @@ VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
 )
 VM_DOCKER_HOST: Final[str | None] = os.getenv("VM_DOCKER_HOST")
+VM_CONTAINER_TEMPLATE: Final[str] = os.getenv(
+    "VM_CONTAINER_TEMPLATE", "chat-vm-{user}"
+)
 DB_PATH: Final[str] = os.getenv("DB_PATH", str(Path.cwd() / "chat.db"))
 RETURN_DIR: Final[str] = os.getenv("RETURN_DIR", str(Path.cwd() / "returns"))
 _timeout_env = os.getenv("HARD_TIMEOUT")
@@ -148,6 +151,7 @@ class Config:
     persist_vms: bool = PERSIST_VMS
     vm_state_dir: str = VM_STATE_DIR
     vm_docker_host: str | None = VM_DOCKER_HOST
+    vm_container_template: str = VM_CONTAINER_TEMPLATE
     db_path: str = DB_PATH
     hard_timeout: int | None = HARD_TIMEOUT
     log_level: str = LOG_LEVEL
@@ -178,6 +182,7 @@ __all__ = [
     "PERSIST_VMS",
     "VM_STATE_DIR",
     "VM_DOCKER_HOST",
+    "VM_CONTAINER_TEMPLATE",
     "DB_PATH",
     "RETURN_DIR",
     "HARD_TIMEOUT",
