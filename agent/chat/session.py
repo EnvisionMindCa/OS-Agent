@@ -453,18 +453,9 @@ class ChatSession:
                 await self._user_notification_queue.put(n)
             parts.append(n)
 
-        for r in returned:
-            try:
-                data = r.read_bytes()
-                encoded = base64.b64encode(data).decode()
-            except Exception as exc:  # pragma: no cover - runtime errors
-                _LOG.error("Failed to read returned file %s: %s", r, exc)
-                continue
-            try:
-                r.unlink()
-            except Exception as exc:  # pragma: no cover - runtime errors
-                _LOG.warning("Failed to delete returned file %s: %s", r, exc)
-            payload = json.dumps({"returned_file": r.name, "data": encoded})
+        for name, data in returned:
+            encoded = base64.b64encode(data).decode()
+            payload = json.dumps({"returned_file": name, "data": encoded})
             await self._notification_queue.put(payload)
             if for_user:
                 await self._user_notification_queue.put(payload)
