@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from contextlib import suppress
 from typing import AsyncIterator
+import json
 
 from ..utils.logging import get_logger
 
@@ -38,11 +39,21 @@ class PersistentShell:
 
     async def _read_loop(self) -> None:
         assert self._proc and self._proc.stdout
+        buf = ""
         while True:
-            line = await self._proc.stdout.readline()
-            if not line:
+            chunk = await self._proc.stdout.read(1)
+            if not chunk:
+                if buf:
+                    await self._queue.put(buf)
                 break
-            await self._queue.put(line.decode())
+            char = chunk.decode()
+            buf += char
+            if self._is_input_prompt(buf):
+                await self._queue.put(buf)
+                buf = ""
+            elif char == "\n":
+                await self._queue.put(buf)
+                buf = ""
 
     async def stop(self) -> None:
         if self._reader and not self._reader.done():
@@ -63,6 +74,20 @@ class PersistentShell:
             result.append(part)
         return "".join(result)
 
+    @staticmethod
+    def _is_input_prompt(text: str) -> bool:
+        stripped = text.strip()
+        if not stripped:
+            return False
+        s = stripped.lower()
+        if s.endswith("(y/n)") or s.endswith("[y/n]"):
+            return True
+        if s.endswith("?"):
+            return True
+        if s.endswith(":") and "password" in s:
+            return True
+        return False
+
     async def execute_stream(self, command: str) -> AsyncIterator[str]:
         """Yield command output incrementally as it is produced."""
         await self.start()
@@ -74,4 +99,17 @@ class PersistentShell:
             line = await self._queue.get()
             if sentinel in line:
                 break
-            yield line
+            if self._is_input_prompt(line):
+                yield json.dumps({"stdin_request": line.strip()})
+            else:
+                yield line
+
+    async def send_input(self, data: str | bytes) -> None:
+        """Forward ``data`` to the running shell's standard input."""
+
+        await self.start()
+        assert self._proc and self._proc.stdin
+        if isinstance(data, str):
+            data = data.encode()
+        self._proc.stdin.write(data)
+        await self._proc.stdin.drain()

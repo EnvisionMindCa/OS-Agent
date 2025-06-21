@@ -22,6 +22,7 @@ from ..api import (
     download_file,
     vm_execute,
     vm_execute_stream,
+    vm_send_input,
     send_notification,
 )
 from ..config import Config
@@ -179,6 +180,19 @@ async def _vm_execute_stream_handler(
         yield part
 
 
+async def _vm_input_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    data = params.get("data", "")
+    await vm_send_input(str(data), user=user, config=config)
+    yield json.dumps({"result": "ok"})
+
+
 async def _send_notification_handler(
     params: dict[str, Any],
     user: str,
@@ -203,6 +217,7 @@ _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "download_file": _download_file_handler,
     "vm_execute": _vm_execute_handler,
     "vm_execute_stream": _vm_execute_stream_handler,
+    "vm_input": _vm_input_handler,
     "send_notification": _send_notification_handler,
 }
 

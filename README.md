@@ -60,6 +60,10 @@ are transcribed locally and the transcript is uploaded alongside the original
 file. No notification is sent to the LLM for these uploads. Use `!exec <command>` to
 run shell commands manually. Administrators can stop the bot with `!shutdown`.
 
+Interactive prompts from the VM appear as regular messages. Simply reply in the
+channel to forward your response to the shell. If the VM requests input again,
+send another message and it will be forwarded automatically.
+
 ### WebSocket Server
 
 Launch a persistent WebSocket service to stream responses and VM notifications:
@@ -123,6 +127,10 @@ include a ``command`` field and optional ``args`` mapping:
 Responses for non-streaming commands are JSON encoded. Streaming commands such
 as ``team_chat`` send text fragments incrementally.
 
+Interactive commands in the VM may request additional input. When a prompt is
+detected, the server sends a JSON message of the form ``{"stdin_request":
+"<text>"}`` so clients can respond via the ``vm_input`` command.
+
 
 
 ## API Overview
@@ -134,6 +142,8 @@ The :mod:`agent` package exposes a simple async API:
 - `agent.upload_document(path, user, session)` – place a local file in the VM
 - `agent.upload_data(data, filename, user, session)` – upload raw bytes
 - `agent.vm_execute(command, user)` – run a command directly
+- `agent.vm_execute_stream(command, user)` – stream output from a command
+- `agent.vm_send_input(data, user)` – send additional input to the VM shell
 
 Utility helpers exist for listing, reading and writing files as well as editing persistent memory.
 

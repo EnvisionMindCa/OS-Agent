@@ -134,6 +134,24 @@ class WSApiClient:
         )
         return str(resp.get("result", ""))
 
+    async def vm_send_input(
+        self,
+        data: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> None:
+        """Send additional input to the user's VM shell."""
+
+        await self.request(
+            "vm_input",
+            user=user,
+            session=session,
+            think=think,
+            data=data,
+        )
+
     async def list_dir(
         self,
         path: str,
@@ -270,6 +288,14 @@ class WSConnection:
         self._think = think
         self._ws: websockets.WebSocketClientProtocol | None = None
 
+    @property
+    def user(self) -> str:
+        return self._user
+
+    @property
+    def session(self) -> str:
+        return self._session
+
     async def connect(self) -> None:
         uri = self._client._build_uri(self._user, self._session, self._think)
         self._ws = await websockets.connect(uri)
@@ -289,3 +315,8 @@ class WSConnection:
             raise RuntimeError("Connection not established")
         async for msg in self._ws:
             yield msg
+
+    async def send_input(self, data: str) -> None:
+        """Send ``data`` to the connected VM shell."""
+
+        await self.send("vm_input", data=data)
