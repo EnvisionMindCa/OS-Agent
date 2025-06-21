@@ -273,19 +273,26 @@ class LinuxVM:
             _LOG.error("Failed to copy %s from VM: %s", src_path, exc)
             raise RuntimeError(f"Failed to copy {src_path} from VM: {exc}") from exc
 
-    def fetch_returned_files(self) -> list[Path]:
-        """Move queued return files to the final directory and return paths."""
+    def fetch_returned_files(self) -> list[tuple[str, bytes]]:
+        """Return queued files and remove them from the VM.
 
-        files: list[Path] = []
+        Files are first moved to ``self._return_dir`` so other helpers can
+        access the same path if needed. After reading the contents each file
+        is deleted from the host to keep the directory clean.
+        """
+
+        files: list[tuple[str, bytes]] = []
         for p in sorted(self._return_queue_dir.glob("*")):
             if not p.is_file():
                 continue
             dest = self._return_dir / p.name
             try:
                 shutil.move(str(p), dest)
-                files.append(dest)
+                data = dest.read_bytes()
+                dest.unlink()
+                files.append((p.name, data))
             except Exception as exc:  # pragma: no cover - runtime errors
-                _LOG.error("Failed to move returned file %s: %s", p, exc)
+                _LOG.error("Failed to process returned file %s: %s", p, exc)
         return files
 
     def post_notification(self, message: str) -> None:
