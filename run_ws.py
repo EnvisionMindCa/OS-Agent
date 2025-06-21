@@ -109,18 +109,6 @@ async def exec_stream(uri: str, command: str) -> None:
             _LOG.info("Connection closed by server")
 
 
-async def solo(uri: str, message: str) -> None:
-    """Send ``message`` to the ``solo_chat`` endpoint and print the reply."""
-
-    async with websockets.connect(uri) as ws:
-        await ws.send(json.dumps({"command": "solo_chat", "args": {"prompt": message}}))
-        try:
-            async for part in ws:
-                print(part, end="", flush=True)
-        except websockets.ConnectionClosed:
-            _LOG.info("Connection closed by server")
-
-
 async def exec_once(uri: str, command: str, timeout: int | None) -> None:
     """Execute ``command`` in the VM and print the final result."""
 
@@ -179,9 +167,6 @@ async def _main(args: argparse.Namespace) -> None:
         await exec_once(uri, args.command_str, args.timeout)
         return
 
-    if cmd == "solo":
-        await solo(uri, args.message)
-        return
 
     if cmd == "notify":
         await request(uri, "send_notification", message=args.message)
@@ -234,8 +219,6 @@ def main() -> None:
     run_p.add_argument("command_str", help="Command to run")
     run_p.add_argument("--timeout", type=int, default=None, help="Execution timeout")
 
-    solo_p = sub.add_parser("solo", help="Send a prompt via solo_chat")
-    solo_p.add_argument("message", help="Prompt text")
 
     notify_p = sub.add_parser("notify", help="Send notification")
     notify_p.add_argument("message", help="Notification message")

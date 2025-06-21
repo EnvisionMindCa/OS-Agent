@@ -1,8 +1,6 @@
 from .chat import ChatSession
 from .sessions.team import TeamChatSession, set_team
-from .sessions.solo import SoloChatSession
 from .simple import (
-    solo_chat,
     team_chat,
     upload_document,
     upload_data,
@@ -32,7 +30,6 @@ from .server import AgentWebSocketServer
 
 __all__ = [
     "ChatSession",
-    "SoloChatSession",
     "TeamChatSession",
     "execute_terminal",
     "execute_terminal_async",
@@ -43,7 +40,6 @@ __all__ = [
     "execute_with_secret_async",
     "LinuxVM",
     "limit_chars",
-    "solo_chat",
     "team_chat",
     "upload_document",
     "upload_data",

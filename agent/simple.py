@@ -6,13 +6,11 @@ import base64
 import json
 import shlex
 
-from .sessions.solo import SoloChatSession
 from .sessions.team import TeamChatSession
 from .config import Config, DEFAULT_CONFIG
 from .vm import VMRegistry
 
 __all__ = [
-    "solo_chat",
     "team_chat",
     "upload_document",
     "upload_data",
@@ -25,25 +23,6 @@ __all__ = [
     "vm_execute_stream",
     "send_notification",
 ]
-
-
-async def solo_chat(
-    prompt: str,
-    *,
-    user: str = "default",
-    session: str = "default",
-    think: bool = True,
-    config: Config | None = None,
-    extra: dict[str, str] | None = None,
-) -> AsyncIterator[str]:
-    async with SoloChatSession(
-        user=user,
-        session=session,
-        think=think,
-        config=config,
-    ) as chat:
-        async for part in chat.chat_stream(prompt, extra=extra):
-            yield part
 
 
 async def team_chat(
@@ -76,7 +55,7 @@ async def upload_document(
 
     The file becomes available under ``/data`` in the VM.
     """
-    async with SoloChatSession(
+    async with TeamChatSession(
         user=user,
         session=session,
         think=False,
@@ -95,7 +74,7 @@ async def upload_data(
 ) -> str:
     """Upload raw ``data`` as ``filename`` for access inside the VM."""
 
-    async with SoloChatSession(
+    async with TeamChatSession(
         user=user,
         session=session,
         think=False,

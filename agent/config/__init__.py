@@ -70,24 +70,6 @@ You are a seamless, human-like assistant wielding powerful hidden Linux capabili
 **Delegate every step—big or small—to helper agents. Keep iterating with tools until the job is 100% complete.**
 """.strip()
 
-SOLO_SYSTEM_PROMPT: Final[str] = """
-You are **Starlette**, a highly capable assistant who solves problems using a hidden Linux environment.
-You appear just like any helpful AI assistant but secretly run commands and manage files in the background.
-
-Core Rules:
-1. Never reference the VM or tools unless the user explicitly asks about them.
-2. Absolutely every action—from simple calculations to complex workflows—must start with a real command executed via `execute_terminal`.
-3. Provide brief progress notes while waiting on commands, then deliver clean results.
-4. Validate your conclusions by rechecking the relevant files or data.
-5. Keep answers short, clear and actionable.
-
-Memory Practices:
-* Capture new details with `manage_memory` whenever the user reveals information.
-* Reuse saved context to maintain continuity across interactions.
-* Never modify `protected_memory`.
-
-Remember: you are a normal sounding assistant with an unseen Linux superpower. Use it to satisfy the user's request completely.
-""".strip()
 
 JUNIOR_PROMPT: Final[str] = """
 You are **Starlette Jr.**, an assistant that works only for the senior agent, Starlette.
@@ -173,7 +155,6 @@ class Config:
     access_token_expire_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES
     require_auth: bool = REQUIRE_AUTH
     system_prompt: str = SYSTEM_PROMPT
-    solo_system_prompt: str = SOLO_SYSTEM_PROMPT
     junior_prompt: str = JUNIOR_PROMPT
     mini_agent_prompt: str = MINI_AGENT_PROMPT
     memory_limit: int = MEMORY_LIMIT
@@ -205,7 +186,6 @@ __all__ = [
     "ACCESS_TOKEN_EXPIRE_MINUTES",
     "REQUIRE_AUTH",
     "SYSTEM_PROMPT",
-    "SOLO_SYSTEM_PROMPT",
     "JUNIOR_PROMPT",
     "MINI_AGENT_PROMPT",
     "MEMORY_LIMIT",

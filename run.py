@@ -36,14 +36,6 @@ async def _main(username: str, session: str) -> None:
     # document = await agent.upload_document("test.py", user="test_user", session="test_session")
     # print("Document uploaded:", document)
     # agent.edit_protected_memory("test_user", ".env", "TEST_VAR=12345")
-    # async for resp in agent.solo_chat(
-    #     "what's in the protected memory of yours?",
-    #     user="test_user",
-    #     session="test_session",
-    #     think=False,
-    #     extra={"time": datetime.datetime.now()},
-    # ):
-    #     print("\nSOLO >>", resp)
 
     # ensure_user(username, password)
 
@@ -61,9 +53,6 @@ async def _main(username: str, session: str) -> None:
     # This notification will be delivered the next time the user starts a session
     # agent.send_notification("Background job completed", user=username)
         
-    # or using speech:
-    # async for resp in agent.solo_chat(agent.transcribe_audio("path/to/audio/file.wav"), user="test_user", session="test_session", think=False):
-    #     print("\n>>>", resp)
 
 
 def main() -> None:
