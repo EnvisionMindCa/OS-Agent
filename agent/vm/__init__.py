@@ -219,6 +219,24 @@ class LinuxVM:
         )
         return await loop.run_in_executor(None, func)
 
+    # ------------------------------------------------------------------
+    def copy_to_vm(self, local_path: Path, dest_path: str) -> None:
+        """Copy ``local_path`` from the host into the container at ``dest_path``."""
+
+        self.start()
+        try:
+            subprocess.run(
+                ["docker", "cp", str(local_path), f"{self._name}:{dest_path}"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=self._env if self._env else None,
+            )
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.error("Failed to copy %s to VM: %s", local_path, exc)
+            raise RuntimeError(f"Failed to copy {local_path} to VM: {exc}") from exc
+
     def post_notification(self, message: str) -> None:
         """Store ``message`` in the VM's notification queue."""
         ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S%f")

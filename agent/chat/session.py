@@ -168,6 +168,13 @@ class ChatSession:
         dest.mkdir(parents=True, exist_ok=True)
         target = dest / src.name
         shutil.copy(src, target)
+
+        if self._vm is not None:
+            try:
+                self._vm.copy_to_vm(target, f"/data/{src.name}")
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.warning("Failed to copy document into VM: %s", exc)
+
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
 
@@ -178,6 +185,13 @@ class ChatSession:
         dest.mkdir(parents=True, exist_ok=True)
         target = dest / filename
         target.write_bytes(data)
+
+        if self._vm is not None:
+            try:
+                self._vm.copy_to_vm(target, f"/data/{filename}")
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.warning("Failed to copy document into VM: %s", exc)
+
         add_document(self._user.username, str(target), filename)
         return f"/data/{filename}"
 
