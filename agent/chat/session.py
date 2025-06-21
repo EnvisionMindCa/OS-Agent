@@ -4,6 +4,7 @@ import asyncio
 import json
 import shutil
 from pathlib import Path
+import base64
 from typing import AsyncIterator, List, Mapping
 
 from ollama import AsyncClient, ChatResponse, Message
@@ -437,7 +438,18 @@ class ChatSession:
                 for n in notes:
                     await self._notification_queue.put(n)
                 for r in returned:
-                    await self._notification_queue.put(f"File returned: {Path(r).name}")
+                    try:
+                        data = r.read_bytes()
+                        encoded = base64.b64encode(data).decode()
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        _LOG.error("Failed to read returned file %s: %s", r, exc)
+                        continue
+                    try:
+                        r.unlink()
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        _LOG.warning("Failed to delete returned file %s: %s", r, exc)
+                    payload = json.dumps({"returned_file": r.name, "data": encoded})
+                    await self._notification_queue.put(payload)
                 if (
                     (notes or returned)
                     and self._state == "idle"

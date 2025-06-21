@@ -22,11 +22,30 @@ _LOG = get_logger(__name__)
 
 
 async def _receiver(ws: websockets.WebSocketClientProtocol) -> None:
-    """Print all messages received from ``ws``."""
+    """Print all messages received from ``ws``.
+
+    JSON messages containing ``returned_file`` and ``data`` keys are decoded
+    and written to the current directory.
+    """
 
     try:
         async for msg in ws:
-            print(msg, end="", flush=True)
+            try:
+                payload = json.loads(msg)
+            except json.JSONDecodeError:
+                print(msg, end="", flush=True)
+                continue
+            if (
+                isinstance(payload, dict)
+                and "returned_file" in payload
+                and "data" in payload
+            ):
+                name = str(payload["returned_file"])
+                data = base64.b64decode(payload["data"])
+                Path(name).write_bytes(data)
+                print(f"\n[Saved {name}]\n", flush=True)
+            else:
+                print(msg, end="", flush=True)
     except websockets.ConnectionClosed:
         _LOG.info("Connection closed by server")
 
