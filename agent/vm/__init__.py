@@ -73,6 +73,11 @@ class LinuxVM:
     def return_dir(self) -> Path:
         return self._return_dir
 
+    @property
+    def return_queue_dir(self) -> Path:
+        """Directory backing the VM's ``/return`` queue."""
+        return self._return_queue_dir
+
     def start(self) -> None:
         """Start the VM if it is not already running."""
         if self._running:
