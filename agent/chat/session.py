@@ -31,6 +31,7 @@ from ..utils.memory import (
     edit_protected_memory as _edit_protected_memory,
 )
 from ..vm import VMRegistry
+from ..simple import _copy_to_vm_and_verify
 
 from .state import SessionState, get_state
 from .messages import (
@@ -171,10 +172,7 @@ class ChatSession:
         shutil.copy(src, target)
 
         if self._vm is not None:
-            try:
-                self._vm.copy_to_vm(target, f"/data/{src.name}")
-            except Exception as exc:  # pragma: no cover - runtime errors
-                _LOG.warning("Failed to copy document into VM: %s", exc)
+            _copy_to_vm_and_verify(self._vm, target, f"/data/{src.name}")
 
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
@@ -188,10 +186,7 @@ class ChatSession:
         target.write_bytes(data)
 
         if self._vm is not None:
-            try:
-                self._vm.copy_to_vm(target, f"/data/{filename}")
-            except Exception as exc:  # pragma: no cover - runtime errors
-                _LOG.warning("Failed to copy document into VM: %s", exc)
+            _copy_to_vm_and_verify(self._vm, target, f"/data/{filename}")
 
         add_document(self._user.username, str(target), filename)
         return f"/data/{filename}"

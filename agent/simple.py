@@ -32,6 +32,30 @@ __all__ = [
 _LOG = get_logger(__name__)
 
 
+async def _copy_to_vm_and_verify_async(
+    vm: LinuxVM, local_path: Path, dest_path: str
+) -> None:
+    """Copy ``local_path`` into ``vm`` and verify it exists at ``dest_path``."""
+
+    vm.copy_to_vm(local_path, dest_path)
+    check_cmd = f"test -f {shlex.quote(dest_path)} && echo OK"
+    result = await vm.execute_async(check_cmd)
+    if "OK" not in result:
+        raise RuntimeError(f"Failed to verify {dest_path} in VM")
+
+
+def _copy_to_vm_and_verify(
+    vm: LinuxVM, local_path: Path, dest_path: str
+) -> None:
+    """Synchronous helper for :func:`_copy_to_vm_and_verify_async`."""
+
+    vm.copy_to_vm(local_path, dest_path)
+    check_cmd = f"test -f {shlex.quote(dest_path)} && echo OK"
+    result = vm.execute(check_cmd)
+    if "OK" not in result:
+        raise RuntimeError(f"Failed to verify {dest_path} in VM")
+
+
 async def team_chat(
     prompt: str,
     *,
@@ -74,10 +98,7 @@ async def upload_document(
 
     vm = VMRegistry.acquire(user, config=cfg)
     try:
-        try:
-            vm.copy_to_vm(target, f"/data/{src.name}")
-        except Exception as exc:  # pragma: no cover - runtime errors
-            _LOG.warning("Failed to copy document into VM: %s", exc)
+        await _copy_to_vm_and_verify_async(vm, target, f"/data/{src.name}")
     finally:
         VMRegistry.release(user)
 
@@ -103,10 +124,7 @@ async def upload_data(
 
     vm = VMRegistry.acquire(user, config=cfg)
     try:
-        try:
-            vm.copy_to_vm(target, f"/data/{filename}")
-        except Exception as exc:  # pragma: no cover - runtime errors
-            _LOG.warning("Failed to copy document into VM: %s", exc)
+        await _copy_to_vm_and_verify_async(vm, target, f"/data/{filename}")
     finally:
         VMRegistry.release(user)
 
