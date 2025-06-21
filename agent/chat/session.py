@@ -433,10 +433,13 @@ class ChatSession:
                 if self._vm is None:
                     continue
                 notes = self._vm.fetch_notifications()
+                returned = self._vm.fetch_returned_files()
                 for n in notes:
                     await self._notification_queue.put(n)
+                for r in returned:
+                    await self._notification_queue.put(f"File returned: {Path(r).name}")
                 if (
-                    notes
+                    (notes or returned)
                     and self._state == "idle"
                     and self._prompt_queue.empty()
                     and (not self._worker or self._worker.done())
