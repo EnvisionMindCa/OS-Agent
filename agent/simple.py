@@ -6,9 +6,13 @@ import base64
 import json
 import shlex
 
+import shutil
+
 from .sessions.team import TeamChatSession
 from .config import Config, DEFAULT_CONFIG
 from .vm import VMRegistry
+from .db import add_document
+from .utils.logging import get_logger
 
 __all__ = [
     "team_chat",
@@ -23,6 +27,9 @@ __all__ = [
     "vm_execute_stream",
     "send_notification",
 ]
+
+
+_LOG = get_logger(__name__)
 
 
 async def team_chat(
@@ -55,13 +62,27 @@ async def upload_document(
 
     The file becomes available under ``/data`` in the VM.
     """
-    async with TeamChatSession(
-        user=user,
-        session=session,
-        think=False,
-        config=config,
-    ) as chat:
-        return chat.upload_document(file_path)
+    cfg = config or DEFAULT_CONFIG
+    src = Path(file_path)
+    if not src.exists():
+        raise FileNotFoundError(file_path)
+
+    dest = Path(cfg.upload_dir) / user
+    dest.mkdir(parents=True, exist_ok=True)
+    target = dest / src.name
+    shutil.copy(src, target)
+
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        try:
+            vm.copy_to_vm(target, f"/data/{src.name}")
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.warning("Failed to copy document into VM: %s", exc)
+    finally:
+        VMRegistry.release(user)
+
+    add_document(user, str(target), src.name)
+    return f"/data/{src.name}"
 
 
 async def upload_data(
@@ -74,13 +95,23 @@ async def upload_data(
 ) -> str:
     """Upload raw ``data`` as ``filename`` for access inside the VM."""
 
-    async with TeamChatSession(
-        user=user,
-        session=session,
-        think=False,
-        config=config,
-    ) as chat:
-        return chat.upload_data(data, filename)
+    cfg = config or DEFAULT_CONFIG
+    dest = Path(cfg.upload_dir) / user
+    dest.mkdir(parents=True, exist_ok=True)
+    target = dest / filename
+    target.write_bytes(data)
+
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        try:
+            vm.copy_to_vm(target, f"/data/{filename}")
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.warning("Failed to copy document into VM: %s", exc)
+    finally:
+        VMRegistry.release(user)
+
+    add_document(user, str(target), filename)
+    return f"/data/{filename}"
 
 
 async def vm_execute(
