@@ -30,44 +30,17 @@ class StreamingTeamChatSession(TeamChatSession):
         super().__init__(config=config, **kwargs)
         self._out_q = output_queue
 
+    async def poll_notifications(self) -> list[str]:
+        parts = await super().poll_notifications()
+        for part in parts:
+            await self._out_q.put(part)
+        return parts
+
     async def _monitor_notifications(self) -> None:
         try:
             while True:
                 await asyncio.sleep(self._config.notification_poll_interval)
-                if self._vm is None:
-                    continue
-                notes = self._vm.fetch_notifications()
-                returned = self._vm.fetch_returned_files()
-                for n in notes:
-                    await self._notification_queue.put(n)
-                for r in returned:
-                    try:
-                        data = r.read_bytes()
-                        encoded = base64.b64encode(data).decode()
-                    except Exception as exc:  # pragma: no cover
-                        self._log.error(
-                            "Failed to read returned file %s: %s", r, exc
-                        )
-                        continue
-                    try:
-                        r.unlink()
-                    except Exception as exc:  # pragma: no cover
-                        self._log.warning(
-                            "Failed to delete returned file %s: %s", r, exc
-                        )
-                    payload = json.dumps(
-                        {"returned_file": r.name, "data": encoded}
-                    )
-                    await self._notification_queue.put(payload)
-                    await self._out_q.put(payload)
-                if (
-                    (notes or returned)
-                    and self._state == "idle"
-                    and self._prompt_queue.empty()
-                    and (not self._worker or self._worker.done())
-                ):
-                    async for part in self._deliver_notifications_stream():
-                        await self._out_q.put(part)
+                await self.poll_notifications()
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
@@ -117,6 +90,7 @@ class AgentWebSocketServer:
             config=self._config,
         )
         async with chat:
+            await chat.poll_notifications()
             sender = asyncio.create_task(self._sender(ws, out_q))
             try:
                 async for message in ws:
@@ -128,6 +102,7 @@ class AgentWebSocketServer:
                         session,
                         think,
                     )
+                    await chat.poll_notifications()
             except ConnectionClosed:  # pragma: no cover - client disconnect
                 pass
             finally:
@@ -165,6 +140,8 @@ class AgentWebSocketServer:
                 await out_q.put(part)
         except Exception as exc:  # pragma: no cover - runtime errors
             await out_q.put(json.dumps({"error": str(exc)}))
+        finally:
+            await chat.poll_notifications()
 
     async def _sender(
         self, ws: WebSocketServerProtocol, out_q: asyncio.Queue[str]

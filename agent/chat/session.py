@@ -422,37 +422,51 @@ class ChatSession:
             async for part in self.continue_stream():
                 yield part
 
+    async def poll_notifications(self) -> list[str]:
+        """Check for VM notifications and returned files."""
+
+        if self._vm is None:
+            return []
+
+        notes = self._vm.fetch_notifications()
+        returned = self._vm.fetch_returned_files()
+        parts: list[str] = []
+
+        for n in notes:
+            await self._notification_queue.put(n)
+            parts.append(n)
+
+        for r in returned:
+            try:
+                data = r.read_bytes()
+                encoded = base64.b64encode(data).decode()
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.error("Failed to read returned file %s: %s", r, exc)
+                continue
+            try:
+                r.unlink()
+            except Exception as exc:  # pragma: no cover - runtime errors
+                _LOG.warning("Failed to delete returned file %s: %s", r, exc)
+            payload = json.dumps({"returned_file": r.name, "data": encoded})
+            await self._notification_queue.put(payload)
+            parts.append(payload)
+
+        if (
+            (notes or returned)
+            and self._state == "idle"
+            and self._prompt_queue.empty()
+            and (not self._worker or self._worker.done())
+        ):
+            async for part in self._deliver_notifications():
+                parts.append(part)
+
+        return parts
+
     async def _monitor_notifications(self) -> None:
         try:
             while True:
                 await asyncio.sleep(self._config.notification_poll_interval)
-                if self._vm is None:
-                    continue
-                notes = self._vm.fetch_notifications()
-                returned = self._vm.fetch_returned_files()
-                for n in notes:
-                    await self._notification_queue.put(n)
-                for r in returned:
-                    try:
-                        data = r.read_bytes()
-                        encoded = base64.b64encode(data).decode()
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        _LOG.error("Failed to read returned file %s: %s", r, exc)
-                        continue
-                    try:
-                        r.unlink()
-                    except Exception as exc:  # pragma: no cover - runtime errors
-                        _LOG.warning("Failed to delete returned file %s: %s", r, exc)
-                    payload = json.dumps({"returned_file": r.name, "data": encoded})
-                    await self._notification_queue.put(payload)
-                if (
-                    (notes or returned)
-                    and self._state == "idle"
-                    and self._prompt_queue.empty()
-                    and (not self._worker or self._worker.done())
-                ):
-                    async for _ in self._deliver_notifications():
-                        pass
+                await self.poll_notifications()
         except asyncio.CancelledError:  # pragma: no cover - lifecycle
             pass
 
