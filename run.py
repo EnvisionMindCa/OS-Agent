@@ -48,14 +48,14 @@ async def _main(username: str, session: str) -> None:
     # ensure_user(username, password)
 
     async with agent.TeamChatSession(user=username, session=session, think=False) as chat:
-        dir = chat.upload_document("test.txt")
+        # dir = chat.upload_document("test.txt")
         
-        async for resp in chat.send_notification_stream(f"Uploaded to {dir}"):
-            print("TEAM >>", resp)
-        # async for part in chat.chat_stream(
-        #     "solve cancer. do not come back until you have a solution.",
-        # ):
-        #     print("\nTEAM >>", part)
+        # async for resp in chat.send_notification_stream(f"Uploaded to {dir}"):
+        #     print("TEAM >>", resp)
+        async for part in chat.chat_stream(
+            "return the /data/test.txt file",
+        ):
+            print("\nTEAM >>", part)
         # await chat.send_notification("Session finished")
 
     # This notification will be delivered the next time the user starts a session
