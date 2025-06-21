@@ -45,9 +45,9 @@ class LinuxVM:
         self._image = config.vm_image
         self._name = f"chat-vm-{_sanitize(username)}"
         self._running = False
-        self._host_dir = Path(config.upload_dir) / username
+        self._host_dir = (Path(config.upload_dir) / username).resolve()
         self._host_dir.mkdir(parents=True, exist_ok=True)
-        self._state_dir = Path(config.vm_state_dir) / _sanitize(username)
+        self._state_dir = (Path(config.vm_state_dir) / _sanitize(username)).resolve()
         self._state_dir.mkdir(parents=True, exist_ok=True)
         self._notifications_dir = self._state_dir / "notifications"
         self._notifications_dir.mkdir(parents=True, exist_ok=True)
