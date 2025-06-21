@@ -128,8 +128,9 @@ Responses for non-streaming commands are JSON encoded. Streaming commands such
 as ``team_chat`` send text fragments incrementally.
 
 Interactive commands in the VM may request additional input. When a prompt is
-detected, the server sends a JSON message of the form ``{"stdin_request":
-"<text>"}`` so clients can respond via the ``vm_input`` command.
+detected—typically a line ending with ``?`` or ``:``—the server sends a JSON
+message of the form ``{"stdin_request": "<text>"}`` so clients can respond via
+the ``vm_input`` command.
 
 
 

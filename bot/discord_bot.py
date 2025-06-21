@@ -381,7 +381,8 @@ class DiscordTeamBot(commands.Bot):
                             await channel.send(text)
                         buffer.clear()
                         last_send = asyncio.get_running_loop().time()
-                    await channel.send(prompt)
+                    formatted = f"**VM input requested:** {prompt}"
+                    await channel.send(formatted)
                     self._awaiting_input.add(key)
                     continue
 
