@@ -138,14 +138,24 @@ Stream stdout/stderr from a shell command.
 
 Arguments:
 - `command` – shell command
+- `raw` – when `true` stream the terminal output byte-by-byte
 
-The server streams raw output lines. Interactive programs may emit `{ "stdin_request": "<text>" }` when additional input is required. Clients should respond using `vm_input`.
+The server streams output lines by default. When `raw` is enabled, progress bars and other terminal effects are preserved. Interactive programs may emit `{ "stdin_request": "<text>" }` when additional input is required. Clients should respond using `vm_input` or `vm_keys`.
 
 ### `vm_input`
 Send additional input to the running VM shell.
 
 Arguments:
 - `data` – text to write to stdin
+
+Returns: `{ "result": "ok" }`.
+
+### `vm_keys`
+Simulate keystrokes in the VM shell.
+
+Arguments:
+- `data` – text to type
+- `delay` – optional delay between characters (seconds)
 
 Returns: `{ "result": "ok" }`.
 

@@ -101,11 +101,15 @@ class WSApiClient:
         user: str,
         session: str,
         think: bool = False,
+        raw: bool = False,
     ) -> AsyncIterator[str]:
         """Yield output from ``command`` executed in the VM."""
 
         uri = self._build_uri(user, session, think)
-        payload = {"command": "vm_execute_stream", "args": {"command": command}}
+        payload = {
+            "command": "vm_execute_stream",
+            "args": {"command": command, "raw": raw},
+        }
         async with websockets.connect(uri) as ws:
             await ws.send(json.dumps(payload))
             async for msg in ws:
@@ -150,6 +154,26 @@ class WSApiClient:
             session=session,
             think=think,
             data=data,
+        )
+
+    async def vm_send_keys(
+        self,
+        data: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+        delay: float = 0.05,
+    ) -> None:
+        """Simulate typing ``data`` into the user's VM shell."""
+
+        await self.request(
+            "vm_keys",
+            user=user,
+            session=session,
+            think=think,
+            data=data,
+            delay=delay,
         )
 
     async def list_dir(
@@ -443,3 +467,8 @@ class WSConnection:
         """Send ``data`` to the connected VM shell."""
 
         await self.send("vm_input", data=data)
+
+    async def send_keys(self, data: str, *, delay: float = 0.05) -> None:
+        """Simulate typing ``data`` on the connected VM shell."""
+
+        await self.send("vm_keys", data=data, delay=delay)
