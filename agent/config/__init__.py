@@ -12,7 +12,7 @@ OLLAMA_HOST: Final[str] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MAX_TOOL_CALL_DEPTH: Final[int] = 15
 NUM_CTX: Final[int] = int(os.getenv("OLLAMA_NUM_CTX", "32768"))
 UPLOAD_DIR: Final[str] = os.getenv("UPLOAD_DIR", str(Path.cwd() / "uploads"))
-VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "python:3.11")
+VM_IMAGE: Final[str] = os.getenv("VM_IMAGE", "archlinux:latest")
 PERSIST_VMS: Final[bool] = os.getenv("PERSIST_VMS", "1") == "1"
 VM_STATE_DIR: Final[str] = os.getenv(
     "VM_STATE_DIR", str(Path.cwd() / "vm_state")
