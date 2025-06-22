@@ -48,7 +48,7 @@ def set_vm(vm: LinuxVM | None) -> None:
 
 def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """
-    Execute a shell command in an **unrestricted** Debian terminal.
+    Execute a shell command in an **unrestricted** Arch Linux terminal.
     Use this tool to inspect uploaded documents under ``/data``, return
     files to the user by moving files under ``/return``,
     and run other commands.
@@ -79,7 +79,7 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
 
 async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
     """
-    Asynchronously execute a shell command in an **unrestricted** Debian terminal.
+    Asynchronously execute a shell command in an **unrestricted** Arch Linux terminal.
     Use this tool to inspect uploaded documents under ``/data``, fetch web
     content with utilities like ``curl`` or ``wget`` and run other commands.
     The user does NOT have access to this VM, so you are

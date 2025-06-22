@@ -32,9 +32,10 @@ def _sanitize(name: str) -> str:
 class LinuxVM:
     """Manage a lightweight Docker-based VM.
 
-    The default image provides Python and pip so packages can be installed
-    immediately. A custom image can be supplied via ``VM_IMAGE`` and the
-    container name is derived from ``VM_CONTAINER_TEMPLATE``.
+    The default image is a CLI-based Arch Linux environment where packages
+    can be installed via ``pacman``. A custom image can be supplied via
+    ``VM_IMAGE`` and the container name is derived from
+    ``VM_CONTAINER_TEMPLATE``.
     """
 
     def __init__(
