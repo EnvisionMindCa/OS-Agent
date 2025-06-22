@@ -31,8 +31,13 @@ def format_output(message: Message) -> str:
 
 def store_assistant_message(conversation: Conversation, message: Message) -> None:
     """Persist assistant messages, storing tool calls when present."""
+    if not (message.content or message.tool_calls):
+        # Nothing meaningful to store
+        return
 
-    data = {"content": message.content or ""}
+    data = {}
+    if message.content:
+        data["content"] = message.content
     if message.tool_calls:
         data["tool_calls"] = [c.model_dump() for c in message.tool_calls]
 
