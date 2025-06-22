@@ -24,6 +24,13 @@ from ..api import (
     vm_execute_stream,
     vm_send_input,
     send_notification,
+    list_sessions,
+    list_sessions_info,
+    list_documents,
+    get_memory,
+    set_memory,
+    reset_memory,
+    restart_terminal,
 )
 from ..config import Config
 from ..sessions.team import TeamChatSession
@@ -206,6 +213,93 @@ async def _send_notification_handler(
     yield json.dumps({"result": "ok"})
 
 
+async def _list_sessions_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    sessions = await list_sessions(user)
+    yield json.dumps({"result": sessions})
+
+
+async def _list_sessions_info_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    info = await list_sessions_info(user)
+    yield json.dumps({"result": info})
+
+
+async def _list_documents_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    docs = await list_documents(user)
+    yield json.dumps({"result": docs})
+
+
+async def _get_memory_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    memory = await get_memory(user)
+    yield json.dumps({"result": memory})
+
+
+async def _set_memory_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    memory = str(params.get("memory", ""))
+    result = await set_memory(user, memory)
+    yield json.dumps({"result": result})
+
+
+async def _reset_memory_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    memory = await reset_memory(user)
+    yield json.dumps({"result": memory})
+
+
+async def _restart_terminal_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    await restart_terminal(user=user, config=config)
+    if chat is not None:
+        await chat.send_notification("VM terminal restarted")
+    yield json.dumps({"result": "restarted"})
+
+
 _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "team_chat": _team_chat_handler,
     "chat": _team_chat_handler,
@@ -219,6 +313,13 @@ _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "vm_execute_stream": _vm_execute_stream_handler,
     "vm_input": _vm_input_handler,
     "send_notification": _send_notification_handler,
+    "list_sessions": _list_sessions_handler,
+    "list_sessions_info": _list_sessions_info_handler,
+    "list_documents": _list_documents_handler,
+    "get_memory": _get_memory_handler,
+    "set_memory": _set_memory_handler,
+    "reset_memory": _reset_memory_handler,
+    "restart_terminal": _restart_terminal_handler,
 }
 
 

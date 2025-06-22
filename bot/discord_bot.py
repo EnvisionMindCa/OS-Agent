@@ -249,6 +249,22 @@ class DiscordTeamBot(commands.Bot):
 
             await ctx.reply("Notification sent", mention_author=False)
 
+        @self.command(name="restartvm")
+        async def restartvm_cmd(ctx: commands.Context) -> None:
+            """Restart the persistent VM terminal."""
+
+            try:
+                await ctx.bot._client.restart_terminal(
+                    user=str(ctx.author.id),
+                    session=str(ctx.channel.id),
+                    think=False,
+                )
+            except Exception as exc:
+                await ctx.reply(f"Error: {exc}", mention_author=False)
+                return
+
+            await ctx.reply("VM terminal restarted.", mention_author=False)
+
         @self.command(name="shutdown")
         @commands.has_permissions(administrator=True)
         async def shutdown_cmd(ctx: commands.Context) -> None:

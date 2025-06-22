@@ -157,6 +157,45 @@ Arguments:
 
 Returns: `{ "result": "ok" }`.
 
+### `list_sessions`
+List all saved session names for the current user.
+
+Returns: `{ "result": ["session1", ...] }`.
+
+### `list_sessions_info`
+Retrieve session names with a snippet of the last message.
+
+Returns: `{ "result": [{"name": "session", "last_message": "..."}] }`.
+
+### `list_documents`
+List uploaded documents for the user.
+
+Returns: `{ "result": [{"file_path": "...", "original_name": "..."}] }`.
+
+### `get_memory`
+Return the persistent memory JSON for the user.
+
+Returns: `{ "result": "<memory>" }`.
+
+### `set_memory`
+Replace the stored memory string.
+
+Arguments:
+- `memory` – new memory contents
+
+Returns: `{ "result": "<memory>" }`.
+
+### `reset_memory`
+Reset memory to the default template.
+
+Returns: `{ "result": "<memory>" }`.
+
+### `restart_terminal`
+Restart the VM shell and container for the user. The agent is notified of the
+restart event.
+
+Returns: `{ "result": "restarted" }`.
+
 ## Python API
 
 The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. See `agent/__init__.py` for the full list.

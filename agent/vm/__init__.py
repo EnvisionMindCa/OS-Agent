@@ -374,6 +374,11 @@ class LinuxVM:
             )
         self._running = False
 
+    def restart(self) -> None:
+        """Restart the container and clear the persistent shell."""
+        self.stop()
+        self.start()
+
     def __enter__(self) -> "LinuxVM":
         self.start()
         return self
