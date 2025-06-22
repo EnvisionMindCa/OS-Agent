@@ -17,6 +17,7 @@ class PersistentShell:
         self._env = env
         self._proc: asyncio.subprocess.Process | None = None
         self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._raw_queue: asyncio.Queue[str] = asyncio.Queue()
         self._reader: asyncio.Task | None = None
         self._log = get_logger(__name__)
 
@@ -55,6 +56,7 @@ class PersistentShell:
                     await self._queue.put(buf)
                 break
             char = chunk.decode()
+            await self._raw_queue.put(char)
             if char == "\b":
                 buf = buf[:-1]
                 continue
@@ -134,6 +136,7 @@ class PersistentShell:
         command: str,
         *,
         input_responder: Optional[Callable[[str], Awaitable[str | None]]] = None,
+        raw: bool = False,
     ) -> AsyncIterator[str]:
         """Yield command output incrementally as it is produced."""
         await self.start()
@@ -141,27 +144,54 @@ class PersistentShell:
         sentinel = f"__CMD_DONE_{uuid.uuid4().hex}__"
         self._proc.stdin.write(f"{command}\necho {sentinel}\n".encode())
         await self._proc.stdin.drain()
-        while True:
-            line = await self._queue.get()
-            if sentinel in line:
-                break
-            if self._is_input_prompt(line):
-                yield line
-                handler = input_responder or self._default_input_responder
-                if handler is not None:
-                    try:
-                        reply = await handler(line.strip())
-                    except Exception as exc:  # pragma: no cover - unforeseen errors
-                        self._log.error("Prompt responder failed: %s", exc)
-                        reply = None
-                    if reply is not None:
-                        await self.send_input(
-                            reply if reply.endswith("\n") else f"{reply}\n"
-                        )
-                        continue
-                yield json.dumps({"stdin_request": line.strip()})
-            else:
-                yield line
+        if raw:
+            buf = ""
+            while True:
+                char = await self._raw_queue.get()
+                buf += char
+                if sentinel in buf:
+                    for c in buf.split(sentinel)[0]:
+                        yield c
+                    break
+                yield char
+                if self._is_input_prompt(buf):
+                    handler = input_responder or self._default_input_responder
+                    if handler is not None:
+                        try:
+                            reply = await handler(buf.strip())
+                        except Exception as exc:  # pragma: no cover - unforeseen errors
+                            self._log.error("Prompt responder failed: %s", exc)
+                            reply = None
+                        if reply is not None:
+                            await self.send_input(
+                                reply if reply.endswith("\n") else f"{reply}\n"
+                            )
+                            buf = ""
+                            continue
+                    yield json.dumps({"stdin_request": buf.strip()})
+                    buf = ""
+        else:
+            while True:
+                line = await self._queue.get()
+                if sentinel in line:
+                    break
+                if self._is_input_prompt(line):
+                    yield line
+                    handler = input_responder or self._default_input_responder
+                    if handler is not None:
+                        try:
+                            reply = await handler(line.strip())
+                        except Exception as exc:  # pragma: no cover - unforeseen errors
+                            self._log.error("Prompt responder failed: %s", exc)
+                            reply = None
+                        if reply is not None:
+                            await self.send_input(
+                                reply if reply.endswith("\n") else f"{reply}\n"
+                            )
+                            continue
+                    yield json.dumps({"stdin_request": line.strip()})
+                else:
+                    yield line
 
     async def send_input(self, data: str | bytes) -> None:
         """Forward ``data`` to the running shell's standard input."""
@@ -172,3 +202,13 @@ class PersistentShell:
             data = data.encode()
         self._proc.stdin.write(data)
         await self._proc.stdin.drain()
+
+    async def send_keys(self, text: str, *, delay: float = 0.05) -> None:
+        """Simulate typing ``text`` one character at a time."""
+
+        await self.start()
+        assert self._proc and self._proc.stdin
+        for ch in text:
+            self._proc.stdin.write(ch.encode())
+            await self._proc.stdin.drain()
+            await asyncio.sleep(delay)

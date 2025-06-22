@@ -138,6 +138,7 @@ Stream stdout/stderr from a shell command.
 
 Arguments:
 - `command` – shell command
+- `raw` – when `true` stream raw characters instead of line chunks
 
 The server streams raw output lines. Interactive programs may emit `{ "stdin_request": "<text>" }` when additional input is required. Clients should respond using `vm_input`.
 
@@ -146,6 +147,8 @@ Send additional input to the running VM shell.
 
 Arguments:
 - `data` – text to write to stdin
+- `simulate_typing` – when `true` send characters one by one
+- `delay` – typing delay in seconds (default `0.05`)
 
 Returns: `{ "result": "ok" }`.
 
