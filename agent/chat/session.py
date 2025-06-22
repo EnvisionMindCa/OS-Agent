@@ -357,6 +357,10 @@ class ChatSession:
                         messages.append({"role": "tool", "content": str(data)})
         return messages
 
+    def _refresh_history(self) -> None:
+        """Reload conversation history from the database."""
+        self._messages = self._load_history()
+
     # ------------------------------------------------------------------
     async def ask(
         self, messages: List[Msg], *, think: bool | None = None
@@ -614,6 +618,7 @@ class ChatSession:
     async def _generate_stream(
         self, prompt: str, extra: dict[str, str] | None = None
     ) -> AsyncIterator[str]:
+        self._refresh_history()
         async with self._lock:
             if self._state == "awaiting_tool" and self._tool_task:
                 async for part in self._chat_during_tool(prompt, extra):
@@ -674,6 +679,7 @@ class ChatSession:
             yield note
 
     async def continue_stream(self) -> AsyncIterator[str]:
+        self._refresh_history()
         async with self._lock:
             if self._state != "idle":
                 return
@@ -694,6 +700,7 @@ class ChatSession:
     async def _chat_during_tool(
         self, prompt: str, extra: dict[str, str] | None = None
     ) -> AsyncIterator[str]:
+        self._refresh_history()
         prompt_with_extra = self._append_extra(prompt, extra)
         if self._persist and self._conversation:
             db.create_message(self._conversation, "user", prompt_with_extra)
