@@ -61,8 +61,11 @@ file. No notification is sent to the LLM for these uploads. Use `!exec <command>
 run shell commands manually. Administrators can stop the bot with `!shutdown`.
 
 Interactive prompts from the VM appear as regular messages. Simply reply in the
-channel to forward your response to the shell. If the VM requests input again,
-send another message and it will be forwarded automatically.
+channel to forward your response to the shell. If desired, callbacks can
+automatically supply answers by passing an ``input_responder`` when invoking
+``vm_execute_stream`` or ``execute_terminal_stream``. The shell runs under a
+pseudo TTY so prompts like ``[Y/n]`` are visible in the stream and are emitted
+alongside a JSON ``stdin_request`` notification.
 
 ### WebSocket Server
 
@@ -128,9 +131,11 @@ Responses for non-streaming commands are JSON encoded. Streaming commands such
 as ``team_chat`` send text fragments incrementally.
 
 Interactive commands in the VM may request additional input. When a prompt is
-detected—typically a line ending with ``?`` or ``:``—the server sends a JSON
-message of the form ``{"stdin_request": "<text>"}`` so clients can respond via
-the ``vm_input`` command.
+detected—typically a line ending with ``?`` or ``:``—the raw line is streamed as
+normal output, followed by a JSON message of the form
+``{"stdin_request": "<text>"}`` so clients can respond via the ``vm_input``
+command. ``vm_execute_stream`` and ``execute_terminal_stream`` also accept an
+optional ``input_responder`` callback to supply answers automatically.
 
 
 

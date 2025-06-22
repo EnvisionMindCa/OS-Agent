@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import asyncio
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable, Awaitable
 import shutil
 import os
 import datetime
@@ -147,15 +147,29 @@ class LinuxVM:
             self._shell = PersistentShell(self._name, self._env or None)
         return self._shell
 
-    async def shell_execute(self, command: str) -> str:
+    async def shell_execute(
+        self,
+        command: str,
+        *,
+        input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+    ) -> str:
         """Run ``command`` in a persistent shell session."""
-        shell = self._ensure_shell()
-        return await shell.execute(command)
 
-    async def shell_execute_stream(self, command: str) -> AsyncIterator[str]:
-        """Yield output from running ``command`` in the persistent shell."""
         shell = self._ensure_shell()
-        async for part in shell.execute_stream(command):
+        return await shell.execute(command, input_responder=input_responder)
+
+    async def shell_execute_stream(
+        self,
+        command: str,
+        *,
+        input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+    ) -> AsyncIterator[str]:
+        """Yield output from running ``command`` in the persistent shell."""
+
+        shell = self._ensure_shell()
+        async for part in shell.execute_stream(
+            command, input_responder=input_responder
+        ):
             yield part
 
     async def shell_send_input(self, data: str | bytes) -> None:
