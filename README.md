@@ -232,7 +232,7 @@ Environment variables control most behaviour:
 | `UPLOAD_DIR` | Host directory for uploaded files |
 | `RETURN_DIR` | Host directory for returned files |
 | `DB_PATH` | SQLite database path |
-| `VM_IMAGE` | Docker image used for the VM |
+| `VM_IMAGE` | Docker image used for the VM (`python:3.11-slim` by default) |
 | `VM_CONTAINER_TEMPLATE` | Container name pattern (`chat-vm-{user}`) |
 | `VM_STATE_DIR` | Directory for persistent VM state |
 | `VM_DOCKER_HOST` | Docker host socket (optional) |
