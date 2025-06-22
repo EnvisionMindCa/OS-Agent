@@ -31,6 +31,7 @@ __all__ = [
     "vm_execute",
     "vm_execute_stream",
     "vm_send_input",
+    "vm_send_keys",
     "send_notification",
     "list_sessions",
     "list_sessions_info",
@@ -165,6 +166,7 @@ async def vm_execute_stream(
     user: str = "default",
     config: Config | None = None,
     input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+    raw: bool = False,
 ) -> AsyncIterator[str]:
     """Yield incremental output from ``command`` executed in ``user``'s VM."""
 
@@ -172,7 +174,7 @@ async def vm_execute_stream(
     vm = VMRegistry.acquire(user, config=cfg)
     try:
         async for part in vm.shell_execute_stream(
-            command, input_responder=input_responder
+            command, input_responder=input_responder, raw=raw
         ):
             yield part
     finally:
@@ -191,6 +193,23 @@ async def vm_send_input(
     vm = VMRegistry.acquire(user, config=cfg)
     try:
         await vm.shell_send_input(data)
+    finally:
+        VMRegistry.release(user)
+
+
+async def vm_send_keys(
+    data: str,
+    *,
+    user: str = "default",
+    config: Config | None = None,
+    delay: float = 0.05,
+) -> None:
+    """Simulate typing ``data`` into the user's VM shell."""
+
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        await vm.shell_send_keys(data, delay=delay)
     finally:
         VMRegistry.release(user)
 

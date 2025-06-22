@@ -23,6 +23,7 @@ from ..api import (
     vm_execute,
     vm_execute_stream,
     vm_send_input,
+    vm_send_keys,
     send_notification,
     list_sessions,
     list_sessions_info,
@@ -183,7 +184,8 @@ async def _vm_execute_stream_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     cmd = str(params["command"])
-    async for part in vm_execute_stream(cmd, user=user, config=config):
+    raw = bool(params.get("raw", False))
+    async for part in vm_execute_stream(cmd, user=user, config=config, raw=raw):
         yield part
 
 
@@ -197,6 +199,20 @@ async def _vm_input_handler(
 ) -> AsyncIterator[str]:
     data = params.get("data", "")
     await vm_send_input(str(data), user=user, config=config)
+    yield json.dumps({"result": "ok"})
+
+
+async def _vm_keys_handler(
+    params: dict[str, Any],
+    user: str,
+    session: str,
+    think: bool,
+    config: Config,
+    chat: TeamChatSession | None,
+) -> AsyncIterator[str]:
+    data = params.get("data", "")
+    delay = float(params.get("delay", 0.05))
+    await vm_send_keys(str(data), delay=delay, user=user, config=config)
     yield json.dumps({"result": "ok"})
 
 
@@ -312,6 +328,7 @@ _HANDLERS: dict[str, Callable[..., AsyncIterator[str]]] = {
     "vm_execute": _vm_execute_handler,
     "vm_execute_stream": _vm_execute_stream_handler,
     "vm_input": _vm_input_handler,
+    "vm_keys": _vm_keys_handler,
     "send_notification": _send_notification_handler,
     "list_sessions": _list_sessions_handler,
     "list_sessions_info": _list_sessions_info_handler,

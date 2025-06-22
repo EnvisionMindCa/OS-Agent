@@ -12,6 +12,7 @@ from .api import (
     vm_execute,
     vm_execute_stream,
     vm_send_input,
+    vm_send_keys,
     send_notification,
 )
 from .tools import (
@@ -52,6 +53,7 @@ __all__ = [
     "vm_execute",
     "vm_execute_stream",
     "vm_send_input",
+    "vm_send_keys",
     "send_notification",
     "transcribe_audio",
     "get_memory",
