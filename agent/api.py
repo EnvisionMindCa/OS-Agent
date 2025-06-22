@@ -9,7 +9,14 @@ import shutil
 
 from .config import Config, DEFAULT_CONFIG
 from .vm import VMRegistry, LinuxVM
-from .db import add_document
+from .db import (
+    add_document,
+    list_sessions as _db_list_sessions,
+    list_sessions_info as _db_list_sessions_info,
+    list_documents as _db_list_documents,
+    reset_memory as _db_reset_memory,
+)
+from .utils.memory import get_memory as _get_memory, set_memory as _set_memory
 from .utils.logging import get_logger
 
 __all__ = [
@@ -25,6 +32,13 @@ __all__ = [
     "vm_execute_stream",
     "vm_send_input",
     "send_notification",
+    "list_sessions",
+    "list_sessions_info",
+    "list_documents",
+    "get_memory",
+    "set_memory",
+    "reset_memory",
+    "restart_terminal",
 ]
 
 _LOG = get_logger(__name__)
@@ -283,3 +297,51 @@ def send_notification(
         vm.post_notification(str(message))
     finally:
         VMRegistry.release(user)
+
+
+async def list_sessions(user: str = "default") -> list[str]:
+    """Return all session names for ``user``."""
+
+    return _db_list_sessions(user)
+
+
+async def list_sessions_info(user: str = "default") -> list[dict[str, str]]:
+    """Return session names with last message snippet."""
+
+    return _db_list_sessions_info(user)
+
+
+async def list_documents(user: str = "default") -> list[dict[str, str]]:
+    """Return info about uploaded documents."""
+
+    return _db_list_documents(user)
+
+
+async def get_memory(user: str = "default") -> str:
+    """Return persistent memory for ``user``."""
+
+    return _get_memory(user)
+
+
+async def set_memory(user: str = "default", memory: str = "") -> str:
+    """Persist new ``memory`` for ``user`` and return it."""
+
+    return _set_memory(user, memory)
+
+
+async def reset_memory(user: str = "default") -> str:
+    """Reset ``user`` memory to default and return the value."""
+
+    return _db_reset_memory(user)
+
+
+async def restart_terminal(*, user: str = "default", config: Config | None = None) -> str:
+    """Restart ``user``'s VM and clear the persistent shell."""
+
+    cfg = config or DEFAULT_CONFIG
+    vm = VMRegistry.acquire(user, config=cfg)
+    try:
+        vm.restart()
+    finally:
+        VMRegistry.release(user)
+    return "restarted"

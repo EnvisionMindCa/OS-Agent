@@ -128,6 +128,20 @@ class DatabaseManager:
         user = self.get_or_create_user(username)
         return Document.create(user=user, file_path=file_path, original_name=original_name)
 
+    def list_documents(self, username: str) -> list[dict[str, str]]:
+        """Return uploaded document info for ``username``."""
+
+        self.init_db()
+        try:
+            user = User.get(User.username == username)
+        except User.DoesNotExist:
+            return []
+
+        docs = []
+        for doc in Document.select().where(Document.user == user):
+            docs.append({"file_path": doc.file_path, "original_name": doc.original_name})
+        return docs
+
     def delete_history(self, username: str, session_name: str) -> int:
         """Remove all messages for ``username`` in ``session_name``.
 
@@ -219,6 +233,7 @@ __all__ = [
     "list_sessions",
     "list_sessions_info",
     "add_document",
+    "list_documents",
     "get_memory",
     "set_memory",
     "register_user",
@@ -253,6 +268,12 @@ def add_document(username: str, file_path: str, original_name: str) -> Document:
     """Record an uploaded document and return the created entry."""
 
     return db.add_document(username, file_path, original_name)
+
+
+def list_documents(username: str) -> list[dict[str, str]]:
+    """Return uploaded documents for ``username``."""
+
+    return db.list_documents(username)
 
 
 def get_memory(username: str) -> str:

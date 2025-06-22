@@ -270,6 +270,129 @@ class WSApiClient:
             message=message,
         )
 
+    async def list_sessions(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> list[str]:
+        """Return all session names for ``user``."""
+
+        resp = await self.request(
+            "list_sessions",
+            user=user,
+            session=session,
+            think=think,
+        )
+        return list(resp.get("result", []))
+
+    async def list_sessions_info(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> list[dict[str, str]]:
+        """Return session info for ``user``."""
+
+        resp = await self.request(
+            "list_sessions_info",
+            user=user,
+            session=session,
+            think=think,
+        )
+        result = resp.get("result", [])
+        return list(result)
+
+    async def list_documents(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> list[dict[str, str]]:
+        """Return uploaded document info for ``user``."""
+
+        resp = await self.request(
+            "list_documents",
+            user=user,
+            session=session,
+            think=think,
+        )
+        result = resp.get("result", [])
+        return list(result)
+
+    async def get_memory(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Return persistent memory for ``user``."""
+
+        resp = await self.request(
+            "get_memory",
+            user=user,
+            session=session,
+            think=think,
+        )
+        return str(resp.get("result", ""))
+
+    async def set_memory(
+        self,
+        memory: str,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Persist ``memory`` for ``user`` and return it."""
+
+        resp = await self.request(
+            "set_memory",
+            user=user,
+            session=session,
+            think=think,
+            memory=memory,
+        )
+        return str(resp.get("result", ""))
+
+    async def reset_memory(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Reset ``user`` memory to default and return it."""
+
+        resp = await self.request(
+            "reset_memory",
+            user=user,
+            session=session,
+            think=think,
+        )
+        return str(resp.get("result", ""))
+
+    async def restart_terminal(
+        self,
+        *,
+        user: str,
+        session: str,
+        think: bool = False,
+    ) -> str:
+        """Restart the VM terminal for ``user``."""
+
+        resp = await self.request(
+            "restart_terminal",
+            user=user,
+            session=session,
+            think=think,
+        )
+        return str(resp.get("result", ""))
+
 
 class WSConnection:
     """Persistent connection wrapper for :mod:`agent.server`."""
