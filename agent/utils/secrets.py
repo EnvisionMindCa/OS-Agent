@@ -5,6 +5,8 @@ __all__ = ["get_secret"]
 import os
 from getpass import getpass
 
+from .debug import debug_all
+
 from .logging import get_logger
 
 _LOG = get_logger(__name__)
@@ -41,6 +43,5 @@ def get_secret(name: str, prompt: str | None = None) -> str:
         _LOG.error("Failed to obtain secret %s: %s", name, exc)
         raise RuntimeError(f"Secret {name} not provided") from exc
 
-from .debug import debug_all
-debug_all(globals())
 
+debug_all(globals())

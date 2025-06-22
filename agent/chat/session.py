@@ -7,6 +7,8 @@ from pathlib import Path
 import base64
 from typing import AsyncIterator, List, Mapping
 
+from ..utils.debug import debug_all
+
 from ollama import AsyncClient, ChatResponse, Message
 
 from ..config import (
@@ -15,10 +17,8 @@ from ..config import (
 )
 from ..db import (
     Conversation,
-    User,
     db,
     add_document,
-    configure_db,
 )
 from ..utils.logging import get_logger
 from .schema import Msg
@@ -75,6 +75,7 @@ class ChatSession:
             db.get_or_create_conversation(self._user, session) if persist else None
         )
         self._vm = None
+        self._session_id = session
         self._base_system_prompt = system_prompt
         self._system_prompt = self._apply_memory(system_prompt)
         memory_tool = create_memory_tool(
@@ -110,9 +111,9 @@ class ChatSession:
     def _append_extra(self, prompt: str, extra: dict[str, str] | None) -> str:
         if not extra:
             return prompt
-        
+
         extra = {str(k): str(v) for k, v in extra.items() if v is not None}
-        
+
         extra_str = json.dumps(extra, indent=2)
         return f"{prompt}\n<extra>\n{extra_str}\n</extra>"
 
@@ -134,7 +135,6 @@ class ChatSession:
     def _tool_task(self, task: asyncio.Task | None) -> None:
         self._state_data.tool_task = task
 
-
     @property
     def think(self) -> bool:
         """Default value for the ``think`` parameter in :meth:`ask`."""
@@ -146,7 +146,9 @@ class ChatSession:
         self._think = value
 
     async def __aenter__(self) -> "ChatSession":
-        self._vm = VMRegistry.acquire(self._user.username, config=self._config)
+        self._vm = VMRegistry.acquire(
+            self._user.username, self._session_id, config=self._config
+        )
         set_vm(self._vm)
         self._notification_task = asyncio.create_task(self._monitor_notifications())
         self._return_watcher = ReturnWatcher(
@@ -162,7 +164,7 @@ class ChatSession:
         if _VM is self._vm:
             set_vm(None)
         if self._vm:
-            VMRegistry.release(self._user.username)
+            VMRegistry.release(self._user.username, self._session_id)
         if self._notification_task and not self._notification_task.done():
             self._notification_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -491,7 +493,6 @@ class ChatSession:
         await self._notification_queue.put(payload)
         await self._user_notification_queue.put(payload)
 
-
     async def _await_tool_and_followup(
         self,
         exec_task: asyncio.Task,
@@ -552,7 +553,11 @@ class ChatSession:
             with suppress(Exception):
                 args = json.loads(args)
 
-        if isinstance(args, Mapping) and "arguments" in args and set(args) <= {"name", "arguments"}:
+        if (
+            isinstance(args, Mapping)
+            and "arguments" in args
+            and set(args) <= {"name", "arguments"}
+        ):
             maybe_args = args.get("arguments")
             if isinstance(maybe_args, Mapping):
                 args = maybe_args
@@ -561,9 +566,7 @@ class ChatSession:
             _LOG.warning("Invalid tool arguments for %s: %r", call.function.name, args)
             args = {}
 
-        exec_task = asyncio.create_task(
-            self._run_tool_async(func, **args)
-        )
+        exec_task = asyncio.create_task(self._run_tool_async(func, **args))
 
         if call.function.name == "send_to_agent":
             if isinstance(args, Mapping):
@@ -605,9 +608,7 @@ class ChatSession:
             # Handle each tool call sequentially so the model can react to
             # every tool's output before moving on to the next one.
             call = response.message.tool_calls.pop(0)
-            async for nxt in self._process_tool_call(
-                call, messages, conversation
-            ):
+            async for nxt in self._process_tool_call(call, messages, conversation):
                 response = nxt
                 yield nxt
             depth += 1
@@ -728,6 +729,5 @@ class ChatSession:
         async for note in self._deliver_notifications():
             yield note
 
-from ..utils.debug import debug_all
 
 debug_all(globals())

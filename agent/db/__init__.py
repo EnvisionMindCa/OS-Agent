@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from ..utils.debug import debug_all
+
 from ..config import DB_PATH, DEFAULT_MEMORY_TEMPLATE
 
 from peewee import (
@@ -111,7 +113,9 @@ class DatabaseManager:
         conv, _ = Conversation.get_or_create(user=user, session_name=session_name)
         return conv
 
-    def create_message(self, conversation: Conversation, role: str, content: str) -> Message:
+    def create_message(
+        self, conversation: Conversation, role: str, content: str
+    ) -> Message:
         self.init_db()
         return Message.create(conversation=conversation, role=role, content=content)
 
@@ -123,10 +127,14 @@ class DatabaseManager:
             .order_by(Message.created_at)
         )
 
-    def add_document(self, username: str, file_path: str, original_name: str) -> Document:
+    def add_document(
+        self, username: str, file_path: str, original_name: str
+    ) -> Document:
         self.init_db()
         user = self.get_or_create_user(username)
-        return Document.create(user=user, file_path=file_path, original_name=original_name)
+        return Document.create(
+            user=user, file_path=file_path, original_name=original_name
+        )
 
     def list_documents(self, username: str) -> list[dict[str, str]]:
         """Return uploaded document info for ``username``."""
@@ -139,7 +147,9 @@ class DatabaseManager:
 
         docs = []
         for doc in Document.select().where(Document.user == user):
-            docs.append({"file_path": doc.file_path, "original_name": doc.original_name})
+            docs.append(
+                {"file_path": doc.file_path, "original_name": doc.original_name}
+            )
         return docs
 
     def delete_history(self, username: str, session_name: str) -> int:
@@ -166,7 +176,9 @@ class DatabaseManager:
             user.delete_instance()
         return deleted
 
-    def reset_memory(self, username: str, template: str = DEFAULT_MEMORY_TEMPLATE) -> str:
+    def reset_memory(
+        self, username: str, template: str = DEFAULT_MEMORY_TEMPLATE
+    ) -> str:
         """Reset ``username``'s memory to ``template`` and return the new value."""
 
         self.init_db()
@@ -181,7 +193,10 @@ class DatabaseManager:
             user = User.get(User.username == username)
         except User.DoesNotExist:
             return []
-        return [c.session_name for c in Conversation.select().where(Conversation.user == user)]
+        return [
+            c.session_name
+            for c in Conversation.select().where(Conversation.user == user)
+        ]
 
     def list_sessions_info(self, username: str) -> list[dict[str, str]]:
         self.init_db()
@@ -216,7 +231,6 @@ class DatabaseManager:
 
 
 db = DatabaseManager(_db)
-
 
 
 __all__ = [
@@ -311,6 +325,5 @@ def list_sessions_info(username: str) -> list[dict[str, str]]:
 
     return db.list_sessions_info(username)
 
-from ..utils.debug import debug_all
-debug_all(globals())
 
+debug_all(globals())

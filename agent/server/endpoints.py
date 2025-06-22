@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Command dispatchers for :mod:`agent.server`.
 
 This module exposes a single :func:`dispatch_command` coroutine used by the
@@ -7,7 +5,9 @@ This module exposes a single :func:`dispatch_command` coroutine used by the
 based on JSON requests received from clients.
 """
 
-from typing import Any, AsyncIterator, Awaitable, Callable, Iterable
+from __future__ import annotations
+
+from typing import Any, AsyncIterator, Awaitable, Callable
 import json
 import base64
 
@@ -34,6 +34,7 @@ from ..api import (
     restart_terminal,
 )
 from ..config import Config
+from ..utils.helpers import coalesce_stream
 from ..sessions.team import TeamChatSession
 
 
@@ -64,11 +65,11 @@ async def _team_chat_handler(
     if chat is not None:
         stream = chat.chat_stream(prompt)
     else:
-        stream = team_chat(prompt, user=user, session=session, think=think, config=config)
+        stream = team_chat(
+            prompt, user=user, session=session, think=think, config=config
+        )
     async for part in _yield_stream(stream):
         yield part
-
-
 
 
 async def _upload_document_handler(
@@ -85,10 +86,14 @@ async def _upload_document_handler(
         if not file_name:
             raise ValueError("file_name required when file_data provided")
         data = base64.b64decode(file_data)
-        result = await upload_data(data, file_name, user=user, session=session, config=config)
+        result = await upload_data(
+            data, file_name, user=user, session=session, config=config
+        )
     else:
         file_path = str(params["file_path"])
-        result = await upload_document(file_path, user=user, session=session, config=config)
+        result = await upload_document(
+            file_path, user=user, session=session, config=config
+        )
     yield json.dumps({"result": result})
 
 
@@ -141,7 +146,7 @@ async def _delete_path_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     path = str(params["path"])
-    result = await delete_path(path, user=user, config=config)
+    result = await delete_path(path, user=user, session=session, config=config)
     yield json.dumps({"result": result})
 
 
@@ -155,7 +160,9 @@ async def _download_file_handler(
 ) -> AsyncIterator[str]:
     path = str(params["path"])
     dest = params.get("dest")
-    result = await download_file(path, user=user, dest=dest, config=config)
+    result = await download_file(
+        path, user=user, session=session, dest=dest, config=config
+    )
     yield json.dumps({"result": result})
 
 
@@ -171,7 +178,9 @@ async def _vm_execute_handler(
     timeout = params.get("timeout")
     if timeout is not None:
         timeout = int(timeout)
-    result = await vm_execute(cmd, user=user, timeout=timeout, config=config)
+    result = await vm_execute(
+        cmd, user=user, session=session, timeout=timeout, config=config
+    )
     yield json.dumps({"result": result})
 
 
@@ -184,9 +193,14 @@ async def _vm_execute_stream_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     cmd = str(params["command"])
-    raw = bool(params.get("raw", False))
-    async for part in vm_execute_stream(cmd, user=user, config=config, raw=raw):
-        yield part
+    raw = bool(params.get("raw", True))
+    stream = vm_execute_stream(cmd, user=user, session=session, config=config, raw=raw)
+    if raw:
+        async for chunk in coalesce_stream(stream):
+            yield chunk
+    else:
+        async for part in stream:
+            yield part
 
 
 async def _vm_input_handler(
@@ -198,7 +212,7 @@ async def _vm_input_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     data = params.get("data", "")
-    await vm_send_input(str(data), user=user, config=config)
+    await vm_send_input(str(data), user=user, session=session, config=config)
     yield json.dumps({"result": "ok"})
 
 
@@ -212,7 +226,9 @@ async def _vm_keys_handler(
 ) -> AsyncIterator[str]:
     data = params.get("data", "")
     delay = float(params.get("delay", 0.05))
-    await vm_send_keys(str(data), delay=delay, user=user, config=config)
+    await vm_send_keys(
+        str(data), delay=delay, user=user, session=session, config=config
+    )
     yield json.dumps({"result": "ok"})
 
 
@@ -225,7 +241,7 @@ async def _send_notification_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     message = str(params["message"])
-    send_notification(message, user=user, config=config)
+    send_notification(message, user=user, session=session, config=config)
     yield json.dumps({"result": "ok"})
 
 
@@ -310,7 +326,7 @@ async def _restart_terminal_handler(
     config: Config,
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
-    await restart_terminal(user=user, config=config)
+    await restart_terminal(user=user, session=session, config=config)
     if chat is not None:
         await chat.send_notification("VM terminal restarted")
     yield json.dumps({"result": "restarted"})

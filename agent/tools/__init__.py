@@ -14,7 +14,8 @@ from typing import Optional, AsyncIterator, Callable, Awaitable
 import asyncio
 from functools import partial
 
-from ..utils.helpers import limit_chars
+from ..utils.helpers import limit_chars, coalesce_stream
+from ..utils.debug import debug_all
 from .memory import create_memory_tool
 
 from ..vm import LinuxVM
@@ -78,7 +79,9 @@ def execute_terminal(command: str, *, stdin_data: str | bytes | None = None) -> 
         return f"Failed to execute command in VM: {exc}"
 
 
-async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None = None) -> str:
+async def execute_terminal_async(
+    command: str, *, stdin_data: str | bytes | None = None
+) -> str:
     """
     Asynchronously execute a shell command in an **unrestricted** terminal
     running inside a Debian-based Python environment (`python:3.11-slim`).
@@ -109,6 +112,7 @@ async def execute_terminal_stream(
     command: str,
     *,
     input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+    raw: bool = True,
 ) -> AsyncIterator[str]:
     """Stream output from ``command`` executed in the persistent VM shell.
 
@@ -117,10 +121,13 @@ async def execute_terminal_stream(
     """
     if not _VM:
         raise RuntimeError("No active VM for command execution")
-    async for part in _VM.shell_execute_stream(
-        command, input_responder=input_responder
-    ):
-        yield part
+    stream = _VM.shell_execute_stream(command, input_responder=input_responder, raw=raw)
+    if raw:
+        async for chunk in coalesce_stream(stream):
+            yield chunk
+    else:
+        async for part in stream:
+            yield part
 
 
 def execute_with_secret(
@@ -148,6 +155,4 @@ async def execute_with_secret_async(
     return await loop.run_in_executor(None, func)
 
 
-from ..utils.debug import debug_all
 debug_all(globals())
-

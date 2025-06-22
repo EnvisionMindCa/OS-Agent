@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 
+from ..utils.debug import debug_all
+
 
 @dataclass
 class SessionState:
@@ -26,6 +28,4 @@ def get_state(conv_id: int) -> SessionState:
     return state
 
 
-from ..utils.debug import debug_all
 debug_all(globals())
-

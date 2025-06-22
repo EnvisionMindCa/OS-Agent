@@ -11,7 +11,7 @@ import base64
 import json
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable, Tuple, List, Set
+from typing import Iterable, Tuple, List
 import mimetypes
 
 import discord
@@ -117,6 +117,7 @@ class DiscordTeamBot(commands.Bot):
                     user=str(ctx.author.id),
                     session=str(ctx.channel.id),
                     think=False,
+                    raw=True,
                 ):
                     parts.append(chunk)
                 output = "".join(parts).strip()
@@ -449,7 +450,9 @@ class DiscordTeamBot(commands.Bot):
                 try:
                     path.unlink()
                 except Exception as exc:  # pragma: no cover - runtime errors
-                    self._log.warning("Failed to delete returned file %s: %s", path, exc)
+                    self._log.warning(
+                        "Failed to delete returned file %s: %s", path, exc
+                    )
                 return path.name, data
         return None
 
@@ -463,7 +466,6 @@ class DiscordTeamBot(commands.Bot):
         if isinstance(payload, dict) and "stdin_request" in payload:
             return str(payload["stdin_request"])
         return None
-
 
     async def _get_connection(
         self, user: str, session: str, channel: discord.abc.Messageable

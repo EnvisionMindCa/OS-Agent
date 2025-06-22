@@ -107,11 +107,11 @@ async def upload_document(
     target = dest / src.name
     shutil.copy(src, target)
 
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         await _copy_to_vm_and_verify_async(vm, target, f"/data/{src.name}")
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
     add_document(user, str(target), src.name)
     return f"/data/{src.name}"
@@ -133,11 +133,11 @@ async def upload_data(
     target = dest / filename
     target.write_bytes(data)
 
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         await _copy_to_vm_and_verify_async(vm, target, f"/data/{filename}")
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
     add_document(user, str(target), filename)
     return f"/data/{filename}"
@@ -147,82 +147,89 @@ async def vm_execute(
     command: str,
     *,
     user: str = "default",
+    session: str = "default",
     timeout: int | None = None,
     config: Config | None = None,
 ) -> str:
     """Execute ``command`` inside ``user``'s VM and return the output."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         return await vm.execute_async(command, timeout=timeout)
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 async def vm_execute_stream(
     command: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
     input_responder: Callable[[str], Awaitable[str | None]] | None = None,
-    raw: bool = False,
+    raw: bool = True,
 ) -> AsyncIterator[str]:
     """Yield incremental output from ``command`` executed in ``user``'s VM."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         async for part in vm.shell_execute_stream(
             command, input_responder=input_responder, raw=raw
         ):
             yield part
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 async def vm_send_input(
     data: str | bytes,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> None:
     """Forward ``data`` to the user's running VM shell."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         await vm.shell_send_input(data)
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 async def vm_send_keys(
     data: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
     delay: float = 0.05,
 ) -> None:
     """Simulate typing ``data`` into the user's VM shell."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         await vm.shell_send_keys(data, delay=delay)
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 async def list_dir(
     path: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> Iterable[tuple[str, bool]]:
     """Return ``(name, is_dir)`` tuples for ``path`` inside the VM."""
 
-    output = await vm_execute(f"ls -1ap {shlex.quote(path)}", user=user, config=config)
+    output = await vm_execute(
+        f"ls -1ap {shlex.quote(path)}", user=user, session=session, config=config
+    )
     if output.startswith("ls:"):
         return []
     rows = []
@@ -240,11 +247,14 @@ async def read_file(
     path: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> str:
     """Return the contents of ``path`` from the VM."""
 
-    return await vm_execute(f"cat {shlex.quote(path)}", user=user, config=config)
+    return await vm_execute(
+        f"cat {shlex.quote(path)}", user=user, session=session, config=config
+    )
 
 
 async def write_file(
@@ -252,6 +262,7 @@ async def write_file(
     content: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> str:
     """Write ``content`` to ``path`` inside the VM."""
@@ -261,7 +272,7 @@ async def write_file(
         "python -c 'import base64,os; "
         f'open({json.dumps(path)}, "wb").write(base64.b64decode({json.dumps(encoded)}))\''
     )
-    await vm_execute(cmd, user=user, config=config)
+    await vm_execute(cmd, user=user, session=session, config=config)
     return "Saved"
 
 
@@ -269,6 +280,7 @@ async def delete_path(
     path: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> str:
     """Delete a file or directory at ``path`` inside the VM."""
@@ -278,7 +290,7 @@ async def delete_path(
         f"elif [ -e {shlex.quote(path)} ]; then rm -f {shlex.quote(path)} && echo Deleted; "
         f"else echo File not found; fi'"
     )
-    return await vm_execute(cmd, user=user, config=config)
+    return await vm_execute(cmd, user=user, session=session, config=config)
 
 
 async def download_file(
@@ -286,12 +298,13 @@ async def download_file(
     *,
     user: str = "default",
     dest: str | None = None,
+    session: str = "default",
     config: Config | None = None,
 ) -> str:
     """Copy ``path`` from the VM to ``dest`` and return the destination."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         target_dir = Path(dest or cfg.return_dir) / user
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -299,23 +312,24 @@ async def download_file(
         vm.copy_from_vm(path, target)
         return str(target)
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 def send_notification(
     message: str,
     *,
     user: str = "default",
+    session: str = "default",
     config: Config | None = None,
 ) -> None:
     """Post ``message`` to ``user``'s notification queue."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         vm.post_notification(str(message))
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
 
 
 async def list_sessions(user: str = "default") -> list[str]:
@@ -354,13 +368,15 @@ async def reset_memory(user: str = "default") -> str:
     return _db_reset_memory(user)
 
 
-async def restart_terminal(*, user: str = "default", config: Config | None = None) -> str:
+async def restart_terminal(
+    *, user: str = "default", session: str = "default", config: Config | None = None
+) -> str:
     """Restart ``user``'s VM and clear the persistent shell."""
 
     cfg = config or DEFAULT_CONFIG
-    vm = VMRegistry.acquire(user, config=cfg)
+    vm = VMRegistry.acquire(user, session, config=cfg)
     try:
         vm.restart()
     finally:
-        VMRegistry.release(user)
+        VMRegistry.release(user, session)
     return "restarted"
