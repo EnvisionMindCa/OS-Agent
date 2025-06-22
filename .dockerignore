@@ -1,0 +1,10 @@
+# Exclude Git history and development files
+.git
+__pycache__/
+*.py[cod]
+*.log
+uploads/
+vm_state/
+returns/
+.env
+*.db
