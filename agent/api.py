@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AsyncIterator, Iterable
+from typing import AsyncIterator, Iterable, Callable, Awaitable
 from pathlib import Path
 import base64
 import json
@@ -150,13 +150,16 @@ async def vm_execute_stream(
     *,
     user: str = "default",
     config: Config | None = None,
+    input_responder: Callable[[str], Awaitable[str | None]] | None = None,
 ) -> AsyncIterator[str]:
     """Yield incremental output from ``command`` executed in ``user``'s VM."""
 
     cfg = config or DEFAULT_CONFIG
     vm = VMRegistry.acquire(user, config=cfg)
     try:
-        async for part in vm.shell_execute_stream(command):
+        async for part in vm.shell_execute_stream(
+            command, input_responder=input_responder
+        ):
             yield part
     finally:
         VMRegistry.release(user)

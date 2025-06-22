@@ -10,7 +10,7 @@ __all__ = [
     "create_memory_tool",
 ]
 
-from typing import Optional, AsyncIterator
+from typing import Optional, AsyncIterator, Callable, Awaitable
 import asyncio
 from functools import partial
 
@@ -103,7 +103,11 @@ async def execute_terminal_async(command: str, *, stdin_data: str | bytes | None
         return f"Failed to execute command in VM: {exc}"
 
 
-async def execute_terminal_stream(command: str) -> AsyncIterator[str]:
+async def execute_terminal_stream(
+    command: str,
+    *,
+    input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+) -> AsyncIterator[str]:
     """Stream output from ``command`` executed in the persistent VM shell.
 
     A running :class:`~agent.vm.LinuxVM` must be registered via
@@ -111,7 +115,9 @@ async def execute_terminal_stream(command: str) -> AsyncIterator[str]:
     """
     if not _VM:
         raise RuntimeError("No active VM for command execution")
-    async for part in _VM.shell_execute_stream(command):
+    async for part in _VM.shell_execute_stream(
+        command, input_responder=input_responder
+    ):
         yield part
 
 
