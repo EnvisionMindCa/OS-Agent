@@ -5,8 +5,8 @@ from typing import List
 
 from ollama import Message
 
-from .schema import Msg
 from ..db import Conversation, db
+from ..utils.debug import debug_all
 
 __all__ = [
     "serialize_tool_calls",
@@ -26,7 +26,6 @@ def format_output(message: Message) -> str:
     """Return message content if present."""
 
     return message.content or ""
-
 
 
 def store_assistant_message(conversation: Conversation, message: Message) -> None:
@@ -56,6 +55,4 @@ def store_tool_message(conversation: Conversation, name: str, content: str) -> N
     db.create_message(conversation, "tool", json.dumps(data))
 
 
-from ..utils.debug import debug_all
 debug_all(globals())
-

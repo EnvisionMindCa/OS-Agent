@@ -39,7 +39,9 @@ class ReturnWatcher:
         if self._task is not None:
             return
         try:
-            from watchfiles import awatch  # type: ignore
+            import importlib
+
+            importlib.import_module("watchfiles")
             self._watch_impl = self._watch_watchfiles
             self._use_watchfiles = True
             _LOG.debug("Using watchfiles for return directory monitoring")

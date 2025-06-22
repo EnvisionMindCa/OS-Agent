@@ -4,10 +4,11 @@ import subprocess
 import asyncio
 from typing import AsyncIterator, Callable, Awaitable
 import shutil
-import os
 import datetime
 from functools import partial
 from pathlib import Path
+
+from ..utils.debug import debug_all
 
 from threading import Lock
 from .shell import PersistentShell
@@ -46,9 +47,7 @@ class LinuxVM:
     ) -> None:
         self.config = config
         self._image = config.vm_image
-        self._name = config.vm_container_template.format(
-            user=_sanitize(username)
-        )
+        self._name = config.vm_container_template.format(user=_sanitize(username))
         self._running = False
         self._host_dir = (Path(config.upload_dir) / username).resolve()
         self._host_dir.mkdir(parents=True, exist_ok=True)
@@ -395,43 +394,47 @@ class LinuxVM:
 
 
 class VMRegistry:
-    """Manage Linux VM instances on a per-user basis."""
+    """Manage Linux VM instances on a per-session basis."""
 
-    _vms: dict[str, LinuxVM] = {}
-    _counts: dict[str, int] = {}
+    _vms: dict[tuple[str, str], LinuxVM] = {}
+    _counts: dict[tuple[str, str], int] = {}
     _lock = Lock()
 
     @classmethod
-    def acquire(cls, username: str, *, config: Config = DEFAULT_CONFIG) -> LinuxVM:
-        """Return a running VM for ``username`` using ``config``."""
+    def acquire(
+        cls, username: str, session: str, *, config: Config = DEFAULT_CONFIG
+    ) -> LinuxVM:
+        """Return a running VM for ``username`` and ``session`` using ``config``."""
 
+        key = (username, session)
         with cls._lock:
-            vm = cls._vms.get(username)
+            vm = cls._vms.get(key)
             if vm is None:
                 vm = LinuxVM(username, config=config)
-                cls._vms[username] = vm
-                cls._counts[username] = 0
-            cls._counts[username] += 1
+                cls._vms[key] = vm
+                cls._counts[key] = 0
+            cls._counts[key] += 1
 
         vm.start()
         return vm
 
     @classmethod
-    def release(cls, username: str) -> None:
-        """Release one reference to ``username``'s VM and stop it if unused."""
+    def release(cls, username: str, session: str) -> None:
+        """Release one reference to ``username``/``session`` VM and stop if unused."""
 
+        key = (username, session)
         with cls._lock:
-            vm = cls._vms.get(username)
+            vm = cls._vms.get(key)
             if vm is None:
                 return
 
-            cls._counts[username] -= 1
-            if cls._counts[username] <= 0:
-                cls._counts[username] = 0
+            cls._counts[key] -= 1
+            if cls._counts[key] <= 0:
+                cls._counts[key] = 0
                 if not vm.config.persist_vms:
                     vm.stop()
-                    del cls._vms[username]
-                    del cls._counts[username]
+                    del cls._vms[key]
+                    del cls._counts[key]
 
     @classmethod
     def shutdown_all(cls) -> None:
@@ -444,7 +447,5 @@ class VMRegistry:
             cls._vms.clear()
             cls._counts.clear()
 
-
-from ..utils.debug import debug_all
 
 debug_all(globals())
