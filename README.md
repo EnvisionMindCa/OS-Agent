@@ -1,11 +1,11 @@
 # OS-Agent
 
-`OS-Agent` is a modular toolkit for building autonomous AI assistants powered by [Ollama](https://ollama.com) models. It wraps model interactions with persistent memory, a Linux VM for tool execution and convenient session management. A Discord bot implementation is included.
+OS-Agent is a production-ready framework for autonomous assistants powered by [Ollama](https://ollama.com) language models. It offers persistent memory, a Docker-backed Linux VM for tool execution and both programmatic and WebSocket interfaces. A Discord bot implementation is provided as an example client.
 
 ## Requirements
 
 - Python 3.10+
-- Docker installed and accessible to the current user
+- Docker accessible to the current user
 
 ## Installation
 
@@ -13,203 +13,205 @@
 pip install -r requirements.txt
 ```
 
-Some Python packages may require system dependencies which should be installed in your Docker image or host system.
+Some Python dependencies require system libraries inside your Docker image or host.
 
-## Usage
+## Quick Start
 
-### Basic Example
+### Basic Chat
 
 ```python
 import asyncio
 import agent
 
 async def main():
-    async with agent.TeamChatSession(user="demo", session="test") as chat:
-        async for part in chat.chat_stream("Hello there!"):
+    async with agent.TeamChatSession(user="demo", session="quick") as chat:
+        async for part in chat.chat_stream("Hello"):
             print(part)
 
 asyncio.run(main())
 ```
 
-`TeamChatSession` manages a conversation, stores history in SQLite and executes commands in a per-user Linux container. Mini-agents can be spawned during the chat using the `spawn_agent` tool.
+`TeamChatSession` stores conversation history in SQLite and executes commands in a dedicated VM. The session object also exposes helpers for uploading documents, editing memory and sending notifications.
 
-### Command Line Demo
-
-Run the sample script which starts a short conversation:
-
-```bash
-python run.py
-```
-
-### Discord Bot
-
-Create a `.env` file containing your bot token:
-
-```bash
-DISCORD_TOKEN="your-token"
-```
-
-Start the bot with:
-
-```bash
-python -m bot
-```
-
-Uploads sent to the bot are stored in `/data` inside the user's VM. Audio files
-are transcribed locally and the transcript is uploaded alongside the original
-file. No notification is sent to the LLM for these uploads. Use `!exec <command>` to
-run shell commands manually. Administrators can stop the bot with `!shutdown`.
-
-Interactive prompts from the VM appear as regular messages. Simply reply in the
-channel to forward your response to the shell. If desired, callbacks can
-automatically supply answers by passing an ``input_responder`` when invoking
-``vm_execute_stream`` or ``execute_terminal_stream``. The shell runs under a
-pseudo TTY so prompts like ``[Y/n]`` are visible in the stream and are emitted
-alongside a JSON ``stdin_request`` notification.
-
-### WebSocket Server
-
-Launch a persistent WebSocket service to stream responses and VM notifications:
+### Launch the WebSocket Server
 
 ```bash
 python -m agent --host 0.0.0.0 --port 8765
 ```
 
-The old entry point `python -m agent.server` continues to work as well.
+This starts a persistent WebSocket service. `python -m agent.server` works as well for backwards compatibility.
 
-Clients should connect via the WebSocket protocol and can specify the user,
-session and optional think parameters using query parameters:
-`ws://HOST:PORT/?user=<name>&session=<id>&think=<true|false>`.
-
-Here is a minimal client that keeps the connection open, sends user input and
-prints all output from the agent including asynchronous notifications:
+### Example Client
 
 ```python
 import asyncio
-from contextlib import suppress
 import websockets
 
-
 async def chat():
-    uri = "ws://localhost:8765/?user=demo&session=ws&think=false"
+    uri = "ws://localhost:8765/?user=demo&session=ws&think=true"
     async with websockets.connect(uri) as ws:
-        print("Connected. Press Ctrl+C to exit.")
-
-        async def receiver():
-            try:
-                async for msg in ws:
-                    print(msg, end="", flush=True)
-            except websockets.ConnectionClosed:
-                pass
-
-        recv_task = asyncio.create_task(receiver())
-        try:
-            loop = asyncio.get_running_loop()
-            while True:
-                prompt = await loop.run_in_executor(None, input, "> ")
-                await ws.send(prompt)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            recv_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await recv_task
-
+        await ws.send("Hello")
+        async for msg in ws:
+            print(msg)
 
 asyncio.run(chat())
 ```
 
+Messages can be raw strings or JSON payloads containing a `command` name with optional `args`.
 
-JSON payloads may also be sent to access other API functions. Each message must
-include a ``command`` field and optional ``args`` mapping:
+## WebSocket API
 
-```json
-{"command": "list_dir", "args": {"path": "/data"}}
-```
+All endpoints share the same query parameters:
 
-Responses for non-streaming commands are JSON encoded. Streaming commands such
-as ``team_chat`` send text fragments incrementally.
+- `user` – user identifier (string)
+- `session` – session id (string)
+- `think` – when `true` the model reasons before answering
 
-Interactive commands in the VM may request additional input. When a prompt is
-detected—typically a line ending with ``?`` or ``:``—the raw line is streamed as
-normal output, followed by a JSON message of the form
-``{"stdin_request": "<text>"}`` so clients can respond via the ``vm_input``
-command. ``vm_execute_stream`` and ``execute_terminal_stream`` also accept an
-optional ``input_responder`` callback to supply answers automatically.
+Payloads are JSON objects of the form `{ "command": "<name>", "args": {...} }` unless you send a plain string, which is treated as `team_chat`.
 
+### `team_chat` / `chat`
+Send a chat prompt. The server streams assistant output as text fragments.
 
+Arguments:
+- `prompt` – text prompt
 
-## API Overview
+### `upload_document`
+Upload a file for the VM. Provide either:
+- `file_path` – path on the server host, or
+- `file_data` and `file_name` – base64 encoded bytes and filename
 
-The :mod:`agent` package exposes a simple async API:
+Returns: `{ "result": "/data/<name>" }`.
 
-- `TeamChatSession` – manage conversations
-- `agent.team_chat(prompt, user, session)` – convenience wrapper returning a text stream
-- `agent.upload_document(path, user, session)` – place a local file in the VM
-- `agent.upload_data(data, filename, user, session)` – upload raw bytes
-- `agent.vm_execute(command, user)` – run a command directly
-- `agent.vm_execute_stream(command, user)` – stream output from a command
-- `agent.vm_send_input(data, user)` – send additional input to the VM shell
+### `list_dir`
+List directory contents inside the VM.
 
-Utility helpers exist for listing, reading and writing files as well as editing persistent memory.
+Arguments:
+- `path` – directory path
 
-### Persistent Memory
+Returns: `{ "result": [[name, is_dir], ...] }`.
 
-User data is stored as JSON and automatically appended to the system prompt.
-Memory fields can be modified from a chat using the `manage_memory` tool or programmatically:
+### `read_file`
+Read a file from the VM.
+
+Arguments:
+- `path` – file path
+
+Returns: `{ "result": "<content>" }`.
+
+### `write_file`
+Write text to a file in the VM.
+
+Arguments:
+- `path` – file path
+- `content` – text content
+
+Returns: `{ "result": "Saved" }`.
+
+### `delete_path`
+Remove a file or directory in the VM.
+
+Arguments:
+- `path` – target path
+
+Returns: `{ "result": "Deleted" }` or "File not found".
+
+### `download_file`
+Copy a file from the VM to the host system.
+
+Arguments:
+- `path` – VM path
+- `dest` – optional host directory
+
+Returns: `{ "result": "<host path>" }`.
+
+### `vm_execute`
+Execute a shell command and return the final output.
+
+Arguments:
+- `command` – shell command
+- `timeout` – optional timeout in seconds
+
+Returns: `{ "result": "<output>" }`.
+
+### `vm_execute_stream`
+Stream stdout/stderr from a shell command.
+
+Arguments:
+- `command` – shell command
+
+The server streams raw output lines. Interactive programs may emit `{ "stdin_request": "<text>" }` when additional input is required. Clients should respond using `vm_input`.
+
+### `vm_input`
+Send additional input to the running VM shell.
+
+Arguments:
+- `data` – text to write to stdin
+
+Returns: `{ "result": "ok" }`.
+
+### `send_notification`
+Queue a background notification for the current user.
+
+Arguments:
+- `message` – notification text
+
+Returns: `{ "result": "ok" }`.
+
+## Python API
+
+The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. See `agent/__init__.py` for the full list.
+
+## Persistent Memory
+
+User state is stored as JSON and inserted into the system prompt each turn. Memory fields can be manipulated via the `manage_memory` tool or programmatically:
 
 ```python
 import agent
+
 agent.edit_protected_memory("demo", "api_key", "secret")
-
-# or modify memory directly on a session
-async with agent.TeamChatSession(user="demo") as chat:
-    await chat.edit_memory("api_key", "secret", protected=True)
 ```
 
-### Notifications
+## Notifications
 
-Queue background notifications for an agent using ``send_notification`` or via
-an active session:
+Notifications allow the VM to trigger asynchronous messages back to the agent. They can be queued without an active chat:
 
 ```python
 import agent
 
-# Send a notification without opening a chat session
 agent.send_notification("Report ready", user="demo")
-
-async with agent.TeamChatSession(user="demo") as chat:
-    await chat.send_notification("Session starting")
-    async for part in chat.chat_stream("hello"):
-        print(part)
 ```
 
 ## Configuration
 
-Behaviour can be tuned through environment variables:
+Environment variables control most behaviour:
 
 | Variable | Description |
 | --- | --- |
-| `OLLAMA_MODEL` | Model name used by Ollama (default `qwen2.5`) |
-| `OLLAMA_HOST` | URL of the Ollama server |
-| `UPLOAD_DIR` | Directory where uploaded files are stored |
-| `DB_PATH` | SQLite database file |
-| `VM_IMAGE` | Docker image for the user VM |
-| `VM_CONTAINER_TEMPLATE` | Format string for container names (`chat-vm-{user}`) |
-| `VM_STATE_DIR` | Host directory for persistent VM state |
+| `OLLAMA_MODEL` | Ollama model name (default `qwen2.5`) |
+| `OLLAMA_HOST` | Ollama server URL |
+| `OLLAMA_NUM_CTX` | Context window size |
+| `UPLOAD_DIR` | Host directory for uploaded files |
+| `RETURN_DIR` | Host directory for returned files |
+| `DB_PATH` | SQLite database path |
+| `VM_IMAGE` | Docker image used for the VM |
+| `VM_CONTAINER_TEMPLATE` | Container name pattern (`chat-vm-{user}`) |
+| `VM_STATE_DIR` | Directory for persistent VM state |
+| `VM_DOCKER_HOST` | Docker host socket (optional) |
 | `PERSIST_VMS` | Keep VMs running between sessions (`1` by default) |
-| `LOG_LEVEL` | Logging verbosity |
+| `HARD_TIMEOUT` | Maximum seconds a command may run |
+| `LOG_LEVEL` | Logging level |
+| `SECRET_KEY` | Token signing key |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime |
+| `REQUIRE_AUTH` | Require authentication when non-zero |
+| `MEMORY_LIMIT` | Maximum size of stored memory |
+| `MAX_MINI_AGENTS` | Maximum number of helper agents |
+| `NOTIFICATION_POLL_INTERVAL` | Seconds between VM notification polls |
 
-Adjust these variables in your environment or `.env` file.
+Set these variables in your environment or a `.env` file.
 
 ## Docker VM
 
-Each user receives a dedicated Docker container. Files uploaded through the API are mounted at `/data` in the container and persist according to `VM_STATE_DIR`. Commands are executed exclusively inside this container using `execute_terminal` which streams output back to the model. Local command execution is not supported, so a running VM must be active whenever tools are used.
-
-
-## TODO
-
-Add multimodal agentic flow.
+Each user is assigned a lightweight Docker container. Uploaded files appear under `/data` and remain on disk according to `VM_STATE_DIR`. Returned files are delivered via `/return`. Commands always run inside this container; local execution is disabled, ensuring a consistent sandbox.
 
 ## License
 
