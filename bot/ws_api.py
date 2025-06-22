@@ -101,15 +101,11 @@ class WSApiClient:
         user: str,
         session: str,
         think: bool = False,
-        raw: bool = False,
     ) -> AsyncIterator[str]:
         """Yield output from ``command`` executed in the VM."""
 
         uri = self._build_uri(user, session, think)
-        payload = {
-            "command": "vm_execute_stream",
-            "args": {"command": command, "raw": raw},
-        }
+        payload = {"command": "vm_execute_stream", "args": {"command": command}}
         async with websockets.connect(uri) as ws:
             await ws.send(json.dumps(payload))
             async for msg in ws:
@@ -145,8 +141,6 @@ class WSApiClient:
         user: str,
         session: str,
         think: bool = False,
-        simulate_typing: bool = False,
-        delay: float = 0.05,
     ) -> None:
         """Send additional input to the user's VM shell."""
 
@@ -156,8 +150,6 @@ class WSApiClient:
             session=session,
             think=think,
             data=data,
-            simulate_typing=simulate_typing,
-            delay=delay,
         )
 
     async def list_dir(

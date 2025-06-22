@@ -183,10 +183,7 @@ async def _vm_execute_stream_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     cmd = str(params["command"])
-    raw = bool(params.get("raw", False))
-    async for part in vm_execute_stream(
-        cmd, user=user, config=config, raw=raw
-    ):
+    async for part in vm_execute_stream(cmd, user=user, config=config):
         yield part
 
 
@@ -199,15 +196,7 @@ async def _vm_input_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     data = params.get("data", "")
-    simulate = bool(params.get("simulate_typing", False))
-    delay = float(params.get("delay", 0.05))
-    await vm_send_input(
-        str(data),
-        user=user,
-        config=config,
-        simulate_typing=simulate,
-        delay=delay,
-    )
+    await vm_send_input(str(data), user=user, config=config)
     yield json.dumps({"result": "ok"})
 
 
