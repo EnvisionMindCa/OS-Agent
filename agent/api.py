@@ -165,6 +165,7 @@ async def vm_execute_stream(
     user: str = "default",
     config: Config | None = None,
     input_responder: Callable[[str], Awaitable[str | None]] | None = None,
+    raw: bool = False,
 ) -> AsyncIterator[str]:
     """Yield incremental output from ``command`` executed in ``user``'s VM."""
 
@@ -172,7 +173,7 @@ async def vm_execute_stream(
     vm = VMRegistry.acquire(user, config=cfg)
     try:
         async for part in vm.shell_execute_stream(
-            command, input_responder=input_responder
+            command, input_responder=input_responder, raw=raw
         ):
             yield part
     finally:
@@ -184,13 +185,18 @@ async def vm_send_input(
     *,
     user: str = "default",
     config: Config | None = None,
+    simulate_typing: bool = False,
+    delay: float = 0.05,
 ) -> None:
     """Forward ``data`` to the user's running VM shell."""
 
     cfg = config or DEFAULT_CONFIG
     vm = VMRegistry.acquire(user, config=cfg)
     try:
-        await vm.shell_send_input(data)
+        if simulate_typing and isinstance(data, str):
+            await vm.shell_send_keys(data, delay=delay)
+        else:
+            await vm.shell_send_input(data)
     finally:
         VMRegistry.release(user)
 
