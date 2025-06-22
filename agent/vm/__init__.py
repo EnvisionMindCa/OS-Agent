@@ -164,13 +164,12 @@ class LinuxVM:
         command: str,
         *,
         input_responder: Callable[[str], Awaitable[str | None]] | None = None,
-        raw: bool = False,
     ) -> AsyncIterator[str]:
         """Yield output from running ``command`` in the persistent shell."""
 
         shell = self._ensure_shell()
         async for part in shell.execute_stream(
-            command, input_responder=input_responder, raw=raw
+            command, input_responder=input_responder
         ):
             yield part
 
@@ -179,12 +178,6 @@ class LinuxVM:
 
         shell = self._ensure_shell()
         await shell.send_input(data)
-
-    async def shell_send_keys(self, text: str, *, delay: float = 0.05) -> None:
-        """Simulate typing input into the persistent shell."""
-
-        shell = self._ensure_shell()
-        await shell.send_keys(text, delay=delay)
 
     def execute(
         self,
