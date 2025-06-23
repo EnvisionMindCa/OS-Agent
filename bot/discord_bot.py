@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from agent.db import delete_history
 from agent.utils.logging import get_logger
 from agent import transcribe_audio
+from agent.utils.helpers import sanitize_filename
 from .ws_api import WSApiClient, WSConnection
 
 
@@ -317,7 +318,8 @@ class DiscordTeamBot(commands.Bot):
         tmpdir = Path(tempfile.mkdtemp(prefix="discord_upload_"))
         try:
             for attachment in attachments:
-                dest = tmpdir / attachment.filename
+                fname = sanitize_filename(attachment.filename)
+                dest = tmpdir / fname
                 await attachment.save(dest)
 
                 try:
@@ -327,11 +329,11 @@ class DiscordTeamBot(commands.Bot):
                         user=user,
                         session=session,
                         think=False,
-                        file_name=attachment.filename,
+                        file_name=fname,
                         file_data=encoded,
                     )
                     vm_path = str(resp.get("result", ""))
-                    uploaded.append((attachment.filename, vm_path))
+                    uploaded.append((fname, vm_path))
                     try:
                         await self._client.send_notification(
                             f"File uploaded: {vm_path}",
@@ -351,7 +353,7 @@ class DiscordTeamBot(commands.Bot):
                     )
                     continue
 
-                mime, _ = mimetypes.guess_type(attachment.filename)
+                mime, _ = mimetypes.guess_type(fname)
                 if mime and mime.startswith("audio"):
                     try:
                         text = await transcribe_audio(str(dest))

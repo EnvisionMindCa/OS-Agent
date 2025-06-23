@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import AsyncIterator
 
 from .debug import debug_all
 
-__all__ = ["limit_chars", "coalesce_stream"]
+__all__ = ["limit_chars", "coalesce_stream", "sanitize_filename"]
 
 
 def limit_chars(text: str, limit: int = 10_000) -> str:
@@ -39,6 +40,16 @@ async def coalesce_stream(
             last = now
     if buffer:
         yield "".join(buffer)
+
+
+def sanitize_filename(name: str) -> str:
+    """Return a safe filename without path components."""
+
+    base = Path(name).name
+    sanitized = "".join(
+        c if c.isalnum() or c in {"-", "_", "."} else "_" for c in base
+    )
+    return sanitized or "file"
 
 
 debug_all(globals())

@@ -8,6 +8,7 @@ import base64
 from typing import AsyncIterator, List, Mapping
 
 from ..utils.debug import debug_all
+from ..utils.helpers import sanitize_filename
 
 from ollama import AsyncClient, ChatResponse, Message
 
@@ -198,14 +199,15 @@ class ChatSession:
 
         dest = Path(self._config.upload_dir) / self._user.username
         dest.mkdir(parents=True, exist_ok=True)
-        target = dest / filename
+        safe_name = sanitize_filename(filename)
+        target = dest / safe_name
         target.write_bytes(data)
 
         if self._vm is not None:
-            _copy_to_vm_and_verify(self._vm, target, f"/data/{filename}")
+            _copy_to_vm_and_verify(self._vm, target, f"/data/{safe_name}")
 
-        add_document(self._user.username, str(target), filename)
-        return f"/data/{filename}"
+        add_document(self._user.username, str(target), safe_name)
+        return f"/data/{safe_name}"
 
     # ------------------------------------------------------------------
     async def edit_memory(
