@@ -332,6 +332,19 @@ class DiscordTeamBot(commands.Bot):
                     )
                     vm_path = str(resp.get("result", ""))
                     uploaded.append((attachment.filename, vm_path))
+                    try:
+                        await self._client.send_notification(
+                            f"File uploaded: {vm_path}",
+                            user=user,
+                            session=session,
+                            think=False,
+                        )
+                    except Exception as exc:  # pragma: no cover - runtime errors
+                        self._log.error(
+                            "Failed to notify upload of %s: %s",
+                            attachment.filename,
+                            exc,
+                        )
                 except Exception as exc:  # pragma: no cover - runtime errors
                     self._log.error(
                         "Upload failed for %s: %s", attachment.filename, exc
@@ -356,6 +369,19 @@ class DiscordTeamBot(commands.Bot):
                             )
                             t_vm_path = str(resp.get("result", ""))
                             uploaded.append((t_dest.name, t_vm_path))
+                            try:
+                                await self._client.send_notification(
+                                    f"File uploaded: {t_vm_path}",
+                                    user=user,
+                                    session=session,
+                                    think=False,
+                                )
+                            except Exception as exc:  # pragma: no cover - runtime errors
+                                self._log.error(
+                                    "Failed to notify upload of %s: %s",
+                                    t_dest.name,
+                                    exc,
+                                )
                     except Exception as exc:  # pragma: no cover - runtime errors
                         self._log.error(
                             "Transcription failed for %s: %s", attachment.filename, exc
