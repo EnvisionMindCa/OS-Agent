@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import AsyncIterator, Iterable, Callable, Awaitable
+import asyncio
 from pathlib import Path
 import base64
 import json
@@ -315,7 +316,7 @@ async def download_file(
         VMRegistry.release(user, session)
 
 
-def send_notification(
+async def send_notification(
     message: str,
     *,
     user: str = "default",
@@ -327,7 +328,8 @@ def send_notification(
     cfg = config or DEFAULT_CONFIG
     vm = VMRegistry.acquire(user, session, config=cfg)
     try:
-        vm.post_notification(str(message))
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, vm.post_notification, str(message))
     finally:
         VMRegistry.release(user, session)
 
