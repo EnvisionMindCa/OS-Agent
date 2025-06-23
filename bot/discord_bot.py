@@ -473,7 +473,7 @@ class DiscordTeamBot(commands.Bot):
         key = (user, session)
         conn = self._connections.get(key)
         if conn is None:
-            conn = WSConnection(self._client, user=user, session=session, think=False)
+            conn = WSConnection(self._client, user=user, session=session, think=True)
             await conn.connect()
             self._connections[key] = conn
             asyncio.create_task(self._relay_messages(conn, channel))
