@@ -208,7 +208,7 @@ Returns: `{ "result": "restarted" }`.
 
 ## Python API
 
-The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. See `agent/__init__.py` for the full list.
+The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. All helper functions are **asynchronous** and must be awaited. See `agent/__init__.py` for the full list.
 
 ## Persistent Memory
 
@@ -225,9 +225,10 @@ agent.edit_protected_memory("demo", "api_key", "secret")
 Notifications allow the VM to trigger asynchronous messages back to the agent. They can be queued without an active chat:
 
 ```python
+import asyncio
 import agent
 
-agent.send_notification("Report ready", user="demo")
+asyncio.run(agent.send_notification("Report ready", user="demo"))
 ```
 
 ## Configuration

@@ -241,7 +241,7 @@ async def _send_notification_handler(
     chat: TeamChatSession | None,
 ) -> AsyncIterator[str]:
     message = str(params["message"])
-    send_notification(message, user=user, session=session, config=config)
+    await send_notification(message, user=user, session=session, config=config)
     yield json.dumps({"result": "ok"})
 
 
