@@ -64,7 +64,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last && last.role === "assistant" && !last.file) {
-          const updated = { ...last, content: last.content + part };
+          const updated = {
+            ...last,
+            content: last.content + (last.content ? "\n\n" : "") + part,
+          };
           return [...prev.slice(0, -1), updated];
         }
         return [
