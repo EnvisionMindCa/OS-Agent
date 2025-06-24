@@ -3,9 +3,20 @@ import json
 import os
 from pathlib import Path
 
+import inspect
 import gradio as gr
 
 from bot.ws_client import WSApiClient
+
+
+def _click_stream(element: gr.Button, *args, **kwargs):
+    """Attach a click event with streaming support across gradio versions."""
+    params = inspect.signature(element.click).parameters
+    if "stream" in params:
+        kwargs["stream"] = True
+    elif "stream_every" in params:
+        kwargs["stream_every"] = 0
+    return element.click(*args, **kwargs)
 
 
 def _client(host: str, port: int) -> WSApiClient:
@@ -153,7 +164,7 @@ def build_interface(
             chatbot = gr.Chatbot()
             msg = gr.Textbox(label="Message")
             chat_btn = gr.Button("Send")
-            chat_btn.click(_chat, inputs=[msg, chatbot, user, session, think, host, port], outputs=chatbot, stream=True)
+            _click_stream(chat_btn, _chat, inputs=[msg, chatbot, user, session, think, host, port], outputs=chatbot)
             clear_btn = gr.Button("Clear")
             clear_btn.click(lambda: None, None, chatbot, queue=False)
 
@@ -206,11 +217,11 @@ def build_interface(
             raw_chk = gr.Checkbox(value=False, label="Raw")
             stream_btn = gr.Button("Stream")
             stream_out = gr.Textbox(label="Stream Output")
-            stream_btn.click(
+            _click_stream(
+                stream_btn,
                 _vm_execute_stream,
                 inputs=[cmd_stream, user, session, think, raw_chk, host, port],
                 outputs=stream_out,
-                stream=True,
             )
             in_data = gr.Textbox(label="Send Input")
             in_btn = gr.Button("Send")
