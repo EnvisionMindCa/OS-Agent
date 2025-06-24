@@ -99,6 +99,11 @@ Arguments:
 Upload a file for the VM. Provide either:
 - `file_path` – path on the server host, or
 - `file_data` and `file_name` – base64 encoded bytes and filename
+  
+Binary uploads are also supported by sending a WebSocket binary frame.
+Prefix the frame with a 4‑byte big‑endian header length followed by a
+JSON header (containing the command and `file_name`) and the raw file
+bytes. The frontend uses this format when uploading files.
 
 Returns: `{ "result": "/data/<name>" }`.
 

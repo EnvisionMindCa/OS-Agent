@@ -115,17 +115,19 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
 
   const uploadFile = useCallback(
     async (file: File) => {
-      const buffer = await file.arrayBuffer();
-      const base64 = Base64.fromUint8Array(new Uint8Array(buffer));
+      const header = JSON.stringify({
+        command: "upload_document",
+        args: { file_name: file.name },
+      });
+      const headerBytes = new TextEncoder().encode(header);
+      const lenBuf = new ArrayBuffer(4);
+      new DataView(lenBuf).setUint32(0, headerBytes.length, false);
+      const blob = new Blob([lenBuf, headerBytes, file]);
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         connect();
       }
-      wsRef.current?.send(
-        JSON.stringify({
-          command: "upload_document",
-          args: { file_name: file.name, file_data: base64 },
-        })
-      );
+      const data = await blob.arrayBuffer();
+      wsRef.current?.send(data);
     },
     [connect]
   );

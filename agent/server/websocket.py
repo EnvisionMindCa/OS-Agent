@@ -69,16 +69,30 @@ class AgentWebSocketServer:
     async def _process(
         self,
         chat: TeamChatSession,
-        message: str,
+        message: str | bytes,
         out_q: asyncio.Queue[str],
         user: str,
         session: str,
         think: bool,
     ) -> None:
-        try:
-            request = json.loads(message)
-        except json.JSONDecodeError:
-            request = {"command": "team_chat", "args": {"prompt": message}}
+        if isinstance(message, (bytes, bytearray)):
+            if len(message) < 4:
+                await out_q.put(json.dumps({"error": "Invalid binary message"}))
+                return
+            header_len = int.from_bytes(message[:4], "big")
+            header = message[4 : 4 + header_len]
+            try:
+                request = json.loads(header.decode())
+            except json.JSONDecodeError:
+                await out_q.put(json.dumps({"error": "Invalid message header"}))
+                return
+            params = request.setdefault("args", {})
+            params["file_data"] = message[4 + header_len :]
+        else:
+            try:
+                request = json.loads(message)
+            except json.JSONDecodeError:
+                request = {"command": "team_chat", "args": {"prompt": message}}
 
         command = str(request.get("command", "team_chat"))
         params = request.get("args", {})
