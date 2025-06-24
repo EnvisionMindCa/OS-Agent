@@ -1,0 +1,169 @@
+.chat-window-container {
+  display: flex;
+  flex-direction: column;
+  height: 70vh; /* Example height, adjust as needed */
+  max-height: 800px;
+}
+
+.chat-window-container h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.message-area {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  background-color: rgba(0,0,0,0.2); /* Slightly darker background for message area */
+}
+
+/* Styling for individual messages */
+.message {
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+  border-radius: 10px; /* Slightly more rounded messages */
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+  word-wrap: break-word; /* Ensure long words break */
+  animation: fadeInSlideUp 0.3s ease-out forwards;
+  transition: background-color 0.2s ease, border-color 0.2s ease; /* For hover */
+}
+
+.message:hover {
+  border-color: var(--accent-color); /* Highlight border on hover */
+}
+
+
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-text {
+  margin: 0 0 0.25rem 0; /* Space between text and timestamp */
+}
+
+.message-timestamp {
+  font-size: 0.7rem;
+  color: var(--secondary-text-color);
+  opacity: 0.8;
+}
+
+.user-message {
+  background-color: var(--accent-color);
+  color: var(--button-text-color); /* Using button text color for contrast on neon green */
+  align-self: flex-end; /* Align user messages to the right */
+  border-bottom-right-radius: 2px; /* Give it a "speech bubble" feel */
+  margin-left: auto; /* Push to right */
+}
+
+.user-message .message-timestamp {
+  text-align: right;
+  color: #333; /* Darker timestamp for user messages for readability */
+}
+
+.agent-message {
+  background-color: var(--input-bg-color); /* Darker bubble for agent */
+  color: var(--primary-text-color);
+  align-self: flex-start; /* Align agent messages to the left */
+  border-bottom-left-radius: 2px; /* "Speech bubble" feel */
+  margin-right: auto; /* Push to left */
+}
+
+.agent-message .message-timestamp {
+  text-align: left;
+  color: var(--accent-color); /* Neon green timestamp for agent */
+}
+
+.input-area {
+  display: flex;
+  gap: 0.5rem; /* Space between input and button */
+}
+
+.input-area input[type="text"] {
+  flex-grow: 1;
+  /* Using global input styles */
+}
+
+.input-area button {
+  flex-shrink: 0;
+  /* Using global button styles */
+}
+
+.suggestions-area {
+  display: flex;
+  flex-wrap: wrap; /* Allow suggestions to wrap to next line */
+  gap: 0.5rem; /* Space between suggestion buttons */
+  padding: 0.5rem 0.25rem; /* Padding around the suggestions area */
+  margin-bottom: 0.5rem; /* Space before the input area */
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.suggestion-button {
+  background-color: var(--input-bg-color); /* Match input field background */
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  font-family: var(--font-secondary);
+  text-transform: none; /* Override global button style if needed */
+  letter-spacing: 0.5px; /* Override global button style if needed */
+  border-radius: 15px; /* Pill-shaped buttons */
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.suggestion-button:hover {
+  background-color: var(--accent-color);
+  color: var(--primary-bg-color); /* Black text on neon green hover */
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.7); /* Enhanced glow */
+  transform: translateY(-2px) scale(1.03); /* Add pop effect */
+  /* transition is already on .suggestion-button, ensure transform is included if not already */
+}
+
+.suggestion-button:active {
+  transform: translateY(0px) scale(1);
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+  background-color: var(--hover-button-bg-color); /* Slightly darker green when pressed */
+  color: var(--primary-bg-color);
+}
+
+.typing-indicator .message-text {
+  font-style: italic;
+  color: var(--secondary-text-color); /* Lighter text for typing indicator */
+  opacity: 0.8;
+}
+
+/* Optional: Add a subtle dot animation to "Agent is typing..." */
+.typing-indicator .message-text::after {
+  content: '...';
+  display: inline-block;
+  animation: typingDots 1.5s infinite;
+  width: 1em; /* Adjust based on font size to prevent layout shift */
+  text-align: left;
+}
+
+@keyframes typingDots {
+  0%, 20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}

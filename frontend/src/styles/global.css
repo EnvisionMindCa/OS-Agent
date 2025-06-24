@@ -1,0 +1,119 @@
+:root {
+  --primary-bg-color: #000000;
+  --primary-text-color: #00FF00; /* Neon Green */
+  --secondary-text-color: #CCCCCC;
+  --accent-color: #00FF00;
+  --border-color: #00FF00; /* Neon Green for borders */
+  --container-bg-color: #1A1A1A; /* Dark gray for containers */
+  --input-bg-color: #2C2C2C;
+  --input-text-color: #FFFFFF;
+  --button-bg-color: #00FF00;
+  --button-text-color: #000000;
+  --hover-button-bg-color: #00DD00;
+  --hover-button-text-color: #111111;
+
+  --font-primary: 'Orbitron', sans-serif; /* A futuristic font, needs to be imported */
+  --font-secondary: 'Roboto Mono', monospace; /* Monospaced for code/data */
+}
+
+body {
+  background-color: var(--primary-bg-color);
+  color: var(--primary-text-color);
+  font-family: var(--font-secondary); /* Default to monospaced for now */
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-primary);
+  color: var(--accent-color);
+  margin-top: 0;
+}
+
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-shadow: 0 0 5px var(--accent-color);
+  color: #33FF33; /* Slightly brighter neon green */
+}
+
+/* Basic layout for App content */
+.App {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Styling for containers like chat and VM stream */
+.styled-container {
+  background-color: var(--container-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2); /* Neon green glow */
+  animation: pulseGlow 4s infinite alternate ease-in-out; /* Added animation */
+}
+
+@keyframes pulseGlow {
+  from {
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.15), 0 0 20px rgba(0, 255, 0, 0.1);
+    border-color: rgba(0, 255, 0, 0.7);
+  }
+  to {
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.3), 0 0 30px rgba(0, 255, 0, 0.2);
+    border-color: rgba(0, 255, 0, 1);
+  }
+}
+
+
+/* Basic input styling */
+input[type="text"],
+textarea {
+  background-color: var(--input-bg-color);
+  color: var(--input-text-color);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-family: var(--font-secondary);
+  width: 100%;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+/* Basic button styling */
+button {
+  background-color: var(--button-bg-color);
+  color: var(--button-text-color);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button:hover {
+  background-color: var(--hover-button-bg-color);
+  color: var(--hover-button-text-color);
+  box-shadow: 0 0 12px rgba(0, 255, 0, 0.8); /* Slightly increased glow */
+  transform: translateY(-2px) scale(1.03); /* Lift and pop effect */
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease; /* Added transform to transition */
+}
+
+button:active { /* Added active state for a pressed-down feel */
+  transform: translateY(0px) scale(1);
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
