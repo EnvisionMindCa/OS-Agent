@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import AsyncIterator, Iterable, Callable, Awaitable
+import asyncio
 from pathlib import Path
 import base64
 import json
@@ -18,6 +19,7 @@ from .db import (
 )
 from .utils.memory import get_memory as _get_memory, set_memory as _set_memory
 from .utils.logging import get_logger
+from .utils.helpers import sanitize_filename
 
 __all__ = [
     "team_chat",
@@ -128,19 +130,20 @@ async def upload_data(
     """Upload raw ``data`` as ``filename`` for access inside the VM."""
 
     cfg = config or DEFAULT_CONFIG
+    safe_name = sanitize_filename(filename)
     dest = Path(cfg.upload_dir) / user
     dest.mkdir(parents=True, exist_ok=True)
-    target = dest / filename
+    target = dest / safe_name
     target.write_bytes(data)
 
     vm = VMRegistry.acquire(user, session, config=cfg)
     try:
-        await _copy_to_vm_and_verify_async(vm, target, f"/data/{filename}")
+        await _copy_to_vm_and_verify_async(vm, target, f"/data/{safe_name}")
     finally:
         VMRegistry.release(user, session)
 
-    add_document(user, str(target), filename)
-    return f"/data/{filename}"
+    add_document(user, str(target), safe_name)
+    return f"/data/{safe_name}"
 
 
 async def vm_execute(
@@ -315,7 +318,7 @@ async def download_file(
         VMRegistry.release(user, session)
 
 
-def send_notification(
+async def send_notification(
     message: str,
     *,
     user: str = "default",
@@ -327,7 +330,8 @@ def send_notification(
     cfg = config or DEFAULT_CONFIG
     vm = VMRegistry.acquire(user, session, config=cfg)
     try:
-        vm.post_notification(str(message))
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, vm.post_notification, str(message))
     finally:
         VMRegistry.release(user, session)
 

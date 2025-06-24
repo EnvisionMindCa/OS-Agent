@@ -59,6 +59,37 @@ asyncio.run(chat())
 
 Messages can be raw strings or JSON payloads containing a `command` name with optional `args`.
 
+### Gradio Frontend
+
+Launch the demo interface to interact with the WebSocket API using Gradio:
+
+```bash
+python gradio_app.py
+```
+
+Set the host, port, user and session at the top of the page and explore all available endpoints.
+
+### Docker Image
+
+The provided Dockerfile runs both the WebSocket service and the Gradio frontend.
+Build and run the container exposing ports `8765` and `7860`:
+
+```bash
+docker build -t os-agent .
+docker run -p 8765:8765 -p 7860:7860 os-agent
+```
+
+Environment variables allow customising the defaults:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `WS_HOST` | WebSocket bind address | `0.0.0.0` |
+| `WS_PORT` | WebSocket port | `8765` |
+| `UI_HOST` | Gradio bind address | `0.0.0.0` |
+| `UI_PORT` | Gradio port | `7860` |
+| `DEFAULT_USER` | Default user name | `demo` |
+| `DEFAULT_SESSION` | Default session name | `main` |
+
 ## WebSocket API
 
 All endpoints share the same query parameters:
@@ -208,7 +239,7 @@ Returns: `{ "result": "restarted" }`.
 
 ## Python API
 
-The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. See `agent/__init__.py` for the full list.
+The :mod:`agent` package mirrors the WebSocket functionality and exposes helpers such as `upload_document`, `vm_execute_stream` and `send_notification`. All helper functions are **asynchronous** and must be awaited. See `agent/__init__.py` for the full list.
 
 ## Persistent Memory
 
@@ -225,9 +256,10 @@ agent.edit_protected_memory("demo", "api_key", "secret")
 Notifications allow the VM to trigger asynchronous messages back to the agent. They can be queued without an active chat:
 
 ```python
+import asyncio
 import agent
 
-agent.send_notification("Report ready", user="demo")
+asyncio.run(agent.send_notification("Report ready", user="demo"))
 ```
 
 ## Configuration
