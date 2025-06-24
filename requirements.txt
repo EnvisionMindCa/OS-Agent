@@ -7,4 +7,3 @@ openai-whisper
 python-multipart
 websockets
 watchfiles
-gradio
