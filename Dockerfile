@@ -20,5 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8765
+EXPOSE 7860
 
-CMD ["python", "-m", "agent"]
+CMD ["python", "start_services.py"]
