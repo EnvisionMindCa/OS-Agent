@@ -1,12 +1,16 @@
 "use client";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAgentChat } from "@/lib/useAgentChat";
 
 export default function Home() {
-  const { messages, sendMessage, uploadFile, setSession, session } =
-    useAgentChat();
+  const searchParams = useSearchParams();
+  const initialSession = searchParams.get("session") || "main";
+  const { messages, sendMessage, uploadFile } = useAgentChat({
+    session: initialSession,
+  });
   const [input, setInput] = useState("");
-  const [sessionInput, setSessionInput] = useState(session);
+  const [sessionInput, setSessionInput] = useState(initialSession);
   const [file, setFile] = useState<File | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -19,9 +23,10 @@ export default function Home() {
 
   const handleSessionUpdate = () => {
     const s = sessionInput.trim();
-    if (s) {
-      setSession(s);
-    }
+    if (!s) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("session", s);
+    window.location.href = url.toString();
   };
 
   const handleUpload = (e: React.FormEvent) => {
