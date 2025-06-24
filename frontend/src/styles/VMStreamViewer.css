@@ -1,0 +1,69 @@
+.vm-stream-container {
+  display: flex;
+  flex-direction: column;
+  height: 70vh; /* Example height, match ChatWindow or adjust */
+  max-height: 800px;
+}
+
+.vm-stream-container h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.video-player-wrapper {
+  flex-grow: 1;
+  background-color: #080808; /* Slightly different dark bg for player area */
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column; /* Stack video and messages */
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--secondary-text-color);
+  min-height: 300px; /* Ensure it has some height */
+  padding: 1rem;
+  position: relative; /* For absolute positioning of overlays if needed */
+}
+
+.video-element {
+  width: 100%;
+  height: auto; /* Maintain aspect ratio */
+  max-height: calc(100% - 40px); /* Adjust if messages are shown below */
+  background-color: #000; /* Black background for video area */
+  border-radius: 3px;
+}
+
+.loading-indicator,
+.stream-error-message,
+.stream-info-message {
+  padding: 1rem;
+  font-family: var(--font-secondary);
+  width: 100%;
+}
+
+.loading-indicator p {
+  color: var(--accent-color);
+  font-size: 1.1rem;
+}
+
+.stream-error-message p {
+  color: #FF4444; /* Neon Red for errors */
+  font-size: 1rem;
+  white-space: pre-wrap; /* Preserve newlines in error messages */
+}
+
+.stream-info-message {
+  font-size: 0.9rem;
+  color: var(--secondary-text-color);
+  background-color: rgba(0,0,0,0.2);
+  border-top: 1px solid var(--border-color);
+  margin-top: 1rem;
+}
+
+.stream-info-message p {
+  color: var(--accent-color);
+  opacity: 0.8;
+}

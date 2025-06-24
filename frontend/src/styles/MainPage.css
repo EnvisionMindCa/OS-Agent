@@ -1,0 +1,46 @@
+.main-page-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Ensure it takes at least full viewport height */
+}
+
+.content-area {
+  display: flex;
+  flex-grow: 1; /* Allows this area to expand and fill available space */
+  padding: 1rem;
+  gap: 1rem; /* Space between panels */
+}
+
+.panel {
+  flex: 1; /* Each panel takes equal space */
+  display: flex; /* To allow content within to also use flex if needed */
+  flex-direction: column;
+}
+
+/* If we want to ensure panels don't get too small */
+.chat-panel {
+  min-width: 350px;
+}
+
+.vm-panel {
+  min-width: 350px;
+}
+
+/* Responsive adjustments: Stack panels on smaller screens */
+@media (max-width: 900px) {
+  .content-area {
+    flex-direction: column;
+  }
+
+  .panel {
+    flex: none; /* Reset flex basis */
+    width: 100%; /* Full width when stacked */
+  }
+
+  /* Adjust height for stacked view if necessary */
+  .chat-window-container,
+  .vm-stream-container {
+    height: auto; /* Or a specific smaller vh like 50vh */
+    max-height: 50vh; /* Prevent them from becoming too tall */
+  }
+}
