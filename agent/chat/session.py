@@ -194,13 +194,15 @@ class ChatSession:
         add_document(self._user.username, str(target), src.name)
         return f"/data/{src.name}"
 
-    def upload_data(self, data: bytes, filename: str) -> str:
+    def upload_data(self, data: bytes | str, filename: str) -> str:
         """Save ``data`` as ``filename`` for access inside the VM."""
 
         dest = Path(self._config.upload_dir) / self._user.username
         dest.mkdir(parents=True, exist_ok=True)
         safe_name = sanitize_filename(filename)
         target = dest / safe_name
+        if isinstance(data, str):
+            data = data.encode()
         target.write_bytes(data)
 
         if self._vm is not None:

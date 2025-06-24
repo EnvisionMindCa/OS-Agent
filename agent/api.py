@@ -120,7 +120,7 @@ async def upload_document(
 
 
 async def upload_data(
-    data: bytes,
+    data: bytes | str,
     filename: str,
     *,
     user: str = "default",
@@ -134,6 +134,8 @@ async def upload_data(
     dest = Path(cfg.upload_dir) / user
     dest.mkdir(parents=True, exist_ok=True)
     target = dest / safe_name
+    if isinstance(data, str):
+        data = data.encode()
     target.write_bytes(data)
 
     vm = VMRegistry.acquire(user, session, config=cfg)
