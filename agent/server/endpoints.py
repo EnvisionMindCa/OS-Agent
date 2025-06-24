@@ -85,9 +85,18 @@ async def _upload_document_handler(
     if file_data is not None:
         if not file_name:
             raise ValueError("file_name required when file_data provided")
-        data = base64.b64decode(file_data)
+        if isinstance(file_data, str):
+            data = base64.b64decode(file_data.encode())
+        elif isinstance(file_data, (bytes, bytearray)):
+            data = bytes(file_data)
+        else:
+            raise TypeError("file_data must be bytes or base64 string")
         result = await upload_data(
-            data, file_name, user=user, session=session, config=config
+            data,
+            file_name,
+            user=user,
+            session=session,
+            config=config,
         )
     else:
         file_path = str(params["file_path"])
