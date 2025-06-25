@@ -397,20 +397,11 @@ class DiscordTeamBot(commands.Bot):
     async def _relay_messages(
         self, conn: WSConnection, channel: discord.abc.Messageable
     ) -> None:
-        buffer: list[str] = []
-        last_send = asyncio.get_running_loop().time()
         key = (conn.user, conn.session)
         try:
             async for msg in conn:
                 file_payload = self._parse_returned_file(msg)
                 if file_payload:
-                    if buffer:
-                        text = "".join(buffer).strip()
-                        if text:
-                            await channel.send(text)
-                        buffer.clear()
-                        last_send = asyncio.get_running_loop().time()
-
                     name, data = file_payload
                     await channel.send(
                         content=f"Returned file: {name}",
@@ -420,32 +411,16 @@ class DiscordTeamBot(commands.Bot):
 
                 prompt = self._parse_stdin_request(msg)
                 if prompt is not None:
-                    if buffer:
-                        text = "".join(buffer).strip()
-                        if text:
-                            await channel.send(text)
-                        buffer.clear()
-                        last_send = asyncio.get_running_loop().time()
                     formatted = f"**VM input requested:** {prompt}"
                     await channel.send(formatted)
                     self._awaiting_input.add(key)
                     continue
 
-                buffer.append(msg)
-                now = asyncio.get_running_loop().time()
-                if now - last_send > 0.5:
-                    text = "".join(buffer).strip()
-                    if text:
-                        await channel.send(text)
-                    buffer.clear()
-                    last_send = now
-        except Exception as exc:  # pragma: no cover - runtime errors
-            self._log.error("WebSocket error: %s", exc)
-        finally:
-            if buffer:
-                text = "".join(buffer).strip()
+                text = msg.strip()
                 if text:
                     await channel.send(text)
+        except Exception as exc:  # pragma: no cover - runtime errors
+            self._log.error("WebSocket error: %s", exc)
 
     def _parse_returned_file(self, msg: str) -> tuple[str, bytes] | None:
         """Return file name and bytes if ``msg`` encodes a returned file."""
