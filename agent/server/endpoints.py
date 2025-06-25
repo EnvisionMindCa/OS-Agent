@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Awaitable, Callable
 import json
 import base64
+import mimetypes
+from pathlib import Path
 
 from ..api import (
     team_chat,
@@ -24,6 +26,7 @@ from ..api import (
     vm_execute_stream,
     vm_send_input,
     vm_send_keys,
+    transcribe_and_upload,
     send_notification,
     list_sessions,
     list_sessions_info,
@@ -34,8 +37,11 @@ from ..api import (
     restart_terminal,
 )
 from ..config import Config
-from ..utils.helpers import coalesce_stream
+from ..utils.helpers import coalesce_stream, sanitize_filename
+from ..utils.logging import get_logger
 from ..sessions.team import TeamChatSession
+
+_LOG = get_logger(__name__)
 
 
 async def _yield_stream(stream: AsyncIterator[str]) -> AsyncIterator[str]:
@@ -98,12 +104,36 @@ async def _upload_document_handler(
             session=session,
             config=config,
         )
+        local_path = Path(config.upload_dir) / user / sanitize_filename(file_name)
     else:
         file_path = str(params["file_path"])
         result = await upload_document(
             file_path, user=user, session=session, config=config
         )
+        local_path = Path(config.upload_dir) / user / Path(file_path).name
+
+    await send_notification(f"File uploaded: {result}", user=user, session=session, config=config)
     yield json.dumps({"result": result})
+
+    mime, _ = mimetypes.guess_type(str(local_path))
+    if mime and mime.startswith("audio"):
+        try:
+            transcript_path = await transcribe_and_upload(
+                str(local_path),
+                user=user,
+                session=session,
+                config=config,
+            )
+            if transcript_path:
+                await send_notification(
+                    f"File uploaded: {transcript_path}",
+                    user=user,
+                    session=session,
+                    config=config,
+                )
+                yield json.dumps({"result": transcript_path})
+        except Exception as exc:  # pragma: no cover - runtime errors
+            _LOG.error("Transcription failed for %s: %s", local_path, exc)
 
 
 async def _list_dir_handler(

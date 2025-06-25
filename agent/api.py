@@ -20,6 +20,7 @@ from .db import (
 from .utils.memory import get_memory as _get_memory, set_memory as _set_memory
 from .utils.logging import get_logger
 from .utils.helpers import sanitize_filename
+from .utils.speech import transcribe_audio
 
 __all__ = [
     "team_chat",
@@ -35,6 +36,7 @@ __all__ = [
     "vm_send_input",
     "vm_send_keys",
     "send_notification",
+    "transcribe_and_upload",
     "list_sessions",
     "list_sessions_info",
     "list_documents",
@@ -146,6 +148,30 @@ async def upload_data(
 
     add_document(user, str(target), safe_name)
     return f"/data/{safe_name}"
+
+
+async def transcribe_and_upload(
+    file_path: str,
+    *,
+    user: str = "default",
+    session: str = "default",
+    config: Config | None = None,
+    model_size: str = "tiny.en",
+) -> str:
+    """Transcribe ``file_path`` and upload the resulting text."""
+
+    text = await transcribe_audio(file_path, model_size=model_size)
+    if not text:
+        return ""
+
+    transcript_name = sanitize_filename(f"{Path(file_path).stem}_transcript.txt")
+    return await upload_data(
+        text,
+        transcript_name,
+        user=user,
+        session=session,
+        config=config,
+    )
 
 
 async def vm_execute(

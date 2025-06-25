@@ -25,6 +25,7 @@ from .tools import (
 )
 from .utils.helpers import limit_chars
 from .utils.speech import transcribe_audio
+from .api import transcribe_and_upload
 from .vm import LinuxVM
 from .utils.memory import get_memory, set_memory, edit_memory, edit_protected_memory
 from .config import Config, DEFAULT_CONFIG
@@ -56,6 +57,7 @@ __all__ = [
     "vm_send_keys",
     "send_notification",
     "transcribe_audio",
+    "transcribe_and_upload",
     "get_memory",
     "set_memory",
     "edit_memory",
