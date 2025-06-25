@@ -164,7 +164,9 @@ async def transcribe_and_upload(
     if not text:
         return ""
 
-    transcript_name = sanitize_filename(f"{Path(file_path).stem}_transcript.txt")
+    transcript_name = sanitize_filename(
+        f"{Path(file_path).stem}_transcription.txt"
+    )
     return await upload_data(
         text,
         transcript_name,

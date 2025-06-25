@@ -300,7 +300,7 @@ class DiscordTeamBot(commands.Bot):
         """Download attachments and upload them to the VM.
 
         Audio files are transcribed locally and the transcript is uploaded as
-        ``<name>_transcript.txt``. A notification is sent for every uploaded
+        ``<name>_transcription.txt``. A notification is sent for every uploaded
         file so the agent can react to new documents.
 
         Parameters
@@ -358,7 +358,7 @@ class DiscordTeamBot(commands.Bot):
                     try:
                         text = await transcribe_audio(str(dest))
                         if text:
-                            t_dest = tmpdir / f"{dest.stem}_transcript.txt"
+                            t_dest = tmpdir / f"{dest.stem}_transcription.txt"
                             t_dest.write_text(text)
                             encoded_t = base64.b64encode(t_dest.read_bytes()).decode()
                             resp = await self._client.request(
