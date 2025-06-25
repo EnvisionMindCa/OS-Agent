@@ -57,6 +57,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
           ]);
           return;
         }
+        if (typeof data.result === "string") {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: idRef.current++,
+              role: "assistant",
+              content: data.result,
+            },
+          ]);
+          return;
+        }
       } catch {
         /* not JSON */
       }
@@ -127,6 +138,8 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         connect();
       }
       const data = await blob.arrayBuffer();
+      // Audio files are transcribed server-side and the resulting
+      // ``<name>_transcription.txt`` file is saved in the VM.
       wsRef.current?.send(data);
     },
     [connect]
