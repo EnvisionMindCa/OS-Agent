@@ -20,7 +20,7 @@ export interface UseAgentChatOptions {
 }
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
-  const { user = "demo", session: initSession = "main", think = true } = options;
+  const { user = "demo", session: initSession = "main", think = false } = options;
   const [session, setSession] = useState(initSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
