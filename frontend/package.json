@@ -12,7 +12,8 @@
     "js-base64": "^3.7.7",
     "next": "15.3.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-media-recorder": "^1.7.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

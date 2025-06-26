@@ -2,6 +2,10 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAgentChat } from "@/lib/useAgentChat";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+
+const Recorder = dynamic(() => import("@/components/Recorder"), { ssr: false });
 
 function ChatUI() {
   const searchParams = useSearchParams();
@@ -54,6 +58,9 @@ function ChatUI() {
         >
           Set
         </button>
+        <Link href="/sessions" className="px-4 py-2 rounded-md bg-purple-600/80 text-white">
+          Sessions
+        </Link>
       </header>
       <main className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((m) => (
@@ -99,6 +106,7 @@ function ChatUI() {
           >
             Upload
           </button>
+          <Recorder onSave={uploadFile} />
           <button
             type="submit"
             className="px-4 py-2 rounded-md bg-blue-600/80"
