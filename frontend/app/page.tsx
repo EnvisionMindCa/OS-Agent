@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAgentChat } from "@/lib/useAgentChat";
 
-export default function Home() {
+function ChatUI() {
   const searchParams = useSearchParams();
   const initialSession = searchParams.get("session") || "main";
   const { messages, sendMessage, uploadFile } = useAgentChat({
@@ -108,5 +108,13 @@ export default function Home() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <ChatUI />
+    </Suspense>
   );
 }

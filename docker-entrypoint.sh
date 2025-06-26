@@ -59,8 +59,8 @@ cleanup() {
 }
 trap cleanup EXIT SIGINT SIGTERM
 
-log "Starting static file server"
-python -m agent.static_server --port "${FRONTEND_PORT:-8080}" &
+log "Starting frontend"
+(cd /app/frontend && npm start -- -p "${FRONTEND_PORT:-8080}") &
 HTTP_PID=$!
 
 log "Starting OS-Agent server"
