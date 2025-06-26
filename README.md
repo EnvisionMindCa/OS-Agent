@@ -57,6 +57,17 @@ async def chat():
 asyncio.run(chat())
 ```
 
+### Gradio Frontend
+
+Launch a simple web UI using [Gradio](https://www.gradio.app):
+
+```bash
+python frontend/gradio_app.py
+```
+
+The interface supports chat, audio and file uploads, session switching and
+downloads of files returned by the agent.
+
 Messages can be raw strings or JSON payloads containing a `command` name with optional `args`.
 
 
