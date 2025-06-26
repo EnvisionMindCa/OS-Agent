@@ -79,8 +79,12 @@ Build and run the container exposing ports `8765`, `8080` and `11434`:
 
 ```bash
 docker build -t os-agent .
-docker run --privileged -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
+docker run --gpus all --privileged -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
 ```
+
+The `--gpus all` flag grants the container full access to your GPU when
+available. If your system does not have a GPU or the NVIDIA runtime is not
+installed, simply omit this flag to run in CPU-only mode.
 
 The container also runs the Next.js frontend on port `8080`. Open
 `http://localhost:8080` after the container starts to interact with the agent
@@ -285,6 +289,8 @@ Environment variables control most behaviour:
 | `OLLAMA_HOST` | Ollama server URL |
 | `OLLAMA_NUM_CTX` | Context window size |
 | `OLLAMA_KV_CACHE_TYPE` | Ollama KV cache type (`q8_0` by default) |
+| `NVIDIA_VISIBLE_DEVICES` | GPUs to expose inside the container (`all` by default) |
+| `NVIDIA_DRIVER_CAPABILITIES` | NVIDIA driver capabilities (`compute,utility`) |
 | `UPLOAD_DIR` | Host directory for uploaded files |
 | `RETURN_DIR` | Host directory for returned files |
 | `DB_PATH` | SQLite database path |

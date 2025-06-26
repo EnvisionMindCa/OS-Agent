@@ -26,6 +26,12 @@ wait_for_docker() {
 
 wait_for_docker
 
+if command -v nvidia-smi >/dev/null 2>&1; then
+    log "NVIDIA GPU detected, enabling GPU acceleration"
+else
+    log "No NVIDIA GPU detected, running Ollama in CPU mode"
+fi
+
 log "Starting Ollama service"
 export OLLAMA_KV_CACHE_TYPE="${CACHE}"
 ollama serve &
