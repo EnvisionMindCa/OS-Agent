@@ -79,7 +79,7 @@ Build and run the container exposing ports `8765`, `8080` and `11434`:
 
 ```bash
 docker build -t os-agent .
-docker run -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
+docker run --privileged -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
 ```
 
 The container also serves a static web UI on port `8080`. Open
