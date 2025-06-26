@@ -74,6 +74,7 @@ Messages can be raw strings or JSON payloads containing a `command` name with op
 ### Docker Image
 
 The Dockerfile starts the WebSocket service and an embedded Ollama instance.
+The entrypoint automatically launches `ollama serve` with `OLLAMA_KV_CACHE_TYPE=q8_0` before downloading the requested model.
 Build and run the container exposing ports `8765` and `11434`:
 
 ```bash

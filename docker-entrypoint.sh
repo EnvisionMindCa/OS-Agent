@@ -8,9 +8,6 @@ log() {
     echo "$(date +'%Y-%m-%dT%H:%M:%S') [entrypoint] $*" >&2
 }
 
-log "Pulling Ollama model: ${MODEL}"
-ollama pull "${MODEL}"
-
 log "Starting Ollama service"
 export OLLAMA_KV_CACHE_TYPE="${CACHE}"
 ollama serve &
@@ -28,6 +25,9 @@ wait_for_ollama() {
 }
 
 wait_for_ollama
+
+log "Pulling Ollama model: ${MODEL}"
+ollama pull "${MODEL}"
 
 cleanup() {
     log "Shutting down..."
