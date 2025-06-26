@@ -82,7 +82,7 @@ docker build -t os-agent .
 docker run --privileged -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
 ```
 
-The container also serves a static web UI on port `8080`. Open
+The container also runs the Next.js frontend on port `8080`. Open
 `http://localhost:8080` after the container starts to interact with the agent
 from your browser.
 
