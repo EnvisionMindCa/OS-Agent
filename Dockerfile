@@ -7,6 +7,12 @@ ENV OLLAMA_MODEL=${OLLAMA_MODEL}
 
 ENV OLLAMA_KV_CACHE_TYPE=q8_0
 
+# Enable GPU access when available. The NVIDIA runtime will
+# expose the host GPUs when the container is started with
+# `--gpus` or the Nvidia container runtime.
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
 # Install OS-level dependencies
 RUN set -eux; \
     apt-get update; \
