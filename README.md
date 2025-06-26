@@ -75,12 +75,16 @@ Messages can be raw strings or JSON payloads containing a `command` name with op
 
 The Dockerfile starts the WebSocket service and an embedded Ollama instance.
 The entrypoint automatically launches `ollama serve` with `OLLAMA_KV_CACHE_TYPE=q8_0` before downloading the requested model.
-Build and run the container exposing ports `8765` and `11434`:
+Build and run the container exposing ports `8765`, `8080` and `11434`:
 
 ```bash
 docker build -t os-agent .
-docker run -p 8765:8765 -p 11434:11434 os-agent
+docker run -p 8765:8765 -p 8080:8080 -p 11434:11434 os-agent
 ```
+
+The container also serves a static web UI on port `8080`. Open
+`http://localhost:8080` after the container starts to interact with the agent
+from your browser.
 
 The Ollama model specified by `OLLAMA_MODEL` is downloaded when the container
 starts. Building the image does not require the model to be present.

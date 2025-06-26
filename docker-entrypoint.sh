@@ -32,8 +32,15 @@ ollama pull "${MODEL}"
 cleanup() {
     log "Shutting down..."
     kill "${OLLAMA_PID}"
+    if [[ -n "${HTTP_PID:-}" ]]; then
+        kill "${HTTP_PID}" || true
+    fi
 }
 trap cleanup EXIT SIGINT SIGTERM
+
+log "Starting static file server"
+python -m agent.static_server --port "${FRONTEND_PORT:-8080}" &
+HTTP_PID=$!
 
 log "Starting OS-Agent server"
 python -m agent
