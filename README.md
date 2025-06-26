@@ -62,12 +62,12 @@ Messages can be raw strings or JSON payloads containing a `command` name with op
 
 ### Docker Image
 
-The Dockerfile starts the WebSocket service.
-Build and run the container exposing port `8765`:
+The Dockerfile starts the WebSocket service and an embedded Ollama instance.
+Build and run the container exposing ports `8765` and `11434`:
 
 ```bash
 docker build -t os-agent .
-docker run -p 8765:8765 os-agent
+docker run -p 8765:8765 -p 11434:11434 os-agent
 ```
 
 Environment variables allow customising the defaults:
@@ -265,6 +265,7 @@ Environment variables control most behaviour:
 | `OLLAMA_MODEL` | Ollama model name (default `qwen2.5`) |
 | `OLLAMA_HOST` | Ollama server URL |
 | `OLLAMA_NUM_CTX` | Context window size |
+| `OLLAMA_KV_CACHE_TYPE` | Ollama KV cache type (`q8_0` by default) |
 | `UPLOAD_DIR` | Host directory for uploaded files |
 | `RETURN_DIR` | Host directory for returned files |
 | `DB_PATH` | SQLite database path |
