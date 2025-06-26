@@ -33,6 +33,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-EXPOSE 8765 11434
+EXPOSE 8765 8080 11434
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
