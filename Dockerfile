@@ -16,7 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
-RUN ollama pull ${OLLAMA_MODEL}
+
+# The Ollama model is pulled at runtime by the entrypoint script. Pulling during
+# build requires a running `ollama` server which isn't available in the build
+# environment, leading to failures. Let the entrypoint handle the pull instead.
+
 
 WORKDIR /app
 
