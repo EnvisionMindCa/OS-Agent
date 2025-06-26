@@ -70,6 +70,9 @@ docker build -t os-agent .
 docker run -p 8765:8765 -p 11434:11434 os-agent
 ```
 
+The Ollama model specified by `OLLAMA_MODEL` is downloaded when the container
+starts. Building the image does not require the model to be present.
+
 Environment variables allow customising the defaults:
 
 | Variable | Description | Default |
