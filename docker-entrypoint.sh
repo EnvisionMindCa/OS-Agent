@@ -8,6 +8,24 @@ log() {
     echo "$(date +'%Y-%m-%dT%H:%M:%S') [entrypoint] $*" >&2
 }
 
+log "Starting Docker daemon"
+dockerd >/tmp/dockerd.log 2>&1 &
+DOCKER_PID=$!
+
+wait_for_docker() {
+    for _ in {1..30}; do
+        if docker info >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+    done
+    log "Docker daemon failed to start"
+    cat /tmp/dockerd.log >&2 || true
+    exit 1
+}
+
+wait_for_docker
+
 log "Starting Ollama service"
 export OLLAMA_KV_CACHE_TYPE="${CACHE}"
 ollama serve &
@@ -32,6 +50,9 @@ ollama pull "${MODEL}"
 cleanup() {
     log "Shutting down..."
     kill "${OLLAMA_PID}"
+    if [[ -n "${DOCKER_PID:-}" ]]; then
+        kill "${DOCKER_PID}" || true
+    fi
     if [[ -n "${HTTP_PID:-}" ]]; then
         kill "${HTTP_PID}" || true
     fi
