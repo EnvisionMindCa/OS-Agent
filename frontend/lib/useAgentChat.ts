@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Base64 } from "js-base64";
+import { getWsUrl } from "./wsUrl";
 
 export interface ChatFile {
   name: string;
@@ -30,9 +31,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const connect = useCallback(() => {
     if (wsRef.current) wsRef.current.close();
 
-    const url = new URL(
-      process.env.NEXT_PUBLIC_AGENT_WS_URL || "ws://localhost:8765"
-    );
+    const url = new URL(getWsUrl());
     url.searchParams.set("user", user);
     url.searchParams.set("session", session);
     url.searchParams.set("think", think ? "true" : "false");

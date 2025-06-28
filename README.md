@@ -90,6 +90,10 @@ The container also runs the Next.js frontend on port `8080`. Open
 `http://localhost:8080` after the container starts to interact with the agent
 from your browser.
 
+The frontend tries to connect to the agent WebSocket on the same host. If the
+service runs on a different host or port, set `NEXT_PUBLIC_AGENT_WS_URL`
+accordingly when building the image.
+
 The Ollama model specified by `OLLAMA_MODEL` is downloaded when the container
 starts. Building the image does not require the model to be present.
 

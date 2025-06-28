@@ -1,3 +1,5 @@
+import { getWsUrl } from "./wsUrl";
+
 export interface AgentApiOptions {
   user?: string;
   session?: string;
@@ -16,9 +18,7 @@ export async function sendAgentCommand<T = unknown>(
     think = true,
     timeoutMs = 10000,
   } = options;
-  const url = new URL(
-    process.env.NEXT_PUBLIC_AGENT_WS_URL || "ws://localhost:8765"
-  );
+  const url = new URL(getWsUrl());
   url.searchParams.set("user", user);
   url.searchParams.set("session", session);
   url.searchParams.set("think", think ? "true" : "false");
