@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Base64 } from "js-base64";
 
-const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_AGENT_WS_URL || "ws://localhost:8765";
-
 function buildWSUrl(user: string, session: string, think: boolean): string {
-  const url = new URL(DEFAULT_WS_URL);
+  const base =
+    process.env.NEXT_PUBLIC_AGENT_WS_URL ||
+    `ws://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:8765`;
+  const url = new URL(base);
   url.searchParams.set("user", user);
   url.searchParams.set("session", session);
   url.searchParams.set("think", think ? "true" : "false");
