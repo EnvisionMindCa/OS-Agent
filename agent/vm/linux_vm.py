@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 import asyncio
 from typing import AsyncIterator, Callable, Awaitable
 import shutil
@@ -16,6 +17,7 @@ from ..config import (
     Config,
 )
 from ..utils.helpers import limit_chars
+from ..utils import PTYProcess
 
 from ..utils.logging import get_logger
 
@@ -224,24 +226,41 @@ class LinuxVM:
             ]
         )
 
-        try:
-            completed = subprocess.run(
-                cmd,
-                input=stdin_data,
-                capture_output=True,
-                text=isinstance(stdin_data, str),
-                timeout=timeout if timeout is not None else self.config.hard_timeout,
-                env=self._env if self._env else None,
-            )
-        except subprocess.TimeoutExpired as exc:
-            limit = timeout if timeout is not None else self.config.hard_timeout
-            return f"Command timed out after {limit}s: {exc.cmd}"
-        except Exception as exc:  # pragma: no cover - unforeseen errors
-            return f"Failed to execute command: {exc}"
+        if detach:
+            try:
+                subprocess.run(
+                    cmd,
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=self._env if self._env else None,
+                )
+            except Exception as exc:  # pragma: no cover - unforeseen errors
+                return f"Failed to execute command: {exc}"
+            return ""
 
-        output = completed.stdout
-        if completed.stderr:
-            output = f"{output}\n{completed.stderr}" if output else completed.stderr
+        proc = PTYProcess(cmd, env=self._env if self._env else None)
+        proc.spawn()
+        if stdin_data:
+            if isinstance(stdin_data, bytes):
+                stdin_text = stdin_data.decode()
+            else:
+                stdin_text = stdin_data
+            proc.send(stdin_text)
+
+        output_parts: list[str] = []
+        start = time.monotonic()
+        limit = timeout if timeout is not None else self.config.hard_timeout
+        while proc.is_alive():
+            output_parts.append(proc.read())
+            if limit is not None and time.monotonic() - start > limit:
+                proc.terminate()
+                return f"Command timed out after {limit}s: {' '.join(cmd)}"
+
+        output_parts.append(proc.read())  # flush remaining output
+        proc.terminate()
+        output = "".join(output_parts)
         return limit_chars(output)
 
     async def execute_async(
