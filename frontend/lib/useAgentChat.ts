@@ -1,6 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Base64 } from "js-base64";
 
+const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_AGENT_WS_URL || "ws://localhost:8765";
+
+function buildWSUrl(user: string, session: string, think: boolean): string {
+  const url = new URL(DEFAULT_WS_URL);
+  url.searchParams.set("user", user);
+  url.searchParams.set("session", session);
+  url.searchParams.set("think", think ? "true" : "false");
+  return url.toString();
+}
+
+function sendJSON(ws: WebSocket | null, payload: unknown) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  }
+}
+
 export interface ChatFile {
   name: string;
   url: string;
@@ -25,19 +41,17 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const shouldReconnect = useRef(true);
+  const reconnectAttempts = useRef(0);
   const idRef = useRef(0);
 
   const connect = useCallback(() => {
     if (wsRef.current) wsRef.current.close();
 
-    const url = new URL(
-      process.env.NEXT_PUBLIC_AGENT_WS_URL || "ws://localhost:8765"
-    );
-    url.searchParams.set("user", user);
-    url.searchParams.set("session", session);
-    url.searchParams.set("think", think ? "true" : "false");
+    const ws = new WebSocket(buildWSUrl(user, session, think));
 
-    const ws = new WebSocket(url.toString());
+    ws.onopen = () => {
+      reconnectAttempts.current = 0;
+    };
 
     ws.onmessage = (e) => {
       const raw = e.data as string;
@@ -91,8 +105,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
 
     ws.onclose = () => {
       if (shouldReconnect.current) {
-        setTimeout(connect, 1000);
+        reconnectAttempts.current += 1;
+        const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
+        setTimeout(connect, delay);
       }
+    };
+
+    ws.onerror = () => {
+      ws.close();
     };
 
     wsRef.current = ws;
@@ -107,21 +127,27 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     };
   }, [connect]);
 
-  const sendMessage = useCallback(
-    (text: string) => {
+  const sendCommand = useCallback(
+    (command: string, args: Record<string, unknown> = {}) => {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         connect();
+        return;
       }
-      wsRef.current?.send(
-        JSON.stringify({ command: "team_chat", args: { prompt: text } })
-      );
+      sendJSON(wsRef.current, { command, args });
+    },
+    [connect]
+  );
+
+  const sendMessage = useCallback(
+    (text: string) => {
+      sendCommand("team_chat", { prompt: text });
       setMessages((prev) => [
         ...prev,
         { id: idRef.current++, role: "user", content: text },
         { id: idRef.current++, role: "assistant", content: "" },
       ]);
     },
-    [connect]
+    [sendCommand]
   );
 
   const uploadFile = useCallback(
