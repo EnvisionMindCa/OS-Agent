@@ -40,17 +40,40 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [session, setSession] = useState(initSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const queueRef = useRef<Array<{ type: "json" | "binary"; data: any }>>([]);
   const shouldReconnect = useRef(true);
   const reconnectAttempts = useRef(0);
   const idRef = useRef(0);
 
+  const flushQueue = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    while (queueRef.current.length > 0) {
+      const item = queueRef.current.shift()!;
+      if (item.type === "json") {
+        sendJSON(ws, item.data);
+      } else {
+        ws.send(item.data);
+      }
+    }
+  }, []);
+
   const connect = useCallback(() => {
-    if (wsRef.current) wsRef.current.close();
+    if (wsRef.current) {
+      if (
+        wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING
+      ) {
+        return;
+      }
+      wsRef.current.close();
+    }
 
     const ws = new WebSocket(buildWSUrl(user, session, think));
 
     ws.onopen = () => {
       reconnectAttempts.current = 0;
+      flushQueue();
     };
 
     ws.onmessage = (e) => {
@@ -129,11 +152,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
 
   const sendCommand = useCallback(
     (command: string, args: Record<string, unknown> = {}) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      const payload = { type: "json" as const, data: { command, args } };
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        sendJSON(wsRef.current, payload.data);
+      } else {
+        queueRef.current.push(payload);
         connect();
-        return;
       }
-      sendJSON(wsRef.current, { command, args });
     },
     [connect]
   );
@@ -160,13 +185,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       const lenBuf = new ArrayBuffer(4);
       new DataView(lenBuf).setUint32(0, headerBytes.length, false);
       const blob = new Blob([lenBuf, headerBytes, file]);
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      const data = await blob.arrayBuffer();
+      const payload = { type: "binary" as const, data };
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(data);
+      } else {
+        queueRef.current.push(payload);
         connect();
       }
-      const data = await blob.arrayBuffer();
-      // Audio files are transcribed server-side and the resulting
-      // ``<name>_transcription.txt`` file is saved in the VM.
-      wsRef.current?.send(data);
     },
     [connect]
   );
