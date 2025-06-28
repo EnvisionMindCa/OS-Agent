@@ -1,12 +1,14 @@
 """Utility functions exposed at package level."""
 
 from .memory import get_memory, set_memory, edit_memory
+from .pty_runner import PTYProcess
 
 __all__ = [
     "transcribe_audio",
     "get_memory",
     "set_memory",
     "edit_memory",
+    "PTYProcess",
 ]
 
 

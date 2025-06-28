@@ -7,6 +7,7 @@ from typing import AsyncIterator, Callable, Awaitable, Optional
 import json
 
 from ..utils.logging import get_logger
+from ..utils import PTYProcess
 
 
 class PersistentShell:
@@ -15,8 +16,7 @@ class PersistentShell:
     def __init__(self, container_name: str, env: dict[str, str] | None = None) -> None:
         self._container = container_name
         self._env = env
-        self._proc: asyncio.subprocess.Process | None = None
-        # Raw character stream from the shell
+        self._proc: PTYProcess | None = None
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._reader: asyncio.Task | None = None
         self._log = get_logger(__name__)
@@ -24,46 +24,39 @@ class PersistentShell:
     async def start(self) -> None:
         if self._proc:
             return
-        # ``script`` ensures the underlying shell has a pseudo TTY so
-        # interactive prompts appear in the captured output. ``-f`` forces
-        # flushing so output is streamed immediately. ``docker`` would normally
-        # suppress prompts when stdout is piped.
-        self._proc = await asyncio.create_subprocess_exec(
+        cmd = [
             "docker",
             "exec",
-            "-i",
+            "-it",
             self._container,
-            "script",
-            "-q",
-            "-f",
-            "-c",
-            "bash -i",
-            "/dev/null",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-            env=self._env,
-        )
+            "bash",
+            "--noprofile",
+            "--norc",
+            "-i",
+        ]
+        self._proc = PTYProcess(cmd, env=self._env)
+        self._proc.spawn()
         self._reader = asyncio.create_task(self._read_loop())
 
     async def _read_loop(self) -> None:
-        assert self._proc and self._proc.stdout
-        while True:
-            chunk = await self._proc.stdout.read(1)
-            if not chunk:
-                break
-            char = chunk.decode()
-            await self._queue.put(char)
+        assert self._proc
+        while self._proc.is_alive():
+            data = await asyncio.to_thread(self._proc.read)
+            if data:
+                for ch in data:
+                    await self._queue.put(ch)
+        # flush any remaining output
+        data = await asyncio.to_thread(self._proc.read)
+        for ch in data:
+            await self._queue.put(ch)
 
     async def stop(self) -> None:
         if self._reader and not self._reader.done():
             self._reader.cancel()
             with suppress(asyncio.CancelledError):
                 await self._reader
-        if self._proc and self._proc.returncode is None:
+        if self._proc:
             self._proc.terminate()
-            with suppress(Exception):
-                await self._proc.wait()
         self._proc = None
         self._reader = None
 
@@ -127,10 +120,11 @@ class PersistentShell:
     ) -> AsyncIterator[str]:
         """Yield command output incrementally as it is produced."""
         await self.start()
-        assert self._proc and self._proc.stdin
+        assert self._proc
         sentinel = f"__CMD_DONE_{uuid.uuid4().hex}__"
-        self._proc.stdin.write(f"{command}\necho {sentinel}\n".encode())
-        await self._proc.stdin.drain()
+        await asyncio.to_thread(
+            self._proc.send, f"{command}\necho {sentinel}\n"
+        )
         buf = ""
         line = ""
         while True:
@@ -172,18 +166,15 @@ class PersistentShell:
         """Forward ``data`` to the running shell's standard input."""
 
         await self.start()
-        assert self._proc and self._proc.stdin
-        if isinstance(data, str):
-            data = data.encode()
-        self._proc.stdin.write(data)
-        await self._proc.stdin.drain()
+        assert self._proc
+        text = data.decode(errors="replace") if isinstance(data, bytes) else data
+        await asyncio.to_thread(self._proc.send, text)
 
     async def send_keys(self, data: str, *, delay: float = 0.05) -> None:
         """Simulate typing ``data`` into the shell."""
 
         await self.start()
-        assert self._proc and self._proc.stdin
+        assert self._proc
         for ch in data:
-            self._proc.stdin.write(ch.encode())
-            await self._proc.stdin.drain()
+            await asyncio.to_thread(self._proc.send, ch)
             await asyncio.sleep(delay)
